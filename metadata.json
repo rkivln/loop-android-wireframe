@@ -1,0 +1,6 @@
+{
+  "name": "loop",
+  "description": "A premium, location-aware community discovery app for connecting with nearby people, events, help opportunities, and study groups.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
