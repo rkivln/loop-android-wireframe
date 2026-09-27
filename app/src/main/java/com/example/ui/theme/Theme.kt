@@ -3,40 +3,37 @@ package com.example.ui.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// Strict radius scale (Small 8dp, Medium 12dp, Large 16dp, ExtraLarge 20dp)
 val LoopShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(16.dp),
-    extraLarge = RoundedCornerShape(20.dp)
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
-private val LoopDarkColorScheme = darkColorScheme(
-    primary = BrandPrimary,
+private val LoopLightColorScheme = lightColorScheme(
+    primary = BrandDark,
     onPrimary = Color.White,
-    primaryContainer = SurfaceElevated,
+    primaryContainer = SurfaceSecondary,
     onPrimaryContainer = TextPrimary,
-    secondary = BrandSecondary,
+    secondary = BrandBlue,
     onSecondary = Color.White,
-    secondaryContainer = SurfaceCard,
-    onSecondaryContainer = TextPrimary,
-    tertiary = BrandAccent,
-    onTertiary = Color.White,
-    background = VoidBlack,
+    secondaryContainer = CategoryElectronicsBg,
+    onSecondaryContainer = BrandBlue,
+    background = BackgroundLight,
     onBackground = TextPrimary,
-    surface = SurfaceDark,
+    surface = SurfacePureWhite,
     onSurface = TextPrimary,
-    surfaceVariant = SurfaceCard,
+    surfaceVariant = SurfaceSecondary,
     onSurfaceVariant = TextSecondary,
-    outline = BorderDefault,
-    outlineVariant = BorderSubtle,
-    error = StatusError,
+    outline = BorderSubtle,
+    outlineVariant = BorderDefault,
+    error = BrandRed,
     onError = Color.White
 )
 
@@ -45,7 +42,7 @@ fun LoopTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = LoopDarkColorScheme,
+        colorScheme = LoopLightColorScheme,
         typography = Typography,
         shapes = LoopShapes,
         content = content

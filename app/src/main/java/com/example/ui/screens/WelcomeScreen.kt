@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,111 +14,136 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.AtmosphericBackground
-import com.example.ui.components.GlowOrb
-import com.example.ui.components.GradientCtaButton
-import com.example.ui.components.LoopBrandHeader
-import com.example.ui.components.LoopVectorGlyph
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandPrimary
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.TextMuted
+import com.example.R
+import com.example.ui.components.DarkPillButton
+import com.example.ui.components.LoopLogoText
+import com.example.ui.components.OutlinedPillButton
+import com.example.ui.theme.BackgroundLight
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VoidBlack
 
 @Composable
 fun WelcomeScreen(
-    onContinue: () -> Unit,
+    onGetStarted: () -> Unit,
+    onLogin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    AtmosphericBackground(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
+            .background(Color.White)
     ) {
+        // Fluid 3D Ribbon Background Art (Positioned in lower-middle half)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.loop_welcome_ribbon_1790477952152),
+                contentDescription = "Loop Fluid Artwork",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Top gradient overlay to keep text ultra crisp
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(340.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.95f),
+                                Color.White.copy(alpha = 0.85f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            // Bottom gradient overlay for buttons
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.92f),
+                                Color.White
+                            )
+                        )
+                    )
+            )
+        }
+
+        // Foreground Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp, vertical = 24.dp),
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Brand & Tagline Header
-            Column(modifier = Modifier.padding(top = 20.dp)) {
-                LoopBrandHeader(fontSize = 32, showGlyph = true)
-                Spacer(modifier = Modifier.height(16.dp))
+            Column(modifier = Modifier.padding(top = 28.dp)) {
+                LoopLogoText(fontSize = 38, showSubtext = true)
+
+                Spacer(modifier = Modifier.height(36.dp))
+
                 Text(
-                    text = "People near you.\nReal connections.",
-                    fontSize = 28.sp,
+                    text = "Everything\nyou need,\nonly when you need it.",
+                    fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
-                    lineHeight = 34.sp,
+                    lineHeight = 38.sp,
                     color = TextPrimary
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 Text(
-                    text = "Study together, join local events, and build authentic connections in your area.",
-                    fontSize = 15.sp,
+                    text = "A smarter way to rent from\npeople around you.",
+                    fontSize = 16.sp,
                     lineHeight = 22.sp,
                     color = TextSecondary
                 )
             }
 
-            // Visual Anchor Card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(SurfaceCard)
-                    .padding(vertical = 36.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                GlowOrb(size = 130.dp)
-            }
-
-            // Bottom Actions & Ethos
+            // Bottom Action Buttons
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Grow · Learn · Share · Together",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextMuted
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                GradientCtaButton(
+                DarkPillButton(
                     text = "Get Started",
-                    onClick = onContinue,
-                    height = 52.dp,
-                    leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
-                    testTag = "welcome_start_button"
+                    onClick = onGetStarted,
+                    height = 54.dp,
+                    showArrow = true,
+                    testTag = "welcome_get_started_btn"
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedPillButton(
+                    text = "I already have an account",
+                    onClick = onLogin,
+                    height = 54.dp,
+                    testTag = "welcome_login_btn"
                 )
             }
         }

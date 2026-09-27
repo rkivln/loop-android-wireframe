@@ -1,6 +1,6 @@
 {
   "name": "loop",
-  "description": "A premium, location-aware community discovery app for connecting with nearby people, events, help opportunities, and study groups.",
+  "description": "A smarter way to rent from people around you — peer-to-peer rentals for electronics, furniture, vehicles, tools, and event gear.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
