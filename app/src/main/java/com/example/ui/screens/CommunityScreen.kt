@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -49,17 +50,18 @@ import com.example.ui.components.AtmosphericBackground
 import com.example.ui.components.AvatarBadge
 import com.example.ui.components.GlassCard
 import com.example.ui.components.GlassIconButton
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.NeonBlue
-import com.example.ui.theme.NeonMagenta
+import com.example.ui.theme.BorderDefault
+import com.example.ui.theme.BorderSubtle
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandSecondary
+import com.example.ui.theme.StatusError
 import com.example.ui.theme.SurfaceCard
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.SurfaceElevated
+import com.example.ui.theme.SurfaceInteractive
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VividPurple
-import com.example.ui.theme.WarmSunset
 
 @Composable
 fun CommunityScreen(
@@ -82,14 +84,14 @@ fun CommunityScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Header
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 4.dp),
+                        .padding(top = 8.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -103,40 +105,44 @@ fun CommunityScreen(
                     GlassIconButton(
                         icon = Icons.Default.Tune,
                         onClick = onOpenMenu,
-                        contentDescription = "Settings",
+                        contentDescription = "Preferences",
                         testTag = "community_settings_btn"
                     )
                 }
             }
 
-            // Tabs Row: For You, Nearby, Following
+            // Segmented Tab Row
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceCard)
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(8.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     tabs.forEach { tab ->
                         val isSelected = selectedTab == tab
-                        val shape = RoundedCornerShape(20.dp)
-                        val bg = if (isSelected) {
-                            Brush.horizontalGradient(listOf(NeonBlue, VividPurple))
-                        } else {
-                            Brush.linearGradient(listOf(Color(0x281F2436), Color(0x18181C28)))
-                        }
+                        val shape = RoundedCornerShape(6.dp)
+                        val bg = if (isSelected) BrandPrimary else Color.Transparent
 
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(38.dp)
+                                .height(32.dp)
                                 .clip(shape)
                                 .background(bg, shape)
-                                .border(1.dp, if (isSelected) Color(0x668B5CF6) else GlassBorderSubtle, shape)
-                                .clickable { selectedTab = tab },
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { selectedTab = tab }
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = tab,
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                                 color = if (isSelected) Color.White else TextSecondary
                             )
@@ -172,13 +178,15 @@ fun PostCard(
 ) {
     GlassCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(14.dp),
+        backgroundColor = SurfaceCard,
+        borderColor = BorderSubtle,
         onClick = onClick
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp)
+                .padding(16.dp)
         ) {
             // Post Author Header
             Row(
@@ -189,14 +197,14 @@ fun PostCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AvatarBadge(
                         initials = post.authorName.split(" ").mapNotNull { it.firstOrNull() }.joinToString(""),
-                        size = 38.dp,
+                        size = 36.dp,
                         colorIndex = post.authorName.hashCode() % 5
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
                             text = post.authorName,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextPrimary
                         )
@@ -212,40 +220,21 @@ fun PostCard(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "Options",
                     tint = TextMuted,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Post Content Text
             Text(
                 text = post.content,
                 fontSize = 14.sp,
-                lineHeight = 21.sp,
+                lineHeight = 20.sp,
                 color = TextPrimary
             )
 
-            // Optional Post Visual Artwork / Media Card
-            if (post.visualType > 0) {
-                Spacer(modifier = Modifier.height(12.dp))
-                val visualBrush = when (post.visualType) {
-                    1 -> Brush.linearGradient(listOf(WarmSunset, Color(0xFFFF9966), VividPurple))
-                    2 -> Brush.linearGradient(listOf(Color(0xFF1E293B), Color(0xFF0F172A), VividPurple))
-                    else -> Brush.linearGradient(listOf(VividPurple, ElectricCyan, NeonMagenta))
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(130.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(visualBrush, RoundedCornerShape(16.dp))
-                        .border(1.dp, GlassBorderSubtle, RoundedCornerShape(16.dp))
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Category Badge & Interactions Row
             Row(
@@ -256,16 +245,16 @@ fun PostCard(
                 // Category Chip
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0x331F2438))
-                        .border(1.dp, GlassBorderSubtle, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(SurfaceElevated)
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = if (post.category == LoopCategory.ALL) "General" else post.category.label,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color(0xFFC4B5FD)
+                        color = BrandSecondary
                     )
                 }
 
@@ -278,17 +267,21 @@ fun PostCard(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onToggleLike)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = Color(0x22FFFFFF)),
+                                onClick = onToggleLike
+                            )
                             .padding(4.dp)
                     ) {
                         Icon(
                             imageVector = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = "Like",
-                            tint = if (post.isLiked) Color(0xFFEF4444) else TextSecondary,
-                            modifier = Modifier.size(17.dp)
+                            tint = if (post.isLiked) StatusError else TextSecondary,
+                            modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${post.likesCount}",
                             fontSize = 12.sp,
@@ -305,9 +298,9 @@ fun PostCard(
                             imageVector = Icons.Default.ChatBubbleOutline,
                             contentDescription = "Comment",
                             tint = TextSecondary,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${post.commentsCount}",
                             fontSize = 12.sp,
@@ -319,11 +312,15 @@ fun PostCard(
                     Icon(
                         imageVector = if (post.isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                         contentDescription = "Save",
-                        tint = if (post.isSaved) NeonBlue else TextSecondary,
+                        tint = if (post.isSaved) BrandPrimary else TextSecondary,
                         modifier = Modifier
                             .size(18.dp)
                             .clip(CircleShape)
-                            .clickable(onClick = onToggleSave)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = Color(0x22FFFFFF)),
+                                onClick = onToggleSave
+                            )
                     )
                 }
             }

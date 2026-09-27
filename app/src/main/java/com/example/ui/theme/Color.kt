@@ -3,61 +3,64 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Deep Space Void Backgrounds
-val VoidBlack = Color(0xFF07080C)
-val SurfaceDark = Color(0xFF0F1118)
-val SurfaceElevated = Color(0xFF161924)
-val SurfaceCard = Color(0xFF1A1D2B)
-val SurfaceGlass = Color(0x99181B28)
-val SurfaceGlassHigh = Color(0xCC202436)
+// Clean, disciplined Dark Theme Surface Palette (Apple / Linear inspired)
+val VoidBlack = Color(0xFF090A0F)
+val SurfaceDark = Color(0xFF11131A)
+val SurfaceElevated = Color(0xFF181B24)
+val SurfaceCard = Color(0xFF161922)
+val SurfaceInteractive = Color(0xFF1F2330)
+val SurfaceGlass = Color(0xF2141722)
+val SurfaceGlassHigh = Color(0xF81A1D2A)
 
-// Neon & Gradient Accents
-val NeonBlue = Color(0xFF388BFF)
-val ElectricCyan = Color(0xFF00F0FF)
-val VividPurple = Color(0xFF8B5CF6)
-val DeepViolet = Color(0xFF6366F1)
-val NeonMagenta = Color(0xFFD946EF)
-val WarmSunset = Color(0xFFFF5E62)
-val SunsetOrange = Color(0xFFFF9966)
+// Restrained Brand & Semantic Accents
+val BrandPrimary = Color(0xFF4F46E5)      // Modern Indigo
+val BrandPrimaryLight = Color(0xFF6366F1) // Soft Indigo
+val BrandSecondary = Color(0xFF3B82F6)    // Clean Electric Blue
+val BrandAccent = Color(0xFF8B5CF6)       // Violet highlight
+
+// Backward compatible aliases
+val VividPurple = Color(0xFF6366F1)
+val NeonBlue = Color(0xFF3B82F6)
+val ElectricCyan = Color(0xFF06B6D4)
+val NeonMagenta = Color(0xFF8B5CF6)
+val WarmSunset = Color(0xFFF97316)
+val SunsetOrange = Color(0xFFFB923C)
 val SoftPink = Color(0xFFEC4899)
 val EmeraldGreen = Color(0xFF10B981)
 
-// Borders & Strokes
-val GlassBorder = Color(0x2EFFFFFF)
-val GlassBorderSubtle = Color(0x1AFFFFFF)
-val GlassBorderHighlight = Color(0x55FFFFFF)
+// Semantic status colors
+val StatusSuccess = Color(0xFF10B981)
+val StatusWarning = Color(0xFFF59E0B)
+val StatusError = Color(0xFFEF4444)
+val StatusInfo = Color(0xFF3B82F6)
 
-// Text Colors
-val TextPrimary = Color(0xFFF9FAFB)
-val TextSecondary = Color(0xFF9CA3AF)
-val TextMuted = Color(0xFF6B7280)
-val TextDisabled = Color(0xFF4B5563)
+// Precise, low-noise Borders
+val BorderSubtle = Color(0x18FFFFFF)      // ~10% white for clean card contours
+val BorderDefault = Color(0x28FFFFFF)     // ~16% white for inputs and active controls
+val BorderStrong = Color(0x40FFFFFF)      // ~25% white for focused/selected items
+val GlassBorder = BorderDefault
+val GlassBorderSubtle = BorderSubtle
+val GlassBorderHighlight = BorderStrong
 
-// Signature Loop Gradients
+// Text Hierarchy
+val TextPrimary = Color(0xFFF8FAFC)
+val TextSecondary = Color(0xFF94A3B8)
+val TextMuted = Color(0xFF64748B)
+val TextDisabled = Color(0xFF475569)
+
+// Controlled, elegant subtle gradients
 val PrimaryGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFF3B82F6), Color(0xFF8B5CF6), Color(0xFFEC4899))
-)
-
-val GlowGradient = Brush.radialGradient(
-    colors = listOf(Color(0x668B5CF6), Color(0x333B82F6), Color(0x00000000))
-)
-
-val CardGlowGradient = Brush.linearGradient(
-    colors = listOf(Color(0x308B5CF6), Color(0x103B82F6), Color(0x0507080C))
-)
-
-val OrbGradient1 = Brush.radialGradient(
-    colors = listOf(Color(0xFFFF7E5F), Color(0xFFFEB47B), Color(0x00FEB47B))
-)
-
-val OrbGradient2 = Brush.radialGradient(
-    colors = listOf(Color(0xFF6A11CB), Color(0xFF2575FC), Color(0x002575FC))
+    colors = listOf(Color(0xFF4F46E5), Color(0xFF3B82F6))
 )
 
 val ButtonCtaGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFF3B82F6), Color(0xFF8B5CF6), Color(0xFFD946EF))
+    colors = listOf(Color(0xFF4F46E5), Color(0xFF3B82F6))
 )
 
-val WarmOrbGradient = Brush.radialGradient(
-    colors = listOf(Color(0xFFFF5E62), Color(0xFFFF9966), Color(0x00000000))
+val CardGlowGradient = Brush.linearGradient(
+    colors = listOf(Color(0x144F46E5), Color(0x083B82F6), Color(0x00000000))
+)
+
+val HeroSurfaceGradient = Brush.verticalGradient(
+    colors = listOf(Color(0xFF1A1D28), Color(0xFF12141C))
 )

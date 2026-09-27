@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -28,8 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -38,24 +35,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.LoopCategory
-import com.example.ui.theme.ButtonCtaGradient
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.NeonBlue
-import com.example.ui.theme.NeonMagenta
+import com.example.ui.theme.BorderDefault
+import com.example.ui.theme.BorderSubtle
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandSecondary
 import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceGlassHigh
+import com.example.ui.theme.SurfaceInteractive
+import com.example.ui.theme.TextDisabled
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VividPurple
 
 @Composable
 fun GlowingCircularArrowButton(
     onClick: () -> Unit,
-    size: Dp = 60.dp,
-    iconSize: Dp = 24.dp,
+    size: Dp = 52.dp,
+    iconSize: Dp = 22.dp,
     testTag: String = "circle_arrow_button",
     modifier: Modifier = Modifier
 ) {
@@ -66,22 +61,11 @@ fun GlowingCircularArrowButton(
             .testTag(testTag)
             .size(size)
             .clip(CircleShape)
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(Color(0xFF1E2235), Color(0xFF0F111A))
-                ),
-                CircleShape
-            )
-            .border(
-                1.5.dp,
-                Brush.sweepGradient(
-                    listOf(VividPurple, ElectricCyan, NeonMagenta, VividPurple)
-                ),
-                CircleShape
-            )
+            .background(BrandPrimary, CircleShape)
+            .border(1.dp, Color(0x33FFFFFF), CircleShape)
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(bounded = true, color = VividPurple),
+                indication = ripple(bounded = true, color = Color.White),
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center
@@ -89,7 +73,7 @@ fun GlowingCircularArrowButton(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
             contentDescription = "Continue",
-            tint = TextPrimary,
+            tint = Color.White,
             modifier = Modifier.size(iconSize)
         )
     }
@@ -101,16 +85,13 @@ fun GradientCtaButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    height: Dp = 56.dp,
+    height: Dp = 50.dp,
     leadingIcon: ImageVector? = null,
     testTag: String = "gradient_cta_button"
 ) {
-    val shape = RoundedCornerShape(28.dp)
-    val brush = if (enabled) {
-        ButtonCtaGradient
-    } else {
-        Brush.linearGradient(listOf(Color(0xFF2A2D3D), Color(0xFF1E212D)))
-    }
+    val shape = RoundedCornerShape(12.dp)
+    val backgroundColor = if (enabled) BrandPrimary else SurfaceInteractive
+    val textColor = if (enabled) Color.White else TextDisabled
 
     Box(
         modifier = modifier
@@ -118,9 +99,14 @@ fun GradientCtaButton(
             .fillMaxWidth()
             .height(height)
             .clip(shape)
-            .background(brush, shape)
-            .border(1.dp, Color(0x44FFFFFF), shape)
-            .clickable(enabled = enabled, onClick = onClick),
+            .background(backgroundColor, shape)
+            .border(1.dp, if (enabled) Color(0x33FFFFFF) else BorderSubtle, shape)
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = Color.White),
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -131,23 +117,21 @@ fun GradientCtaButton(
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
-                    tint = if (enabled) Color.White else TextDisabled,
-                    modifier = Modifier.size(20.dp)
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text(
                 text = text,
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (enabled) Color.White else TextDisabled,
-                letterSpacing = 0.2.sp
+                color = textColor,
+                letterSpacing = 0.1.sp
             )
         }
     }
 }
-
-private val TextDisabled = Color(0xFF6B7280)
 
 @Composable
 fun GlassIconButton(
@@ -161,15 +145,19 @@ fun GlassIconButton(
     tint: Color = TextPrimary,
     testTag: String = "glass_icon_button"
 ) {
-    val shape = CircleShape
+    val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = modifier
             .testTag(testTag)
             .size(size)
             .clip(shape)
-            .background(Color(0x331F2438), shape)
-            .border(1.dp, GlassBorderSubtle, shape)
-            .clickable(onClick = onClick),
+            .background(SurfaceCard, shape)
+            .border(1.dp, BorderSubtle, shape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = Color(0x33FFFFFF)),
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -183,10 +171,10 @@ fun GlassIconButton(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(2.dp)
+                    .padding(4.dp)
                     .size(16.dp)
                     .clip(CircleShape)
-                    .background(VividPurple, CircleShape),
+                    .background(BrandPrimary, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -217,13 +205,9 @@ fun CategoryChipSelector(
     ) {
         categories.forEach { category ->
             val isSelected = category == selectedCategory
-            val shape = RoundedCornerShape(20.dp)
-            val bg = if (isSelected) {
-                Brush.horizontalGradient(listOf(Color(0xFF3B82F6), Color(0xFF8B5CF6)))
-            } else {
-                Brush.linearGradient(listOf(Color(0x2B1F2436), Color(0x1A181C28)))
-            }
-            val border = if (isSelected) Color(0x66A78BFA) else GlassBorderSubtle
+            val shape = RoundedCornerShape(8.dp)
+            val bg = if (isSelected) BrandPrimary else SurfaceCard
+            val border = if (isSelected) Color(0x44FFFFFF) else BorderSubtle
 
             Box(
                 modifier = Modifier
@@ -231,8 +215,12 @@ fun CategoryChipSelector(
                     .clip(shape)
                     .background(bg, shape)
                     .border(1.dp, border, shape)
-                    .clickable { onSelectCategory(category) }
-                    .padding(horizontal = 18.dp, vertical = 9.dp),
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = Color(0x22FFFFFF)),
+                        onClick = { onSelectCategory(category) }
+                    )
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

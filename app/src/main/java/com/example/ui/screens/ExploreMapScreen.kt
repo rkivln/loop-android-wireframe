@@ -19,15 +19,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,7 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -50,18 +46,20 @@ import com.example.ui.components.CategoryChipSelector
 import com.example.ui.components.DarkVectorMapView
 import com.example.ui.components.GlassCard
 import com.example.ui.components.GlassIconButton
-import com.example.ui.theme.ButtonCtaGradient
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.NeonBlue
-import com.example.ui.theme.NeonMagenta
+import com.example.ui.components.MapViewContainer
+import com.example.ui.theme.BorderDefault
+import com.example.ui.theme.BorderSubtle
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandSecondary
+import com.example.ui.theme.StatusSuccess
 import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceGlassHigh
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.SurfaceElevated
+import com.example.ui.theme.SurfaceInteractive
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VividPurple
+import com.google.android.gms.maps.model.LatLng
 
 @Composable
 fun ExploreMapScreen(
@@ -76,6 +74,7 @@ fun ExploreMapScreen(
 
     var activeCategory by remember { mutableStateOf<LoopCategory?>(null) }
     var isJoined by remember { mutableStateOf(false) }
+    var useGoogleMaps by remember { mutableStateOf(true) }
 
     val filteredPins = remember(pins, activeCategory) {
         if (activeCategory == null || activeCategory == LoopCategory.ALL) pins
@@ -87,20 +86,78 @@ fun ExploreMapScreen(
             .fillMaxSize()
             .background(Color(0xFF0C0E16))
     ) {
-        // Dark Map Canvas
-        DarkVectorMapView(
-            pins = filteredPins,
-            selectedPin = selectedPin,
-            onPinSelected = onPinSelect,
-            modifier = Modifier.fillMaxSize()
-        )
+        if (useGoogleMaps) {
+            MapViewContainer(
+                pins = filteredPins,
+                selectedPin = selectedPin,
+                onPinSelected = onPinSelect,
+                initialCenter = LatLng(11.9338, 79.8297),
+                initialZoom = 14.5f,
+                showZoomControls = true,
+                showLocationControl = true,
+                showActiveNodesBadge = true,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                MapOverlays(
+                    activeCategory = activeCategory,
+                    onSelectCategory = { cat ->
+                        activeCategory = if (activeCategory == cat) null else cat
+                    },
+                    useGoogleMaps = useGoogleMaps,
+                    onToggleMapMode = { useGoogleMaps = !useGoogleMaps },
+                    selectedPin = selectedPin,
+                    isJoined = isJoined,
+                    onToggleJoin = { isJoined = !isJoined },
+                    onNavigateEventDetails = onNavigateEventDetails,
+                    onBack = onBack
+                )
+            }
+        } else {
+            Box(modifier = Modifier.fillMaxSize()) {
+                DarkVectorMapView(
+                    pins = filteredPins,
+                    selectedPin = selectedPin,
+                    onPinSelected = onPinSelect,
+                    modifier = Modifier.fillMaxSize()
+                )
 
-        // Top Navigation Bar and Filter Chips
+                MapOverlays(
+                    activeCategory = activeCategory,
+                    onSelectCategory = { cat ->
+                        activeCategory = if (activeCategory == cat) null else cat
+                    },
+                    useGoogleMaps = useGoogleMaps,
+                    onToggleMapMode = { useGoogleMaps = !useGoogleMaps },
+                    selectedPin = selectedPin,
+                    isJoined = isJoined,
+                    onToggleJoin = { isJoined = !isJoined },
+                    onNavigateEventDetails = onNavigateEventDetails,
+                    onBack = onBack
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MapOverlays(
+    activeCategory: LoopCategory?,
+    onSelectCategory: (LoopCategory) -> Unit,
+    useGoogleMaps: Boolean,
+    onToggleMapMode: () -> Unit,
+    selectedPin: MapPinItem?,
+    isJoined: Boolean,
+    onToggleJoin: () -> Unit,
+    onNavigateEventDetails: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Top Navigation & Filters
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -116,22 +173,31 @@ fun ExploreMapScreen(
 
                 Text(
                     text = "Nearby",
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
 
-                GlassIconButton(
-                    icon = Icons.Default.FilterList,
-                    onClick = { /* filter modal or toggle */ },
-                    contentDescription = "Filter",
-                    testTag = "map_filter_btn"
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassIconButton(
+                        icon = if (useGoogleMaps) Icons.Default.Radar else Icons.Default.Map,
+                        onClick = onToggleMapMode,
+                        contentDescription = if (useGoogleMaps) "Switch to Vector" else "Switch to Google Map",
+                        tint = BrandSecondary,
+                        testTag = "map_mode_toggle_btn"
+                    )
+
+                    GlassIconButton(
+                        icon = Icons.Default.FilterList,
+                        onClick = { /* filter modal */ },
+                        contentDescription = "Filter",
+                        testTag = "map_filter_btn"
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Map Filter Chips
             CategoryChipSelector(
                 categories = listOf(
                     LoopCategory.PEOPLE,
@@ -140,77 +206,55 @@ fun ExploreMapScreen(
                     LoopCategory.STUDY
                 ),
                 selectedCategory = activeCategory ?: LoopCategory.PEOPLE,
-                onSelectCategory = { cat ->
-                    activeCategory = if (activeCategory == cat) null else cat
-                }
+                onSelectCategory = onSelectCategory
             )
         }
 
-        // Floating Target / My Location Button
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 20.dp, bottom = 120.dp)
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(Color(0xE61B1E2D), CircleShape)
-                .border(1.dp, GlassBorder, CircleShape)
-                .clickable { /* center on user */ },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.MyLocation,
-                contentDescription = "My Location",
-                tint = NeonBlue,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-
-        // Draggable / Interactive Glass Bottom Sheet Card for Selected Pin
+        // Bottom Selected Pin Card
         AnimatedVisibility(
             visible = selectedPin != null,
             enter = slideInVertically(initialOffsetY = { it }),
             exit = slideOutVertically(targetOffsetY = { it }),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 84.dp)
+                .padding(horizontal = 16.dp, vertical = 76.dp)
         ) {
             selectedPin?.let { pin ->
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(26.dp),
-                    backgroundColor = Color(0xF0151825),
-                    borderColor = GlassBorder
+                    shape = RoundedCornerShape(16.dp),
+                    backgroundColor = SurfaceDark,
+                    borderColor = BorderDefault
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp)
+                            .padding(18.dp)
                     ) {
-                        // Image / Thumbnail visual and metadata header
+                        // Header: Tag & Distance
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Category Badge & Distance
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF2E1F4D))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(SurfaceElevated)
+                                    .border(1.dp, BorderSubtle, RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
                                     text = pin.category.label,
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFC4B5FD)
+                                    fontWeight = FontWeight.Medium,
+                                    color = BrandSecondary
                                 )
                             }
 
                             Spacer(modifier = Modifier.width(8.dp))
 
                             Text(
-                                text = pin.distance,
+                                text = "${pin.distance} away",
                                 fontSize = 12.sp,
                                 color = TextMuted
                             )
@@ -218,17 +262,15 @@ fun ExploreMapScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Title
                         Text(
                             text = pin.title,
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Snippet
                         Text(
                             text = pin.snippet,
                             fontSize = 13.sp,
@@ -236,44 +278,43 @@ fun ExploreMapScreen(
                             color = TextSecondary
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        // Attendees Avatar Row
+                        // Attendees row
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             AvatarPile(
                                 initialsList = listOf("AK", "SR", "RM", "PS"),
-                                avatarSize = 26.dp,
+                                avatarSize = 24.dp,
                                 overflowCount = if (pin.memberCount > 4) pin.memberCount - 4 else 0
                             )
 
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
 
                             Text(
-                                text = "${pin.memberCount} members",
+                                text = "${pin.memberCount} members active",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = TextSecondary
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         // Action Buttons: View Details & Join
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            // View Details
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
-                                    .clip(RoundedCornerShape(23.dp))
-                                    .background(Color(0x33282C40))
-                                    .border(1.dp, GlassBorderSubtle, RoundedCornerShape(23.dp))
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(SurfaceInteractive)
+                                    .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
                                     .clickable {
                                         onNavigateEventDetails(pin.id)
                                     },
@@ -281,35 +322,24 @@ fun ExploreMapScreen(
                             ) {
                                 Text(
                                     text = "View Details",
-                                    fontSize = 14.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = TextPrimary
                                 )
                             }
 
-                            // Join
-                            val joinShape = RoundedCornerShape(23.dp)
-                            val joinBgModifier = if (isJoined) {
-                                Modifier.background(Color(0xFF10B981), joinShape)
-                            } else {
-                                Modifier.background(ButtonCtaGradient, joinShape)
-                            }
-
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
-                                    .clip(joinShape)
-                                    .then(joinBgModifier)
-                                    .border(1.dp, Color(0x33FFFFFF), joinShape)
-                                    .clickable {
-                                        isJoined = !isJoined
-                                    },
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isJoined) StatusSuccess else BrandPrimary)
+                                    .clickable(onClick = onToggleJoin),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = if (isJoined) "Joined ✓" else "Join",
-                                    fontSize = 14.sp,
+                                    text = if (isJoined) "Joined ✓" else "Join Group",
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color.White
                                 )

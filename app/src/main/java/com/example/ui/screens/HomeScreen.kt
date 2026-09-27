@@ -24,6 +24,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
@@ -38,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
@@ -53,20 +54,18 @@ import com.example.ui.components.AvatarBadge
 import com.example.ui.components.CategoryChipSelector
 import com.example.ui.components.GlassCard
 import com.example.ui.components.GlassIconButton
-import com.example.ui.components.GlowOrb
-import com.example.ui.theme.CardGlowGradient
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.NeonBlue
-import com.example.ui.theme.NeonMagenta
+import com.example.ui.components.LoopBrandHeader
+import com.example.ui.theme.BorderDefault
+import com.example.ui.theme.BorderSubtle
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandSecondary
+import com.example.ui.theme.StatusSuccess
 import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceGlass
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.SurfaceElevated
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VividPurple
-import com.example.ui.theme.WarmSunset
 
 @Composable
 fun HomeScreen(
@@ -92,23 +91,16 @@ fun HomeScreen(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Top Bar: "loop" brand + notification icon with unread badge
+            // Brand & Notification Header
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 4.dp),
+                        .padding(top = 8.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "loop",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.8).sp,
-                        fontFamily = FontFamily.SansSerif,
-                        color = TextPrimary
-                    )
+                    LoopBrandHeader(fontSize = 28, showGlyph = true)
 
                     GlassIconButton(
                         icon = Icons.Outlined.Notifications,
@@ -120,7 +112,7 @@ fun HomeScreen(
                 }
             }
 
-            // Search Bar with Filter Icon
+            // Structured Search Bar & Filter
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -129,11 +121,11 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp)
-                            .clip(RoundedCornerShape(25.dp))
-                            .background(Color(0x331F2438))
-                            .border(1.dp, GlassBorderSubtle, RoundedCornerShape(25.dp))
-                            .padding(horizontal = 16.dp),
+                            .height(46.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(SurfaceCard)
+                            .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Row(
@@ -144,7 +136,7 @@ fun HomeScreen(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Search",
                                 tint = TextMuted,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             BasicTextField(
@@ -154,7 +146,7 @@ fun HomeScreen(
                                     fontSize = 14.sp,
                                     color = TextPrimary
                                 ),
-                                cursorBrush = SolidColor(NeonBlue),
+                                cursorBrush = SolidColor(BrandPrimary),
                                 decorationBox = { innerTextField ->
                                     if (searchQuery.isEmpty()) {
                                         Text(
@@ -178,14 +170,14 @@ fun HomeScreen(
                         icon = Icons.Default.FilterList,
                         onClick = onNavigateExplore,
                         contentDescription = "Filter",
-                        size = 50.dp,
-                        iconSize = 22.dp,
+                        size = 46.dp,
+                        iconSize = 20.dp,
                         testTag = "home_filter_btn"
                     )
                 }
             }
 
-            // Category Chips Row
+            // Category Filter Pills
             item {
                 CategoryChipSelector(
                     selectedCategory = selectedCategory,
@@ -198,93 +190,85 @@ fun HomeScreen(
                 )
             }
 
-            // Main Greeting Card with 3D Glowing Orb & Arrow
+            // Main Discovery Banner
             item {
                 GlassCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(170.dp),
-                    shape = RoundedCornerShape(26.dp),
-                    backgroundColor = Color(0x66181B2B),
-                    gradientOverlay = Brush.horizontalGradient(
-                        listOf(Color(0x408B5CF6), Color(0x103B82F6), Color(0x00000000))
-                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    backgroundColor = SurfaceElevated,
+                    borderColor = BorderDefault,
                     onClick = onNavigateExplore
                 ) {
                     Row(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 22.dp, vertical = 18.dp),
+                            .fillMaxWidth()
+                            .padding(20.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.weight(1.2f)
-                        ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(StatusSuccess, CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Nearby Activity",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = BrandSecondary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Good Morning",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                text = "Good morning, Gokulan",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
                                 color = TextPrimary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Let's make new\nconnections today.",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Normal,
-                                lineHeight = 20.sp,
+                                text = "6 events and study groups active in your area today.",
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
                                 color = TextSecondary
                             )
                         }
 
-                        // Right 3D Orb and Arrow
                         Box(
                             modifier = Modifier
-                                .weight(0.8f)
-                                .height(130.dp),
-                            contentAlignment = Alignment.CenterEnd
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SurfaceCard)
+                                .border(1.dp, BorderSubtle, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            GlowOrb(
-                                size = 110.dp,
-                                primaryColor = VividPurple,
-                                secondaryColor = NeonBlue,
-                                tertiaryColor = WarmSunset
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Explore Map",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(18.dp)
                             )
-
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0x99121524), CircleShape)
-                                    .border(1.dp, GlassBorder, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = "Explore",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
                         }
                     }
                 }
             }
 
-            // 2x2 Grid Cards
+            // 2x2 Feature Grid Cards
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Card 1: Find People Nearby
                     GlassCard(
                         modifier = Modifier
                             .weight(1f)
-                            .height(160.dp),
-                        shape = RoundedCornerShape(22.dp),
+                            .height(145.dp),
+                        shape = RoundedCornerShape(14.dp),
                         onClick = onNavigatePeople
                     ) {
                         Column(
@@ -295,17 +279,16 @@ fun HomeScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Find People\nNearby",
+                                    text = "People Nearby",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
-                                    lineHeight = 19.sp,
                                     color = TextPrimary
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Students, creators and people around you.",
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp,
+                                    text = "Students & creators in your community",
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
                                     color = TextMuted
                                 )
                             }
@@ -315,13 +298,13 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(horizontalArrangement = Arrangement.spacedBy((-6).dp)) {
-                                    AvatarBadge(initials = "AK", size = 22.dp, colorIndex = 0)
-                                    AvatarBadge(initials = "SR", size = 22.dp, colorIndex = 1)
+                                    AvatarBadge(initials = "AK", size = 20.dp, colorIndex = 0)
+                                    AvatarBadge(initials = "SR", size = 20.dp, colorIndex = 1)
                                 }
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "1.2K nearby",
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = TextSecondary
                                 )
@@ -333,8 +316,8 @@ fun HomeScreen(
                     GlassCard(
                         modifier = Modifier
                             .weight(1f)
-                            .height(160.dp),
-                        shape = RoundedCornerShape(22.dp),
+                            .height(145.dp),
+                        shape = RoundedCornerShape(14.dp),
                         onClick = onNavigateEvents
                     ) {
                         Column(
@@ -345,38 +328,27 @@ fun HomeScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Local\nEvents",
+                                    text = "Local Events",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
-                                    lineHeight = 19.sp,
                                     color = TextPrimary
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Workshops, meetups and more.",
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp,
+                                    text = "Workshops, sessions and meetups",
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
                                     color = TextMuted
                                 )
                             }
 
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0x3310B981), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.DateRange,
-                                        contentDescription = null,
-                                        tint = Color(0xFF34D399),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = null,
+                                    tint = Color(0xFFE11D48),
+                                    modifier = Modifier.size(16.dp)
+                                )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "12 today",
@@ -393,14 +365,14 @@ fun HomeScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Card 3: Get Help
                     GlassCard(
                         modifier = Modifier
                             .weight(1f)
-                            .height(140.dp),
-                        shape = RoundedCornerShape(22.dp),
+                            .height(130.dp),
+                        shape = RoundedCornerShape(14.dp),
                         onClick = onNavigateHelp
                     ) {
                         Column(
@@ -419,24 +391,17 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "Ask or share knowledge",
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     color = TextMuted
                                 )
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.End)
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0x33F59E0B), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "🎓",
-                                    fontSize = 14.sp
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.Handshake,
+                                contentDescription = null,
+                                tint = StatusSuccess,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
 
@@ -444,8 +409,8 @@ fun HomeScreen(
                     GlassCard(
                         modifier = Modifier
                             .weight(1f)
-                            .height(140.dp),
-                        shape = RoundedCornerShape(22.dp),
+                            .height(130.dp),
+                        shape = RoundedCornerShape(14.dp),
                         onClick = onNavigateStudy
                     ) {
                         Column(
@@ -464,32 +429,22 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "Find study partners",
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     color = TextMuted
                                 )
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.End)
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0x338B5CF6), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = null,
-                                    tint = VividPurple,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.School,
+                                contentDescription = null,
+                                tint = BrandPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
             }
 
-            // Bottom spacing to avoid navigation bar overlap
             item {
                 Spacer(modifier = Modifier.height(80.dp))
             }

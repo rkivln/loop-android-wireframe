@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +35,9 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,14 +49,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.AtmosphericBackground
 import com.example.ui.components.GlassIconButton
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.NeonBlue
+import com.example.ui.theme.BorderDefault
+import com.example.ui.theme.BorderSubtle
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandSecondary
 import com.example.ui.theme.SurfaceCard
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.SurfaceElevated
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VividPurple
 
 data class MenuItemData(
     val title: String,
@@ -93,14 +98,14 @@ fun MenuScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Header
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 16.dp),
+                        .padding(top = 8.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     GlassIconButton(
@@ -113,8 +118,8 @@ fun MenuScreen(
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Text(
-                        text = "Menu",
-                        fontSize = 22.sp,
+                        text = "Settings",
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
@@ -152,7 +157,7 @@ fun MenuScreen(
                         color = TextMuted
                     )
                 }
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -164,18 +169,22 @@ fun MenuRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(12.dp)
 
     Box(
         modifier = modifier
             .testTag(item.tag)
             .fillMaxWidth()
-            .height(58.dp)
+            .height(52.dp)
             .clip(shape)
-            .background(Color(0x33181B2B), shape)
-            .border(1.dp, GlassBorderSubtle, shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp),
+            .background(SurfaceCard, shape)
+            .border(1.dp, BorderSubtle, shape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = Color(0x22FFFFFF)),
+                onClick = onClick
+            )
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -183,38 +192,36 @@ fun MenuRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Leading Icon & Title
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = item.icon,
                     contentDescription = null,
                     tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 Text(
                     text = item.title,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = TextPrimary
                 )
             }
 
-            // Trailing Section (Badge, Value, Chevron)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (item.badgeCount > 0) {
                     Box(
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(18.dp)
                             .clip(CircleShape)
-                            .background(VividPurple, CircleShape),
+                            .background(BrandPrimary, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "${item.badgeCount}",
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
@@ -228,14 +235,14 @@ fun MenuRow(
                         fontSize = 13.sp,
                         color = TextMuted
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                 }
 
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = TextMuted,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }

@@ -97,5 +97,7 @@ data class MapPinItem(
     val yRatio: Float,
     val snippet: String,
     val memberCount: Int,
-    val initials: String = ""
+    val initials: String = "",
+    val latitude: Double = 11.9338,
+    val longitude: Double = 79.8297
 )

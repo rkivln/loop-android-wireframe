@@ -11,12 +11,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -25,7 +31,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.AtmosphericBackground
 import com.example.ui.components.GlowOrb
-import com.example.ui.components.GlowingCircularArrowButton
+import com.example.ui.components.GradientCtaButton
+import com.example.ui.components.LoopBrandHeader
+import com.example.ui.components.LoopVectorGlyph
+import com.example.ui.theme.BorderSubtle
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -39,73 +50,73 @@ fun WelcomeScreen(
     AtmosphericBackground(
         modifier = modifier
             .fillMaxSize()
-            .background(VoidBlack)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 24.dp),
+                .padding(horizontal = 28.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top branding & header
-            Column(modifier = Modifier.padding(top = 28.dp)) {
+            // Brand & Tagline Header
+            Column(modifier = Modifier.padding(top = 20.dp)) {
+                LoopBrandHeader(fontSize = 32, showGlyph = true)
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "loop",
-                    fontSize = 58.sp,
+                    text = "People near you.\nReal connections.",
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = (-1.5).sp,
-                    fontFamily = FontFamily.SansSerif,
-                    color = TextPrimary,
-                    modifier = Modifier.testTag("welcome_logo_text")
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "People near you.",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Normal,
+                    lineHeight = 34.sp,
                     color = TextPrimary
                 )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Real connections.",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Normal,
+                    text = "Study together, join local events, and build authentic connections in your area.",
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp,
                     color = TextSecondary
                 )
             }
 
-            // Center large glowing 3D-like orb visual
+            // Visual Anchor Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp),
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(SurfaceCard)
+                    .padding(vertical = 36.dp),
                 contentAlignment = Alignment.Center
             ) {
-                GlowOrb(size = 260.dp)
+                GlowOrb(size = 130.dp)
             }
 
-            // Bottom section with ethos text & glowing arrow action
-            Row(
+            // Bottom Actions & Ethos
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                    .padding(bottom = 12.dp)
             ) {
-                Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = "Grow.\nLearn.\nShare.\nTogether.",
-                        fontSize = 15.sp,
+                        text = "Grow · Learn · Share · Together",
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        lineHeight = 22.sp,
                         color = TextMuted
                     )
                 }
 
-                GlowingCircularArrowButton(
+                Spacer(modifier = Modifier.height(16.dp))
+
+                GradientCtaButton(
+                    text = "Get Started",
                     onClick = onContinue,
-                    size = 58.dp,
+                    height = 52.dp,
+                    leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
                     testTag = "welcome_start_button"
                 )
             }

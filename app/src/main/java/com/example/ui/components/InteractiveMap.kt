@@ -1,11 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,33 +24,118 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.LoopCategory
 import com.example.data.models.MapPinItem
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.NeonBlue
-import com.example.ui.theme.NeonMagenta
+import com.example.ui.theme.BorderDefault
+import com.example.ui.theme.BorderSubtle
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandSecondary
 import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.TextMuted
+import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VividPurple
-import com.example.ui.theme.WarmSunset
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.MarkerComposable
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberMarkerState
+
+val DarkMapStyleJson = """
+[
+  {"elementType": "geometry", "stylers": [{"color": "#0d1017"}]},
+  {"elementType": "labels.icon", "stylers": [{"visibility": "off"}]},
+  {"elementType": "labels.text.fill", "stylers": [{"color": "#7c8ba1"}]},
+  {"elementType": "labels.text.stroke", "stylers": [{"color": "#0d1017"}]},
+  {"featureType": "administrative", "elementType": "geometry", "stylers": [{"color": "#28334a"}]},
+  {"featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [{"color": "#3b4866"}]},
+  {"featureType": "poi", "elementType": "geometry", "stylers": [{"color": "#141926"}]},
+  {"featureType": "road", "elementType": "geometry", "stylers": [{"color": "#1a2030"}]},
+  {"featureType": "road", "elementType": "geometry.stroke", "stylers": [{"color": "#10141f"}]},
+  {"featureType": "road.arterial", "elementType": "geometry", "stylers": [{"color": "#222a3d"}]},
+  {"featureType": "road.highway", "elementType": "geometry", "stylers": [{"color": "#2c374f"}]},
+  {"featureType": "transit", "elementType": "geometry", "stylers": [{"color": "#1a2030"}]},
+  {"featureType": "water", "elementType": "geometry", "stylers": [{"color": "#080e1a"}]},
+  {"featureType": "water", "elementType": "geometry.fill", "stylers": [{"color": "#070c17"}]}
+]
+""".trimIndent()
+
+@Composable
+fun GoogleMapView(
+    pins: List<MapPinItem>,
+    selectedPin: MapPinItem?,
+    onPinSelected: (MapPinItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val pondicherry = remember { LatLng(11.9338, 79.8297) }
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(pondicherry, 14.5f)
+    }
+
+    val mapProperties = remember {
+        MapProperties(
+            mapType = MapType.NORMAL,
+            mapStyleOptions = MapStyleOptions(DarkMapStyleJson),
+            isMyLocationEnabled = false
+        )
+    }
+
+    val mapUiSettings = remember {
+        MapUiSettings(
+            zoomControlsEnabled = false,
+            compassEnabled = false,
+            myLocationButtonEnabled = false,
+            mapToolbarEnabled = false
+        )
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        GoogleMap(
+            modifier = Modifier.fillMaxSize(),
+            cameraPositionState = cameraPositionState,
+            properties = mapProperties,
+            uiSettings = mapUiSettings
+        ) {
+            pins.forEach { pin ->
+                val markerState = rememberMarkerState(
+                    key = pin.id,
+                    position = LatLng(pin.latitude, pin.longitude)
+                )
+                val isSelected = pin.id == selectedPin?.id
+
+                MarkerComposable(
+                    state = markerState,
+                    onClick = {
+                        onPinSelected(pin)
+                        true
+                    }
+                ) {
+                    MapMarkerItem(
+                        pin = pin,
+                        isSelected = isSelected,
+                        onClick = { onPinSelected(pin) }
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun DarkVectorMapView(
@@ -65,36 +144,15 @@ fun DarkVectorMapView(
     onPinSelected: (MapPinItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "map_radar")
-    val pulseRadius by infiniteTransition.animateFloat(
-        initialValue = 20f,
-        targetValue = 90f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "pulse_radius"
-    )
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "pulse_alpha"
-    )
-
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val widthPx = constraints.maxWidth.toFloat()
         val heightPx = constraints.maxHeight.toFloat()
 
-        // Vector map layer: Dark stylised terrain, grid, streets, water body
+        // Clean dark vector terrain
         Canvas(modifier = Modifier.fillMaxSize()) {
-            // Background deep slate
-            drawRect(Color(0xFF0C0E16))
+            drawRect(Color(0xFF0A0C13))
 
-            // Water coastline (curving blue flow on right side)
+            // Coastline contour on right side
             val waterPath = Path().apply {
                 moveTo(size.width * 0.72f, 0f)
                 cubicTo(
@@ -108,101 +166,53 @@ fun DarkVectorMapView(
             }
             drawPath(
                 path = waterPath,
-                brush = Brush.linearGradient(
-                    colors = listOf(Color(0xFF0A1B30), Color(0xFF071424)),
-                    start = Offset(size.width * 0.7f, 0f),
-                    end = Offset(size.width, size.height)
-                )
+                color = Color(0xFF070B14)
             )
 
-            // Coastline contour glow
+            // Coastline divider stroke
             drawPath(
                 path = waterPath,
-                brush = Brush.horizontalGradient(
-                    listOf(Color(0x3300E5FF), Color.Transparent)
-                ),
-                style = Stroke(width = 3f)
+                color = Color(0x1F3B82F6),
+                style = Stroke(width = 2f)
             )
 
-            // Stylized Road Grid lines
-            val roadColor = Color(0x18374151)
-            val majorRoadColor = Color(0x284B5563)
+            // Systematic road grid
+            val roadColor = Color(0x14334155)
+            val majorRoadColor = Color(0x22475569)
 
-            // Diagonal avenues
             drawLine(
                 color = majorRoadColor,
-                start = Offset(0f, size.height * 0.2f),
-                end = Offset(size.width, size.height * 0.65f),
-                strokeWidth = 6f
-            )
-            drawLine(
-                color = majorRoadColor,
-                start = Offset(size.width * 0.15f, 0f),
-                end = Offset(size.width * 0.65f, size.height),
-                strokeWidth = 5f
-            )
-            drawLine(
-                color = roadColor,
-                start = Offset(0f, size.height * 0.55f),
-                end = Offset(size.width * 0.8f, size.height * 0.1f),
+                start = Offset(0f, size.height * 0.25f),
+                end = Offset(size.width * 0.75f, size.height * 0.65f),
                 strokeWidth = 3f
             )
             drawLine(
-                color = roadColor,
-                start = Offset(size.width * 0.35f, 0f),
-                end = Offset(size.width * 0.85f, size.height * 0.9f),
+                color = majorRoadColor,
+                start = Offset(size.width * 0.2f, 0f),
+                end = Offset(size.width * 0.6f, size.height),
                 strokeWidth = 3f
             )
 
-            // Street grid
-            for (i in 1..8) {
-                val y = size.height * (i / 9f)
+            for (i in 1..7) {
+                val y = size.height * (i / 8f)
                 drawLine(
                     color = roadColor,
                     start = Offset(0f, y),
-                    end = Offset(size.width * 0.78f, y),
-                    strokeWidth = 2f
-                )
-            }
-            for (i in 1..6) {
-                val x = size.width * (i / 7f)
-                drawLine(
-                    color = roadColor,
-                    start = Offset(x, 0f),
-                    end = Offset(x, size.height),
-                    strokeWidth = 2f
+                    end = Offset(size.width * 0.75f, y),
+                    strokeWidth = 1.5f
                 )
             }
 
-            // User location central node (pulse rings)
-            val userCenter = Offset(size.width * 0.52f, size.height * 0.44f)
-
+            // User center location pin
+            val userCenter = Offset(size.width * 0.5f, size.height * 0.45f)
             drawCircle(
-                color = NeonBlue.copy(alpha = pulseAlpha),
-                radius = pulseRadius,
-                center = userCenter,
-                style = Stroke(width = 2.5f)
-            )
-            drawCircle(
-                color = VividPurple.copy(alpha = (pulseAlpha * 0.6f)),
-                radius = pulseRadius * 1.5f,
-                center = userCenter,
-                style = Stroke(width = 1.5f)
-            )
-
-            // User pin center
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(Color(0xFF388BFF), Color(0xFF1D4ED8)),
-                    center = userCenter,
-                    radius = 16f
-                ),
-                radius = 14f,
+                color = BrandPrimary,
+                radius = 7f,
                 center = userCenter
             )
             drawCircle(
-                color = Color.White,
-                radius = 5f,
+                color = Color(0x334F46E5),
+                radius = 16f,
                 center = userCenter
             )
         }
@@ -230,68 +240,52 @@ fun MapMarkerItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val markerGradient = when (pin.category) {
-        LoopCategory.STUDY -> listOf(Color(0xFF8B5CF6), Color(0xFF6366F1))
-        LoopCategory.EVENTS -> listOf(Color(0xFFFF5E62), Color(0xFFFF9966))
-        LoopCategory.HELP -> listOf(Color(0xFF10B981), Color(0xFF06B6D4))
-        LoopCategory.PEOPLE -> listOf(Color(0xFF3B82F6), Color(0xFF8B5CF6))
-        LoopCategory.ALL -> listOf(Color(0xFFD946EF), Color(0xFF8B5CF6))
+    val markerColor = when (pin.category) {
+        LoopCategory.STUDY -> Color(0xFF4F46E5)
+        LoopCategory.EVENTS -> Color(0xFFE11D48)
+        LoopCategory.HELP -> Color(0xFF059669)
+        LoopCategory.PEOPLE -> Color(0xFF2563EB)
+        LoopCategory.ALL -> Color(0xFF7C3AED)
     }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.clickable(onClick = onClick)
     ) {
-        // Floating Callout Badge for Selected Pin or Highlights
-        if (isSelected || pin.id == "pin_event") {
+        if (isSelected) {
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xE61B1E2D))
-                    .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(SurfaceDark)
+                    .border(1.dp, BorderDefault, RoundedCornerShape(8.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = when (pin.category) {
-                            LoopCategory.STUDY -> Icons.Default.School
-                            LoopCategory.EVENTS -> Icons.Default.DateRange
-                            LoopCategory.HELP -> Icons.Default.Handshake
-                            else -> Icons.Default.AutoAwesome
-                        },
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(12.dp)
+                Column {
+                    Text(
+                        text = pin.title,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Column {
-                        Text(
-                            text = pin.title,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "${pin.distance} away",
-                            fontSize = 9.sp,
-                            color = TextSecondary
-                        )
-                    }
+                    Text(
+                        text = "${pin.distance} away",
+                        fontSize = 9.sp,
+                        color = TextSecondary
+                    )
                 }
             }
-            Spacer(modifier = Modifier.padding(top = 4.dp))
+            Spacer(modifier = Modifier.padding(top = 3.dp))
         }
 
-        // Circular Map Pin
-        val pinSize = if (isSelected) 42.dp else 36.dp
+        val pinSize = if (isSelected) 36.dp else 30.dp
         Box(
             modifier = Modifier
                 .size(pinSize)
                 .clip(CircleShape)
-                .background(Brush.linearGradient(markerGradient), CircleShape)
+                .background(markerColor, CircleShape)
                 .border(
-                    if (isSelected) 2.dp else 1.5.dp,
-                    if (isSelected) Color.White else GlassBorder,
+                    if (isSelected) 2.dp else 1.dp,
+                    if (isSelected) Color.White else BorderDefault,
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -301,23 +295,23 @@ fun MapMarkerItem(
                     imageVector = Icons.Default.School,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
                 LoopCategory.EVENTS -> Icon(
                     imageVector = Icons.Default.DateRange,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
                 LoopCategory.HELP -> Icon(
                     imageVector = Icons.Default.Handshake,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
                 LoopCategory.PEOPLE -> Text(
                     text = pin.initials,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -325,7 +319,7 @@ fun MapMarkerItem(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }

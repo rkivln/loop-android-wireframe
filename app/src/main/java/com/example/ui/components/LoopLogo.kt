@@ -13,7 +13,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
@@ -21,10 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.NeonMagenta
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandSecondary
 import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.VividPurple
 
 @Composable
 fun LoopVectorGlyph(
@@ -35,30 +33,21 @@ fun LoopVectorGlyph(
         val w = this.size.width
         val h = this.size.height
 
+        val strokeWidth = w * 0.12f
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+
         val gradient = Brush.linearGradient(
-            colors = listOf(ElectricCyan, VividPurple, NeonMagenta),
+            colors = listOf(BrandSecondary, BrandPrimary),
             start = Offset(0f, 0f),
             end = Offset(w, h)
         )
 
-        val strokeWidth = w * 0.14f
-        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-
-        // Draw double looped infinity infinity/ring structure
-        val leftCenter = Offset(w * 0.35f, h * 0.5f)
-        val rightCenter = Offset(w * 0.65f, h * 0.5f)
+        // Precision looped infinity node
+        val leftCenter = Offset(w * 0.36f, h * 0.5f)
+        val rightCenter = Offset(w * 0.64f, h * 0.5f)
         val radius = w * 0.22f
 
-        // Subtle glow underlying
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(VividPurple.copy(alpha = 0.5f), Color.Transparent),
-                center = Offset(w * 0.5f, h * 0.5f),
-                radius = w * 0.6f
-            )
-        )
-
-        // Left circle arc
+        // Left arc
         drawArc(
             brush = gradient,
             startAngle = 45f,
@@ -69,7 +58,7 @@ fun LoopVectorGlyph(
             style = stroke
         )
 
-        // Right circle arc
+        // Right arc
         drawArc(
             brush = gradient,
             startAngle = 225f,
@@ -84,8 +73,8 @@ fun LoopVectorGlyph(
 
 @Composable
 fun LoopBrandHeader(
-    fontSize: Int = 28,
-    showGlyph: Boolean = false,
+    fontSize: Int = 26,
+    showGlyph: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -93,14 +82,14 @@ fun LoopBrandHeader(
         modifier = modifier
     ) {
         if (showGlyph) {
-            LoopVectorGlyph(size = (fontSize * 1.1).dp)
-            Spacer(modifier = Modifier.width(8.dp))
+            LoopVectorGlyph(size = (fontSize * 0.95).dp)
+            Spacer(modifier = Modifier.width(10.dp))
         }
         Text(
             text = "loop",
             fontSize = fontSize.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.5).sp,
+            letterSpacing = (-0.6).sp,
             fontFamily = FontFamily.SansSerif,
             color = TextPrimary
         )

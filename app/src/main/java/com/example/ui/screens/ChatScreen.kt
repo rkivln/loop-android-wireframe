@@ -52,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
@@ -64,19 +63,22 @@ import com.example.data.models.ChatMessage
 import com.example.data.models.MessageType
 import com.example.ui.components.AtmosphericBackground
 import com.example.ui.components.AvatarBadge
-import com.example.ui.components.GlassCard
 import com.example.ui.components.GlassIconButton
-import com.example.ui.theme.ButtonCtaGradient
-import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.GlassBorder
-import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.NeonBlue
-import com.example.ui.theme.NeonMagenta
+import com.example.ui.theme.BorderDefault
+import com.example.ui.theme.BorderSubtle
+import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandSecondary
+import com.example.ui.theme.StatusError
+import com.example.ui.theme.StatusSuccess
 import com.example.ui.theme.SurfaceCard
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.SurfaceElevated
+import com.example.ui.theme.SurfaceInteractive
+import com.example.ui.theme.TextDisabled
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VividPurple
+import com.example.ui.theme.VoidBlack
 
 @Composable
 fun ChatScreen(
@@ -100,11 +102,11 @@ fun ChatScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header: Back, Avatar, Name & Online status, Call, More
+            // Header Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -118,11 +120,11 @@ fun ChatScreen(
                         testTag = "chat_back_btn"
                     )
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
                     AvatarBadge(
                         initials = "AK",
-                        size = 40.dp,
+                        size = 36.dp,
                         colorIndex = 0,
                         showOnlineIndicator = true
                     )
@@ -132,14 +134,14 @@ fun ChatScreen(
                     Column {
                         Text(
                             text = "Arjun K",
-                            fontSize = 16.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextPrimary
                         )
                         Text(
                             text = "Online",
                             fontSize = 11.sp,
-                            color = EmeraldGreen
+                            color = StatusSuccess
                         )
                     }
                 }
@@ -152,7 +154,7 @@ fun ChatScreen(
                         icon = Icons.Default.Call,
                         onClick = { /* call */ },
                         contentDescription = "Call",
-                        size = 38.dp,
+                        size = 36.dp,
                         iconSize = 18.dp,
                         testTag = "chat_call_btn"
                     )
@@ -160,8 +162,8 @@ fun ChatScreen(
                     GlassIconButton(
                         icon = Icons.Default.MoreVert,
                         onClick = { /* more */ },
-                        contentDescription = "More",
-                        size = 38.dp,
+                        contentDescription = "Options",
+                        size = 36.dp,
                         iconSize = 18.dp,
                         testTag = "chat_more_btn"
                     )
@@ -173,8 +175,8 @@ fun ChatScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(messages, key = { it.id }) { msg ->
                     ChatBubble(
@@ -184,21 +186,21 @@ fun ChatScreen(
                 }
             }
 
-            // Bottom Composer
+            // Bottom Message Composer
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // + Attachment button
+                // Attach button
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(Color(0x331F2438), CircleShape)
-                        .border(1.dp, GlassBorderSubtle, CircleShape)
-                        .clickable { /* add file or image */ },
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SurfaceCard)
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                        .clickable { /* attach */ },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -211,15 +213,15 @@ fun ChatScreen(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Text Field Input
+                // Text Input
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(46.dp)
-                        .clip(RoundedCornerShape(23.dp))
-                        .background(Color(0x331F2438))
-                        .border(1.dp, GlassBorderSubtle, RoundedCornerShape(23.dp))
-                        .padding(horizontal = 16.dp),
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SurfaceCard)
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     BasicTextField(
@@ -229,7 +231,7 @@ fun ChatScreen(
                             fontSize = 14.sp,
                             color = TextPrimary
                         ),
-                        cursorBrush = SolidColor(NeonBlue),
+                        cursorBrush = SolidColor(BrandPrimary),
                         decorationBox = { innerTextField ->
                             if (inputMessage.isEmpty()) {
                                 Text(
@@ -248,37 +250,35 @@ fun ChatScreen(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Mic button
+                // Voice mic button
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(Color(0x331F2438), CircleShape)
-                        .border(1.dp, GlassBorderSubtle, CircleShape)
-                        .clickable { /* record voice */ },
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SurfaceCard)
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                        .clickable { /* voice */ },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
                         contentDescription = "Voice",
                         tint = TextSecondary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
 
                 // Send Button
+                val isSendActive = inputMessage.isNotBlank()
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (inputMessage.isNotBlank()) ButtonCtaGradient else Brush.linearGradient(listOf(Color(0x281F2438), Color(0x181F2438))),
-                            CircleShape
-                        )
-                        .border(1.dp, if (inputMessage.isNotBlank()) Color(0x44FFFFFF) else GlassBorderSubtle, CircleShape)
-                        .clickable(enabled = inputMessage.isNotBlank()) {
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSendActive) BrandPrimary else SurfaceInteractive, RoundedCornerShape(10.dp))
+                        .border(1.dp, if (isSendActive) Color(0x33FFFFFF) else BorderSubtle, RoundedCornerShape(10.dp))
+                        .clickable(enabled = isSendActive) {
                             onSendMessage(inputMessage)
                             inputMessage = ""
                         }
@@ -288,8 +288,8 @@ fun ChatScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send",
-                        tint = if (inputMessage.isNotBlank()) Color.White else TextMuted,
-                        modifier = Modifier.size(18.dp)
+                        tint = if (isSendActive) Color.White else TextDisabled,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
@@ -311,41 +311,36 @@ fun ChatBubble(
     ) {
         when (message.type) {
             MessageType.TEXT -> {
-                val bubbleBrush = if (isMe) {
-                    Brush.horizontalGradient(listOf(NeonBlue, VividPurple))
-                } else {
-                    Brush.linearGradient(listOf(Color(0xE61B1E2E), Color(0xE6161825)))
-                }
+                val bubbleBg = if (isMe) BrandPrimary else SurfaceCard
                 val bubbleShape = if (isMe) {
-                    RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 4.dp)
+                    RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 14.dp, bottomEnd = 2.dp)
                 } else {
-                    RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp)
+                    RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 2.dp, bottomEnd = 14.dp)
                 }
 
                 Box(
                     modifier = Modifier
                         .clip(bubbleShape)
-                        .background(bubbleBrush, bubbleShape)
-                        .border(1.dp, if (isMe) Color(0x448B5CF6) else GlassBorderSubtle, bubbleShape)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .background(bubbleBg, bubbleShape)
+                        .border(1.dp, if (isMe) Color(0x22FFFFFF) else BorderSubtle, bubbleShape)
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
                     Text(
                         text = message.text,
                         fontSize = 14.sp,
-                        lineHeight = 20.sp,
+                        lineHeight = 19.sp,
                         color = Color.White
                     )
                 }
             }
 
             MessageType.AUDIO -> {
-                // Voice Message Bubble
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Color(0xE61B1E2E), RoundedCornerShape(18.dp))
-                        .border(1.dp, GlassBorderSubtle, RoundedCornerShape(18.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(SurfaceCard, RoundedCornerShape(14.dp))
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -353,9 +348,9 @@ fun ChatBubble(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(30.dp)
                                 .clip(CircleShape)
-                                .background(VividPurple, CircleShape)
+                                .background(BrandPrimary, CircleShape)
                                 .clickable(onClick = onToggleAudio),
                             contentAlignment = Alignment.Center
                         ) {
@@ -363,11 +358,10 @@ fun ChatBubble(
                                 imageVector = if (message.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = "Play",
                                 tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
 
-                        // Simulated audio waveform
                         AudioWaveform(isPlaying = message.isPlaying)
 
                         Text(
@@ -380,13 +374,12 @@ fun ChatBubble(
             }
 
             MessageType.FILE -> {
-                // File Attachment Card
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Color(0xE61B1E2E), RoundedCornerShape(18.dp))
-                        .border(1.dp, GlassBorderSubtle, RoundedCornerShape(18.dp))
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(SurfaceCard, RoundedCornerShape(14.dp))
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -394,16 +387,16 @@ fun ChatBubble(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0x33EF4444), RoundedCornerShape(8.dp)),
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0x22EF4444), RoundedCornerShape(6.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PictureAsPdf,
                                 contentDescription = "PDF",
-                                tint = Color(0xFFF87171),
-                                modifier = Modifier.size(20.dp)
+                                tint = StatusError,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
 
@@ -425,7 +418,7 @@ fun ChatBubble(
             }
         }
 
-        Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         Text(
             text = message.timestamp,
@@ -449,9 +442,9 @@ fun AudioWaveform(isPlaying: Boolean, modifier: Modifier = Modifier) {
         label = "wave_anim"
     )
 
-    Canvas(modifier = modifier.size(width = 90.dp, height = 24.dp)) {
-        val barWidth = 3f
-        val gap = 5f
+    Canvas(modifier = modifier.size(width = 80.dp, height = 20.dp)) {
+        val barWidth = 2.5f
+        val gap = 4f
         val count = 12
         val heights = listOf(0.4f, 0.7f, 0.3f, 0.9f, 0.6f, 0.8f, 0.4f, 1.0f, 0.5f, 0.7f, 0.3f, 0.5f)
 
@@ -462,10 +455,10 @@ fun AudioWaveform(isPlaying: Boolean, modifier: Modifier = Modifier) {
             val y = (size.height - barHeight) / 2f
 
             drawRoundRect(
-                color = if (isPlaying) NeonMagenta else VividPurple,
+                color = if (isPlaying) BrandPrimary else TextSecondary,
                 topLeft = Offset(x, y),
                 size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(2f, 2f)
+                cornerRadius = CornerRadius(1.5f, 1.5f)
             )
         }
     }

@@ -216,7 +216,9 @@ class LoopRepository {
                 yRatio = 0.48f,
                 snippet = "Weekly study session for DSA. All levels are welcome!",
                 memberCount = 8,
-                initials = "DSA"
+                initials = "DSA",
+                latitude = 11.9338,
+                longitude = 79.8297
             ),
             MapPinItem(
                 id = "pin_event",
@@ -227,7 +229,9 @@ class LoopRepository {
                 yRatio = 0.28f,
                 snippet = "Learn UI/UX design basics in a collaborative hands-on session.",
                 memberCount = 12,
-                initials = "DW"
+                initials = "DW",
+                latitude = 11.9365,
+                longitude = 79.8335
             ),
             MapPinItem(
                 id = "pin_beach",
@@ -238,7 +242,9 @@ class LoopRepository {
                 yRatio = 0.55f,
                 snippet = "Social gathering spot with 45+ Loop members active nearby.",
                 memberCount = 45,
-                initials = "PB"
+                initials = "PB",
+                latitude = 11.9310,
+                longitude = 79.8360
             ),
             MapPinItem(
                 id = "pin_arjun",
@@ -249,7 +255,9 @@ class LoopRepository {
                 yRatio = 0.36f,
                 snippet = "CS Student working on graph algorithms & Android Compose.",
                 memberCount = 1,
-                initials = "AK"
+                initials = "AK",
+                latitude = 11.9350,
+                longitude = 79.8260
             ),
             MapPinItem(
                 id = "pin_sneha",
@@ -260,7 +268,9 @@ class LoopRepository {
                 yRatio = 0.34f,
                 snippet = "UI/UX Designer working on Apple HIG & motion prototypes.",
                 memberCount = 1,
-                initials = "SR"
+                initials = "SR",
+                latitude = 11.9380,
+                longitude = 79.8340
             ),
             MapPinItem(
                 id = "pin_help",
@@ -271,7 +281,9 @@ class LoopRepository {
                 yRatio = 0.65f,
                 snippet = "Looking for buddy to solve discrete math problem sets.",
                 memberCount = 3,
-                initials = "ML"
+                initials = "ML",
+                latitude = 11.9295,
+                longitude = 79.8275
             )
         )
     )
