@@ -19,8 +19,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.data.RentalRepository
+import com.example.data.models.ChatConversation
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalMessage
@@ -53,60 +55,31 @@ fun LoopApp() {
         var currentScreenState by remember { mutableStateOf<ScreenState>(ScreenState.Welcome) }
         var currentTab by remember { mutableStateOf(LoopTab.HOME) }
         var selectedCategory by remember { mutableStateOf<RentalCategory?>(null) }
-        var itemsList by remember { mutableStateOf(RentalRepository.items) }
-        var messagesList by remember { mutableStateOf(RentalRepository.sampleMessages) }
+        var selectedConversationId by remember { mutableStateOf<String?>(null) }
+        var exploreMapViewEnabled by remember { mutableStateOf(false) }
+
+        // Observe real-time flows from Firestore backend
+        val itemsList by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
+        val conversationsList by RentalRepository.conversationsFlow.collectAsStateWithLifecycle()
 
         val snackbarHostState = remember { SnackbarHostState() }
         val coroutineScope = rememberCoroutineScope()
 
         val onToggleFavorite: (String) -> Unit = { itemId ->
-            itemsList = itemsList.map { item ->
-                if (item.id == itemId) item.copy(isFavorite = !item.isFavorite) else item
-            }
-        }
-
-        val onSendMessage: (String) -> Unit = { text ->
-            val newMsg = RentalMessage(
-                id = "m_${System.currentTimeMillis()}",
-                senderName = "Me",
-                text = text,
-                timestamp = "Just now",
-                isFromMe = true
-            )
-            messagesList = messagesList + newMsg
+            RentalRepository.toggleFavorite(itemId)
         }
 
         val onListingCreated: (String, Int, RentalCategory, String) -> Unit = { title, price, category, desc ->
-            val newItem = RentalItem(
-                id = "item_${System.currentTimeMillis()}",
+            val newItem = RentalRepository.createListing(
                 title = title,
+                price = price,
                 category = category,
-                pricePerDay = price,
-                location = "Puducherry",
-                rating = 5.0f,
-                reviewCount = 1,
-                description = desc.ifBlank { "Newly listed item by Gokulan R." },
-                primaryImageRes = when (category) {
-                    RentalCategory.ELECTRONICS, RentalCategory.STUDY_OFFICE -> R.drawable.modern_laptop_1790477981432
-                    RentalCategory.FURNITURE, RentalCategory.HOME_LIVING -> R.drawable.modern_armchair_1790478015816
-                    RentalCategory.VEHICLES -> R.drawable.electric_scooter_1790477992190
-                    else -> R.drawable.canon_eos_camera_1790477967758
-                },
-                imageCount = 3,
-                features = listOf(
-                    SpecFeature("CAMERA", "Verified Item"),
-                    SpecFeature("BAG", "Accessories Included")
-                ),
-                owner = RentalOwner("owner_me", "Gokulan R", "New Host", "G", "Joined today", 5.0f),
-                isPopular = true,
-                isFavorite = false,
-                availableToday = true
+                desc = desc
             )
-            itemsList = listOf(newItem) + itemsList
             currentScreenState = ScreenState.Main
             currentTab = LoopTab.HOME
             coroutineScope.launch {
-                snackbarHostState.showSnackbar("Your listing '$title' is now live!")
+                snackbarHostState.showSnackbar("Listing '${newItem.title}' synced with Firestore cloud backend!")
             }
         }
 
@@ -120,6 +93,9 @@ fun LoopApp() {
                             if (tab == LoopTab.LIST) {
                                 currentScreenState = ScreenState.CreateListing
                             } else {
+                                if (tab == LoopTab.MESSAGES) {
+                                    selectedConversationId = null
+                                }
                                 currentTab = tab
                             }
                         }
@@ -156,20 +132,30 @@ fun LoopApp() {
                                         onToggleFavorite = onToggleFavorite,
                                         onSelectCategory = { cat ->
                                             selectedCategory = cat
+                                            exploreMapViewEnabled = false
                                             currentTab = LoopTab.EXPLORE
                                         },
-                                        onSearchClick = { currentTab = LoopTab.EXPLORE },
+                                        onSearchClick = {
+                                            exploreMapViewEnabled = false
+                                            currentTab = LoopTab.EXPLORE
+                                        },
+                                        onOpenMapDiscovery = {
+                                            exploreMapViewEnabled = true
+                                            currentTab = LoopTab.EXPLORE
+                                        },
                                         onNotificationsClick = {
                                             coroutineScope.launch {
-                                                snackbarHostState.showSnackbar("No new notifications")
+                                                snackbarHostState.showSnackbar("Realtime sync active")
                                             }
                                         },
                                         onSeeAllPopular = {
                                             selectedCategory = null
+                                            exploreMapViewEnabled = false
                                             currentTab = LoopTab.EXPLORE
                                         },
                                         onSeeAllCategories = {
                                             selectedCategory = null
+                                            exploreMapViewEnabled = false
                                             currentTab = LoopTab.EXPLORE
                                         }
                                     )
@@ -185,7 +171,15 @@ fun LoopApp() {
                                         onItemClick = { item ->
                                             currentScreenState = ScreenState.ItemDetails(item)
                                         },
-                                        onToggleFavorite = onToggleFavorite
+                                        onToggleFavorite = onToggleFavorite,
+                                        onContactOwnerFromMap = { owner ->
+                                            val matched = conversationsList.find { c ->
+                                                c.owner.id == owner.id || c.owner.name.equals(owner.name, ignoreCase = true)
+                                            }
+                                            selectedConversationId = matched?.id ?: "conv_rakesh"
+                                            currentTab = LoopTab.MESSAGES
+                                        },
+                                        initialMapView = exploreMapViewEnabled
                                     )
                                 }
 
@@ -195,14 +189,18 @@ fun LoopApp() {
 
                                 LoopTab.MESSAGES -> {
                                     MessagesScreen(
-                                        messages = messagesList,
-                                        onSendMessage = onSendMessage
+                                        conversations = conversationsList,
+                                        selectedConversationId = selectedConversationId,
+                                        onViewItemDetails = { item ->
+                                            currentScreenState = ScreenState.ItemDetails(item)
+                                        }
                                     )
                                 }
 
                                 LoopTab.PROFILE -> {
                                     ProfileScreen(
                                         onNavigateBookings = {
+                                            selectedConversationId = "conv_rakesh"
                                             currentTab = LoopTab.MESSAGES
                                         }
                                     )
@@ -218,6 +216,8 @@ fun LoopApp() {
                                 },
                                 onToggleFavorite = onToggleFavorite,
                                 onContactOwner = {
+                                    val matchedConv = conversationsList.find { it.owner.id == state.item.owner.id || it.itemContext?.id == state.item.id }
+                                    selectedConversationId = matchedConv?.id ?: "conv_rakesh"
                                     currentScreenState = ScreenState.Main
                                     currentTab = LoopTab.MESSAGES
                                 },
@@ -231,6 +231,8 @@ fun LoopApp() {
                             BookingScreen(
                                 item = state.item,
                                 onBookingConfirmed = {
+                                    val matchedConv = conversationsList.find { it.owner.id == state.item.owner.id || it.itemContext?.id == state.item.id }
+                                    selectedConversationId = matchedConv?.id ?: "conv_rakesh"
                                     currentScreenState = ScreenState.Main
                                     currentTab = LoopTab.MESSAGES
                                 },

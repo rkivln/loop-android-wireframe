@@ -31,7 +31,8 @@ data class RentalOwner(
     val memberSince: String = "Joined 1 year ago",
     val rating: Float = 4.9f,
     val totalRentals: Int = 48,
-    val responseTime: String = "< 15 mins"
+    val responseTime: String = "< 15 mins",
+    val phone: String = "+91 98765 43210"
 )
 
 data class RentalItem(
@@ -73,12 +74,74 @@ data class BookingRequest(
     val grandTotal: Int get() = rentalTotal + deliveryFee + serviceFee
 }
 
+enum class MessageStatus {
+    SENDING,
+    SENT,
+    DELIVERED,
+    READ
+}
+
+enum class ChatMessageType {
+    TEXT,
+    AUDIO_NOTE,
+    IMAGE_MEDIA,
+    LOCATION_PIN,
+    RENTAL_OFFER
+}
+
 data class RentalMessage(
     val id: String,
     val senderName: String,
     val text: String,
     val timestamp: String,
     val isFromMe: Boolean,
-    val isItemCard: Boolean = false,
-    val itemTitle: String? = null
+    val messageType: ChatMessageType = ChatMessageType.TEXT,
+    val status: MessageStatus = MessageStatus.READ,
+    val audioDuration: String? = null,
+    val isAudioPlaying: Boolean = false,
+    @DrawableRes val imageRes: Int? = null,
+    val locationTitle: String? = null,
+    val locationAddress: String? = null,
+    val itemTitle: String? = null,
+    val itemPricePerDay: Int? = null,
+    @DrawableRes val itemImageRes: Int? = null
+)
+
+data class ChatConversation(
+    val id: String,
+    val owner: RentalOwner,
+    val itemContext: RentalItem?,
+    val isOnline: Boolean = true,
+    val isTyping: Boolean = false,
+    val unreadCount: Int = 0,
+    val isPinned: Boolean = false,
+    val messages: List<RentalMessage>
+) {
+    val lastMessage: RentalMessage? get() = messages.lastOrNull()
+}
+
+enum class DiscoveryPinType {
+    USER_HOST,
+    COMMUNITY_EVENT,
+    RENTAL_ITEM
+}
+
+data class DiscoveryPinItem(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val type: DiscoveryPinType,
+    val latitude: Double,
+    val longitude: Double,
+    val rating: Float = 4.9f,
+    val distance: String = "0.4 km away",
+    val tag: String,
+    val dateOrAvailability: String,
+    val locationName: String,
+    val priceOrAttendees: String,
+    val description: String,
+    val owner: RentalOwner? = null,
+    val rentalItem: RentalItem? = null,
+    @DrawableRes val imageRes: Int? = null,
+    val isAttending: Boolean = false
 )
