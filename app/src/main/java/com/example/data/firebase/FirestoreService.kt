@@ -13,6 +13,7 @@ import com.example.data.models.RentalItem
 import com.example.data.models.RentalMessage
 import com.example.data.models.RentalOwner
 import com.example.data.models.SpecFeature
+import com.example.data.models.UserProfile
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
@@ -54,6 +55,128 @@ class FirestoreService private constructor() {
 
     val isFirebaseAvailable: Boolean
         get() = firestore != null
+
+    /**
+     * Real-time listener for User Profile in Firestore
+     */
+    fun listenToUserProfile(uid: String = "user_me"): Flow<UserProfile> = callbackFlow {
+        val db = firestore
+        val defaultProfile = UserProfile(uid = uid)
+        if (db == null) {
+            trySend(defaultProfile)
+            awaitClose { }
+            return@callbackFlow
+        }
+
+        val registration = db.collection("users")
+            .document(uid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error listening to user profile: ${error.message}")
+                    trySend(defaultProfile)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null && snapshot.exists()) {
+                    try {
+                        val badgesList = (snapshot.get("badges") as? List<*>)?.mapNotNull { it?.toString() }
+                            ?: listOf("✓ ID Verified", "★ Top Host", "📸 Creator Club")
+
+                        val profile = UserProfile(
+                            uid = snapshot.id,
+                            displayName = snapshot.getString("displayName") ?: "Gokulan R",
+                            email = snapshot.getString("email") ?: "gokulan.rkivln@gmail.com",
+                            phone = snapshot.getString("phone") ?: "+91 98401 22345",
+                            bio = snapshot.getString("bio") ?: "Tech creator & photography enthusiast in White Town, Puducherry. Sharing Canon DSLR gear and exploring local events.",
+                            location = snapshot.getString("location") ?: "White Town, Puducherry",
+                            avatarPresetIndex = snapshot.getLong("avatarPresetIndex")?.toInt() ?: 0,
+                            customAvatarUri = snapshot.getString("customAvatarUri"),
+                            rating = (snapshot.getDouble("rating") ?: 5.0).toFloat(),
+                            reviewCount = snapshot.getLong("reviewCount")?.toInt() ?: 18,
+                            rentalsCompleted = snapshot.getLong("rentalsCompleted")?.toInt() ?: 14,
+                            listingsCount = snapshot.getLong("listingsCount")?.toInt() ?: 3,
+                            earnedAmount = snapshot.getLong("earnedAmount")?.toInt() ?: 1850,
+                            isVerified = snapshot.getBoolean("isVerified") ?: true,
+                            memberSince = snapshot.getString("memberSince") ?: "Joined Oct 2024",
+                            badges = badgesList
+                        )
+                        trySend(profile)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing user profile: ${e.message}")
+                        trySend(defaultProfile)
+                    }
+                } else {
+                    seedInitialUserProfile(db, defaultProfile)
+                    trySend(defaultProfile)
+                }
+            }
+
+        awaitClose { registration.remove() }
+    }
+
+    /**
+     * Update user profile in Firestore
+     */
+    suspend fun updateUserProfile(profile: UserProfile) {
+        val db = firestore ?: return
+        try {
+            val data = hashMapOf(
+                "uid" to profile.uid,
+                "displayName" to profile.displayName,
+                "email" to profile.email,
+                "phone" to profile.phone,
+                "bio" to profile.bio,
+                "location" to profile.location,
+                "avatarPresetIndex" to profile.avatarPresetIndex,
+                "customAvatarUri" to profile.customAvatarUri,
+                "rating" to profile.rating.toDouble(),
+                "reviewCount" to profile.reviewCount,
+                "rentalsCompleted" to profile.rentalsCompleted,
+                "listingsCount" to profile.listingsCount,
+                "earnedAmount" to profile.earnedAmount,
+                "isVerified" to profile.isVerified,
+                "memberSince" to profile.memberSince,
+                "badges" to profile.badges,
+                "updatedAt" to System.currentTimeMillis()
+            )
+
+            db.collection("users")
+                .document(profile.uid)
+                .set(data, SetOptions.merge())
+                .await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update user profile in Firestore: ${e.message}")
+        }
+    }
+
+    private fun seedInitialUserProfile(db: FirebaseFirestore, profile: UserProfile) {
+        try {
+            val data = hashMapOf(
+                "uid" to profile.uid,
+                "displayName" to profile.displayName,
+                "email" to profile.email,
+                "phone" to profile.phone,
+                "bio" to profile.bio,
+                "location" to profile.location,
+                "avatarPresetIndex" to profile.avatarPresetIndex,
+                "customAvatarUri" to profile.customAvatarUri,
+                "rating" to profile.rating.toDouble(),
+                "reviewCount" to profile.reviewCount,
+                "rentalsCompleted" to profile.rentalsCompleted,
+                "listingsCount" to profile.listingsCount,
+                "earnedAmount" to profile.earnedAmount,
+                "isVerified" to profile.isVerified,
+                "memberSince" to profile.memberSince,
+                "badges" to profile.badges,
+                "updatedAt" to System.currentTimeMillis()
+            )
+            db.collection("users")
+                .document(profile.uid)
+                .set(data)
+        } catch (e: Exception) {
+            Log.w(TAG, "User profile seed skipped: ${e.message}")
+        }
+    }
 
     /**
      * Real-time listener for All Equipment Listings in Firestore

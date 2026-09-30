@@ -13,6 +13,7 @@ import com.example.data.models.RentalItem
 import com.example.data.models.RentalMessage
 import com.example.data.models.RentalOwner
 import com.example.data.models.SpecFeature
+import com.example.data.models.UserProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -535,6 +536,24 @@ object RentalRepository {
 
     val sampleMessages: List<RentalMessage> = initialConversations.first().messages
 
+    val initialUserProfile = UserProfile(
+        uid = "user_me",
+        displayName = "Gokulan R",
+        email = "gokulan.rkivln@gmail.com",
+        phone = "+91 98401 22345",
+        bio = "Tech creator & photography enthusiast in White Town, Puducherry. Sharing Canon DSLR gear and exploring local events.",
+        location = "White Town, Puducherry",
+        avatarPresetIndex = 0,
+        rating = 5.0f,
+        reviewCount = 18,
+        rentalsCompleted = 14,
+        listingsCount = 3,
+        earnedAmount = 1850,
+        isVerified = true,
+        memberSince = "Joined Oct 2024",
+        badges = listOf("✓ ID Verified", "★ Top Host", "📸 Creator Club", "⚡ Quick Responder")
+    )
+
     // Reactive StateFlows connected to Firestore live listeners
     private val _itemsFlow = MutableStateFlow(items)
     val itemsFlow: StateFlow<List<RentalItem>> = _itemsFlow.asStateFlow()
@@ -544,6 +563,9 @@ object RentalRepository {
 
     private val _discoveryPinsFlow = MutableStateFlow(discoveryPins)
     val discoveryPinsFlow: StateFlow<List<DiscoveryPinItem>> = _discoveryPinsFlow.asStateFlow()
+
+    private val _userProfileFlow = MutableStateFlow(initialUserProfile)
+    val userProfileFlow: StateFlow<UserProfile> = _userProfileFlow.asStateFlow()
 
     init {
         // Start listening to real-time Firestore collections
@@ -561,6 +583,22 @@ object RentalRepository {
                     _conversationsFlow.value = cloudConvs
                 }
             }
+        }
+
+        repositoryScope.launch {
+            firestoreService.listenToUserProfile("user_me").collectLatest { cloudProfile ->
+                _userProfileFlow.value = cloudProfile
+            }
+        }
+    }
+
+    /**
+     * Update user profile and sync with Firestore in background
+     */
+    fun updateUserProfile(profile: UserProfile) {
+        _userProfileFlow.value = profile
+        repositoryScope.launch {
+            firestoreService.updateUserProfile(profile)
         }
     }
 
@@ -631,7 +669,7 @@ object RentalRepository {
                 SpecFeature("CAMERA", "Verified Item"),
                 SpecFeature("BAG", "Accessories Included")
             ),
-            owner = RentalOwner("owner_me", "Gokulan R", "New Host", "G", "Joined today", 5.0f),
+            owner = RentalOwner("owner_me", _userProfileFlow.value.displayName, "New Host", _userProfileFlow.value.initials, "Joined today", 5.0f),
             isPopular = true,
             isFavorite = false,
             availableToday = true
