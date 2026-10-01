@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.models.RentalCategory
 import com.example.ui.components.DarkPillButton
 import com.example.ui.theme.BackgroundLight
+import com.example.ui.theme.ParchmentBg
 import com.example.ui.theme.BorderSubtle
 import com.example.ui.theme.BrandDark
 import com.example.ui.theme.SurfaceCard
@@ -79,7 +80,7 @@ fun CreateListingScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(ParchmentBg)
     ) {
         Column(
             modifier = Modifier

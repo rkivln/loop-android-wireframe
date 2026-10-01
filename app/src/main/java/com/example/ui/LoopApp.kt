@@ -39,6 +39,7 @@ import com.example.ui.screens.MessagesScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.WelcomeScreen
 import com.example.ui.theme.LoopTheme
+import com.example.ui.theme.ParchmentBg
 import kotlinx.coroutines.launch
 
 sealed class ScreenState {
@@ -106,7 +107,7 @@ fun LoopApp() {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
+                    .background(ParchmentBg)
             ) {
                 AnimatedContent(
                     targetState = currentScreenState,

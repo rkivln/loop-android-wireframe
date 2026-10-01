@@ -22,10 +22,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Chair
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Laptop
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -35,25 +39,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
-import com.example.ui.theme.AlertCrimson
-import com.example.ui.theme.CanvasDark
-import com.example.ui.theme.CanvasSubtle
-import com.example.ui.theme.CanvasWhite
+import com.example.ui.theme.AccentYellow
+import com.example.ui.theme.AccentYellowDark
+import com.example.ui.theme.HeartRed
+import com.example.ui.theme.InkBlack
 import com.example.ui.theme.InkMuted
-import com.example.ui.theme.InkPrimary
 import com.example.ui.theme.InkSecondary
-import com.example.ui.theme.LineHairline
-import com.example.ui.theme.RatingAmber
-import com.example.ui.theme.StatusLive
+import com.example.ui.theme.ParchmentBorder
+import com.example.ui.theme.ParchmentSurface
+import com.example.ui.theme.ParchmentWhite
+
+data class CategoryUiItem(
+    val category: RentalCategory,
+    val title: String,
+    val icon: ImageVector
+)
 
 @Composable
 fun CategoryAvatarRow(
@@ -61,49 +70,58 @@ fun CategoryAvatarRow(
     onSelectCategory: (RentalCategory) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val categories = listOf(
-        RentalCategory.ELECTRONICS,
-        RentalCategory.VEHICLES,
-        RentalCategory.STUDY_OFFICE,
-        RentalCategory.FURNITURE,
-        RentalCategory.TOOLS,
-        RentalCategory.EVENTS
+    val categoryList = listOf(
+        CategoryUiItem(RentalCategory.ELECTRONICS, "Cameras", Icons.Default.PhotoCamera),
+        CategoryUiItem(RentalCategory.STUDY_OFFICE, "Laptops", Icons.Default.Laptop),
+        CategoryUiItem(RentalCategory.VEHICLES, "Vehicles", Icons.Default.TwoWheeler),
+        CategoryUiItem(RentalCategory.FURNITURE, "Furniture", Icons.Default.Chair),
+        CategoryUiItem(RentalCategory.TOOLS, "Tools", Icons.Default.Build)
     )
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        categories.forEach { cat ->
-            val isSelected = selectedCategory == cat
-            val shape = RoundedCornerShape(6.dp)
+        categoryList.forEach { item ->
+            val isSelected = selectedCategory == item.category || (selectedCategory == null && item.category == RentalCategory.ELECTRONICS)
+            val shape = RoundedCornerShape(14.dp)
 
             Box(
                 modifier = Modifier
+                    .size(width = 68.dp, height = 72.dp)
                     .clip(shape)
-                    .background(if (isSelected) CanvasDark else CanvasWhite, shape)
-                    .border(1.dp, if (isSelected) CanvasDark else LineHairline, shape)
+                    .background(if (isSelected) AccentYellow else ParchmentWhite, shape)
+                    .border(
+                        1.dp,
+                        if (isSelected) AccentYellow else ParchmentBorder,
+                        shape
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(color = Color.LightGray),
-                        onClick = { onSelectCategory(cat) }
+                        indication = ripple(color = Color.Black.copy(alpha = 0.1f)),
+                        onClick = { onSelectCategory(item.category) }
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .testTag("category_chip_${cat.name}")
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = cat.iconEmoji,
-                        fontSize = 13.sp
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.title,
+                        tint = InkBlack,
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = cat.title,
-                        fontSize = 12.5.sp,
+                        text = item.title,
+                        fontSize = 11.5.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) Color.White else InkPrimary
+                        color = InkBlack
                     )
                 }
             }
@@ -111,7 +129,7 @@ fun CategoryAvatarRow(
     }
 }
 
-// Gear Listing Card: Editorial, high-clarity hardware frame
+// Popular Gear Item Card (Matches Image 2)
 @Composable
 fun PopularItemCard(
     item: RentalItem,
@@ -119,14 +137,14 @@ fun PopularItemCard(
     onToggleFavorite: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cardShape = RoundedCornerShape(8.dp)
+    val cardShape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = modifier
-            .width(172.dp)
+            .width(168.dp)
             .clip(cardShape)
-            .background(CanvasWhite, cardShape)
-            .border(1.dp, LineHairline, cardShape)
+            .background(ParchmentWhite, cardShape)
+            .border(1.dp, ParchmentBorder, cardShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(color = Color.LightGray),
@@ -139,8 +157,8 @@ fun PopularItemCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(134.dp)
-                    .background(CanvasSubtle)
+                    .height(130.dp)
+                    .background(ParchmentSurface)
             ) {
                 Image(
                     painter = painterResource(id = item.primaryImageRes),
@@ -149,46 +167,18 @@ fun PopularItemCard(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Live Availability Tag Top-Left
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(6.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(CanvasDark.copy(alpha = 0.85f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(5.dp)
-                                .clip(CircleShape)
-                                .background(StatusLive)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "AVAILABLE",
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 0.5.sp,
-                            color = Color.White
-                        )
-                    }
-                }
-
-                // Tactile Favorite Toggle Top-Right
+                // White Squircle Favorite Heart Button (Top-Right)
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(28.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(CanvasWhite.copy(alpha = 0.95f))
-                        .border(0.5.dp, LineHairline, RoundedCornerShape(6.dp))
+                        .padding(8.dp)
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White)
+                        .border(1.dp, ParchmentBorder.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = AlertCrimson.copy(alpha = 0.2f)),
+                            indication = ripple(color = HeartRed.copy(alpha = 0.2f)),
                             onClick = { onToggleFavorite(item.id) }
                         ),
                     contentAlignment = Alignment.Center
@@ -196,95 +186,65 @@ fun PopularItemCard(
                     Icon(
                         imageVector = if (item.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (item.isFavorite) AlertCrimson else InkPrimary,
-                        modifier = Modifier.size(15.dp)
+                        tint = if (item.isFavorite) HeartRed else InkBlack,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
-            // Technical Gear Specifications & Pricing
+            // Card Text Details
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 10.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
-                // Category Meta Tag
-                Text(
-                    text = item.category.title.uppercase(),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 0.5.sp,
-                    color = InkMuted
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
                 Text(
                     text = item.title,
-                    fontSize = 13.5.sp,
+                    fontSize = 14.5.sp,
                     fontWeight = FontWeight.Bold,
-                    color = InkPrimary,
+                    color = InkBlack,
                     maxLines = 1
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "₹${item.pricePerDay}",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            color = InkPrimary
-                        )
-                        Text(
-                            text = "/d",
-                            fontSize = 11.sp,
-                            color = InkMuted,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-
-                    // Rating
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = RatingAmber,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text = "${item.rating}",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = InkPrimary
-                        )
-                    }
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = "₹${item.pricePerDay}",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = InkBlack
+                    )
+                    Text(
+                        text = " / day",
+                        fontSize = 11.5.sp,
+                        color = InkMuted
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Location / Distance
-                Text(
-                    text = "White Town · ${item.location}",
-                    fontSize = 11.sp,
-                    color = InkSecondary,
-                    maxLines = 1
-                )
+                // Rating Line with Orange Star: ★ 4.9 (28)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = AccentYellowDark,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = "${item.rating} (${item.reviewCount})",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = InkBlack
+                    )
+                }
             }
         }
     }
 }
 
-// Curated Collection Banner: High-contrast architectural editorial split
 @Composable
 fun CategoryBannerCard(
     title: String,
@@ -293,14 +253,14 @@ fun CategoryBannerCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(14.dp)
 
     Box(
         modifier = modifier
-            .height(132.dp)
+            .height(126.dp)
             .clip(shape)
-            .background(CanvasWhite, shape)
-            .border(1.dp, LineHairline, shape)
+            .background(ParchmentWhite, shape)
+            .border(1.dp, ParchmentBorder, shape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(color = Color.LightGray),
@@ -321,21 +281,12 @@ fun CategoryBannerCard(
             ) {
                 Column {
                     Text(
-                        text = "COLLECTION",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 0.8.sp,
-                        color = InkMuted
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
                         text = title,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = InkPrimary
+                        color = InkBlack
                     )
-                    Spacer(modifier = Modifier.height(3.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = subtitle,
                         fontSize = 11.sp,
@@ -345,21 +296,18 @@ fun CategoryBannerCard(
                     )
                 }
 
-                // Clean forward arrow indicator
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "EXPLORE",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 0.5.sp,
-                        color = InkPrimary
+                        color = InkBlack
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = InkPrimary,
+                        tint = InkBlack,
                         modifier = Modifier.size(12.dp)
                     )
                 }
@@ -371,7 +319,7 @@ fun CategoryBannerCard(
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .weight(0.9f)
-                    .size(86.dp)
+                    .size(80.dp)
             )
         }
     }

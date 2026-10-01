@@ -165,11 +165,11 @@ fun ExploreScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(46.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
                         .background(CanvasWhite)
-                        .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
-                        .padding(horizontal = 12.dp),
+                        .border(1.dp, LineHairline, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Row(
@@ -180,7 +180,7 @@ fun ExploreScreen(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
                             tint = InkMuted,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         BasicTextField(
@@ -195,7 +195,7 @@ fun ExploreScreen(
                             decorationBox = { inner ->
                                 if (searchQuery.isEmpty()) {
                                     Text(
-                                        text = "Filter catalogue by gear, host, or specs...",
+                                        text = "Search cameras, laptops, vehicles...",
                                         fontSize = 13.sp,
                                         color = InkMuted
                                     )

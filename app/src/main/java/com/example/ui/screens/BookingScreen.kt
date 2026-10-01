@@ -60,6 +60,7 @@ import com.example.data.models.DeliveryOptionType
 import com.example.data.models.RentalItem
 import com.example.ui.components.DarkPillButton
 import com.example.ui.theme.BackgroundLight
+import com.example.ui.theme.ParchmentBg
 import com.example.ui.theme.BorderDefault
 import com.example.ui.theme.BorderSubtle
 import com.example.ui.theme.BrandBlue
@@ -97,7 +98,7 @@ fun BookingScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(ParchmentBg)
     ) {
         LazyColumn(
             modifier = Modifier

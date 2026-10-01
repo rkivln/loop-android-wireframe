@@ -14,15 +14,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
@@ -37,15 +37,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.CanvasDark
-import com.example.ui.theme.CanvasWhite
+import com.example.ui.theme.InkBlack
 import com.example.ui.theme.InkMuted
-import com.example.ui.theme.InkPrimary
-import com.example.ui.theme.LineHairline
+import com.example.ui.theme.ParchmentBg
+import com.example.ui.theme.ParchmentBorder
 
 enum class LoopTab {
     HOME,
@@ -64,28 +62,28 @@ fun LoopBottomNavigation(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(CanvasWhite)
-            .border(width = 1.dp, color = LineHairline, shape = RoundedCornerShape(0.dp))
+            .background(ParchmentBg)
+            .border(width = 1.dp, color = ParchmentBorder.copy(alpha = 0.6f), shape = RoundedCornerShape(0.dp))
             .navigationBarsPadding()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp)
-                .padding(horizontal = 12.dp),
+                .height(64.dp)
+                .padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Home / Inventory
+            // Tab 1: Home
             LoopNavItem(
                 icon = if (selectedTab == LoopTab.HOME) Icons.Filled.Home else Icons.Outlined.Home,
-                label = "Inventory",
+                label = "Home",
                 isSelected = selectedTab == LoopTab.HOME,
                 onClick = { onTabSelected(LoopTab.HOME) },
                 testTag = "nav_home"
             )
 
-            // Explore / Map
+            // Tab 2: Explore
             LoopNavItem(
                 icon = if (selectedTab == LoopTab.EXPLORE) Icons.Filled.Explore else Icons.Outlined.Explore,
                 label = "Explore",
@@ -94,52 +92,41 @@ fun LoopBottomNavigation(
                 testTag = "nav_explore"
             )
 
-            // Center Technical "+ List" Action
+            // Tab 3: Center Solid Black Circular "+" Button
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(CanvasDark)
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(InkBlack)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(color = Color.White),
                         onClick = { onTabSelected(LoopTab.LIST) }
                     )
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
                     .testTag("nav_list_btn"),
                 contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "List gear",
-                        tint = Color.White,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.size(4.dp))
-                    Text(
-                        text = "LIST GEAR",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.White
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "List gear",
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
             }
 
-            // Messages
+            // Tab 4: Bookings (Calendar)
             LoopNavItem(
-                icon = if (selectedTab == LoopTab.MESSAGES) Icons.Filled.ChatBubble else Icons.Outlined.ChatBubbleOutline,
-                label = "Chats",
+                icon = if (selectedTab == LoopTab.MESSAGES) Icons.Filled.DateRange else Icons.Outlined.DateRange,
+                label = "Bookings",
                 isSelected = selectedTab == LoopTab.MESSAGES,
                 onClick = { onTabSelected(LoopTab.MESSAGES) },
                 testTag = "nav_messages"
             )
 
-            // Profile
+            // Tab 5: Profile
             LoopNavItem(
                 icon = if (selectedTab == LoopTab.PROFILE) Icons.Filled.Person else Icons.Outlined.Person,
-                label = "Identity",
+                label = "Profile",
                 isSelected = selectedTab == LoopTab.PROFILE,
                 onClick = { onTabSelected(LoopTab.PROFILE) },
                 testTag = "nav_profile"
@@ -166,29 +153,20 @@ private fun LoopNavItem(
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = if (isSelected) InkPrimary else InkMuted,
-            modifier = Modifier.size(20.dp)
+            tint = if (isSelected) InkBlack else InkMuted,
+            modifier = Modifier.size(22.dp)
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = label,
             fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = if (isSelected) InkPrimary else InkMuted
-        )
-
-        // Architectural indicator bar
-        Spacer(modifier = Modifier.height(3.dp))
-        Box(
-            modifier = Modifier
-                .width(16.dp)
-                .height(2.dp)
-                .background(if (isSelected) InkPrimary else Color.Transparent)
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            color = if (isSelected) InkBlack else InkMuted
         )
     }
 }
