@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
@@ -61,13 +60,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -76,17 +75,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
 import com.example.data.models.AVATAR_PRESETS
 import com.example.data.models.UserProfile
-import com.example.ui.theme.BackgroundLight
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandBlue
-import com.example.ui.theme.BrandDark
-import com.example.ui.theme.BrandGreen
-import com.example.ui.theme.BrandStarAmber
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceSecondary
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.components.LoopPrimaryButton
+import com.example.ui.components.LoopSecondaryButton
+import com.example.ui.theme.AccentCobalt
+import com.example.ui.theme.CanvasDark
+import com.example.ui.theme.CanvasGround
+import com.example.ui.theme.CanvasSubtle
+import com.example.ui.theme.CanvasWhite
+import com.example.ui.theme.InkMuted
+import com.example.ui.theme.InkPrimary
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.LineHairline
+import com.example.ui.theme.RatingAmber
+import com.example.ui.theme.StatusLive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -104,7 +105,7 @@ fun ProfileScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BackgroundLight)
+            .background(CanvasGround)
     ) {
         LazyColumn(
             modifier = Modifier
@@ -124,44 +125,46 @@ fun ProfileScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Profile",
-                            fontSize = 26.sp,
+                            text = "Identity & Profile",
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = InkPrimary
                         )
                         Text(
-                            text = "Manage identity, bio & cloud preferences",
+                            text = "Verified equipment credentials & community activity",
                             fontSize = 12.sp,
-                            color = TextSecondary
+                            color = InkSecondary
                         )
                     }
 
-                    // Edit Profile Pill Button
+                    // Edit Profile Action Button
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(BrandDark)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(CanvasDark)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = ripple(color = Color.White),
                                 onClick = { isEditingProfile = true }
                             )
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
                             .testTag("edit_profile_header_btn"),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit Profile",
+                                contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(13.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "Edit Profile",
-                                fontSize = 12.5.sp,
+                                text = "EDIT",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.5.sp,
                                 color = Color.White
                             )
                         }
@@ -175,87 +178,80 @@ fun ProfileScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(BrandGreen.copy(alpha = 0.15f))
-                            .border(1.dp, BrandGreen.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(StatusLive.copy(alpha = 0.1f))
+                            .border(1.dp, StatusLive.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = BrandGreen,
-                                modifier = Modifier.size(18.dp)
+                                tint = StatusLive,
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = saveSuccessMessage ?: "",
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = BrandGreen
+                                color = StatusLive
                             )
                         }
                     }
                 }
             }
 
-            // User Identity Card (Avatar, Name, Handle, Rating, Verified Badge)
+            // User Identity Dossier (Avatar, Name, Handle, Rating, Verified Badge)
             item {
                 val currentPreset = AVATAR_PRESETS.getOrElse(userProfile.avatarPresetIndex) { AVATAR_PRESETS[0] }
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(20.dp))
-                        .padding(18.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(CanvasWhite)
+                        .border(1.dp, LineHairline, RoundedCornerShape(8.dp))
+                        .padding(16.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Dynamic Avatar with Gradient and Emoji/Initials
+                        // Monogram Avatar
                         Box(
                             modifier = Modifier
-                                .size(72.dp)
-                                .shadow(elevation = 6.dp, shape = CircleShape)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        colors = listOf(
-                                            Color(currentPreset.bgHex1),
-                                            Color(currentPreset.bgHex2)
-                                        )
-                                    )
-                                ),
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(CanvasDark),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = userProfile.initials,
-                                fontSize = 24.sp,
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
                                 color = Color.White
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = userProfile.displayName,
-                                    fontSize = 19.sp,
+                                    fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
+                                    color = InkPrimary
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 if (userProfile.isVerified) {
                                     Icon(
                                         imageVector = Icons.Default.VerifiedUser,
                                         contentDescription = "Verified Identity",
-                                        tint = BrandBlue,
-                                        modifier = Modifier.size(18.dp)
+                                        tint = AccentCobalt,
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }
@@ -266,14 +262,14 @@ fun ProfileScreen(
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
                                     contentDescription = null,
-                                    tint = TextMuted,
-                                    modifier = Modifier.size(14.dp)
+                                    tint = InkMuted,
+                                    modifier = Modifier.size(13.dp)
                                 )
-                                Spacer(modifier = Modifier.width(2.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Text(
                                     text = userProfile.location,
-                                    fontSize = 12.5.sp,
-                                    color = TextSecondary
+                                    fontSize = 12.sp,
+                                    color = InkSecondary
                                 )
                             }
 
@@ -283,21 +279,22 @@ fun ProfileScreen(
                                 Icon(
                                     imageVector = Icons.Default.Star,
                                     contentDescription = null,
-                                    tint = BrandStarAmber,
-                                    modifier = Modifier.size(15.dp)
+                                    tint = RatingAmber,
+                                    modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
                                     text = "${userProfile.rating} (${userProfile.reviewCount} reviews)",
-                                    fontSize = 12.5.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
+                                    fontFamily = FontFamily.Monospace,
+                                    color = InkPrimary
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "· ${userProfile.memberSince}",
                                     fontSize = 11.5.sp,
-                                    color = TextMuted
+                                    color = InkMuted
                                 )
                             }
                         }
@@ -305,15 +302,15 @@ fun ProfileScreen(
                 }
             }
 
-            // User Bio Card
+            // User Bio Section
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp))
-                        .padding(16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(CanvasWhite)
+                        .border(1.dp, LineHairline, RoundedCornerShape(8.dp))
+                        .padding(14.dp)
                 ) {
                     Column {
                         Row(
@@ -322,18 +319,20 @@ fun ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "About Me & Equipment",
-                                fontSize = 13.sp,
+                                text = "// CREATOR BIO & HARDWARE FOCUS",
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.8.sp,
+                                color = InkMuted
                             )
 
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Edit bio",
-                                tint = TextMuted,
+                                tint = InkMuted,
                                 modifier = Modifier
-                                    .size(15.dp)
+                                    .size(14.dp)
                                     .clickable { isEditingProfile = true }
                             )
                         }
@@ -341,27 +340,29 @@ fun ProfileScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = if (userProfile.bio.isNotBlank()) userProfile.bio else "No bio added yet. Tap Edit Profile to add a bio.",
-                            fontSize = 13.5.sp,
+                            text = if (userProfile.bio.isNotBlank()) userProfile.bio else "No bio added yet. Tap EDIT to document your equipment setup.",
+                            fontSize = 13.sp,
                             lineHeight = 19.sp,
-                            color = if (userProfile.bio.isNotBlank()) TextPrimary else TextMuted,
+                            color = if (userProfile.bio.isNotBlank()) InkPrimary else InkMuted,
                             fontStyle = if (userProfile.bio.isBlank()) FontStyle.Italic else FontStyle.Normal
                         )
                     }
                 }
             }
 
-            // Trust Badges Carousel
+            // Trust Badges Strip
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Loop Trust Badges",
-                        fontSize = 14.sp,
+                        text = "COMMUNITY TRUST BADGES",
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.8.sp,
+                        color = InkMuted
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Row(
                         modifier = Modifier
@@ -372,16 +373,17 @@ fun ProfileScreen(
                         userProfile.badges.forEach { badge ->
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFEFF6FF))
-                                    .border(1.dp, Color(0xFFBFDBFE), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(CanvasWhite)
+                                    .border(1.dp, LineHairline, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = badge,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = BrandBlue
+                                    fontFamily = FontFamily.Monospace,
+                                    color = InkPrimary
                                 )
                             }
                         }
@@ -389,25 +391,25 @@ fun ProfileScreen(
                 }
             }
 
-            // Quick Metrics Row (Rentals, Listings, Earned)
+            // Tabular Metrics Row
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    MetricCard(
+                    MetricBox(
                         count = "${userProfile.rentalsCompleted}",
-                        label = "Rentals Done",
+                        label = "RENTALS",
                         modifier = Modifier.weight(1f)
                     )
-                    MetricCard(
+                    MetricBox(
                         count = "${userProfile.listingsCount}",
-                        label = "My Listings",
+                        label = "LISTINGS",
                         modifier = Modifier.weight(1f)
                     )
-                    MetricCard(
+                    MetricBox(
                         count = "₹${userProfile.earnedAmount}",
-                        label = "Earned",
+                        label = "EARNED",
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -418,31 +420,34 @@ fun ProfileScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp))
-                        .padding(16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(CanvasWhite)
+                        .border(1.dp, LineHairline, RoundedCornerShape(8.dp))
+                        .padding(14.dp)
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            text = "Verified Contact Info",
-                            fontSize = 13.5.sp,
+                            text = "// VERIFIED CONTACT RECORD",
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.8.sp,
+                            color = InkMuted
                         )
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Email,
                                 contentDescription = null,
-                                tint = TextMuted,
-                                modifier = Modifier.size(18.dp)
+                                tint = InkMuted,
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = userProfile.email,
                                 fontSize = 13.sp,
-                                color = TextPrimary
+                                fontFamily = FontFamily.Monospace,
+                                color = InkPrimary
                             )
                         }
 
@@ -450,36 +455,37 @@ fun ProfileScreen(
                             Icon(
                                 imageVector = Icons.Default.Phone,
                                 contentDescription = null,
-                                tint = TextMuted,
-                                modifier = Modifier.size(18.dp)
+                                tint = InkMuted,
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = userProfile.phone,
                                 fontSize = 13.sp,
-                                color = TextPrimary
+                                fontFamily = FontFamily.Monospace,
+                                color = InkPrimary
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Verified ✓",
-                                fontSize = 11.sp,
+                                text = "VERIFIED ✓",
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = BrandGreen
+                                fontFamily = FontFamily.Monospace,
+                                color = StatusLive
                             )
                         }
                     }
                 }
             }
 
-            // Profile Action Menu List
+            // Profile Navigation Menu Options
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp))
-                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(CanvasWhite)
+                        .border(1.dp, LineHairline, RoundedCornerShape(8.dp))
                 ) {
                     ProfileMenuRow(
                         icon = Icons.Default.ShoppingBag,
@@ -489,36 +495,36 @@ fun ProfileScreen(
                     )
                     ProfileMenuRow(
                         icon = Icons.Default.FavoriteBorder,
-                        title = "Saved & Wishlist",
+                        title = "Saved Hardware",
                         badge = "3 items"
                     )
                     ProfileMenuRow(
                         icon = Icons.Default.Security,
-                        title = "Security Deposit & Wallet",
+                        title = "Security Deposit & KYC Ledger",
                         badge = "₹0 Hold"
                     )
                     ProfileMenuRow(
                         icon = Icons.Default.Notifications,
-                        title = "Push Notifications & Alerts",
-                        badge = "On"
+                        title = "Alerts & Notifications",
+                        badge = "Live"
                     )
                     ProfileMenuRow(
                         icon = Icons.Default.Lock,
-                        title = "Privacy, Terms & KYC Safety"
+                        title = "Handover Protocol & Terms"
                     )
                     ProfileMenuRow(
                         icon = Icons.Default.HelpOutline,
-                        title = "Help Center & Community Guidelines"
+                        title = "Community Help & Support"
                     )
                 }
             }
 
             item {
-                Spacer(modifier = Modifier.height(84.dp))
+                Spacer(modifier = Modifier.height(76.dp))
             }
         }
 
-        // Interactive Edit Profile Bottom Sheet Modal
+        // Edit Profile Sheet Modal
         AnimatedVisibility(
             visible = isEditingProfile,
             enter = slideInVertically { it } + fadeIn(),
@@ -529,9 +535,9 @@ fun ProfileScreen(
                 onSave = { updatedProfile ->
                     RentalRepository.updateUserProfile(updatedProfile)
                     isEditingProfile = false
-                    saveSuccessMessage = "Profile updated & saved to Firestore cloud!"
+                    saveSuccessMessage = "Profile updated and synchronized."
                     coroutineScope.launch {
-                        delay(3500)
+                        delay(3000)
                         saveSuccessMessage = null
                     }
                 },
@@ -559,15 +565,15 @@ fun EditProfileModalSheet(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.6f))
+            .background(Color.Black.copy(alpha = 0.5f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.BottomCenter
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(Color.White)
+                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                .background(CanvasWhite)
                 .clickable(enabled = false) {}
                 .padding(horizontal = 20.dp, vertical = 20.dp)
                 .navigationBarsPadding()
@@ -585,15 +591,15 @@ fun EditProfileModalSheet(
                     ) {
                         Column {
                             Text(
-                                text = "Edit User Profile",
-                                fontSize = 20.sp,
+                                text = "Edit Profile Record",
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                color = InkPrimary
                             )
                             Text(
-                                text = "Changes synchronize with Firestore cloud",
+                                text = "Changes synchronize with Firestore cloud ledger",
                                 fontSize = 12.sp,
-                                color = TextSecondary
+                                color = InkSecondary
                             )
                         }
 
@@ -601,68 +607,8 @@ fun EditProfileModalSheet(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Close",
-                                tint = TextSecondary
+                                tint = InkSecondary
                             )
-                        }
-                    }
-                }
-
-                // Avatar Preset Selector
-                item {
-                    Column {
-                        Text(
-                            text = "Choose Profile Avatar Style",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            AVATAR_PRESETS.forEach { preset ->
-                                val isSelected = selectedPresetIndex == preset.id
-                                Box(
-                                    modifier = Modifier
-                                        .size(54.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            Brush.linearGradient(
-                                                colors = listOf(
-                                                    Color(preset.bgHex1),
-                                                    Color(preset.bgHex2)
-                                                )
-                                            )
-                                        )
-                                        .border(
-                                            width = if (isSelected) 3.dp else 1.dp,
-                                            color = if (isSelected) BrandBlue else Color.Transparent,
-                                            shape = CircleShape
-                                        )
-                                        .clickable { selectedPresetIndex = preset.id }
-                                        .testTag("avatar_preset_${preset.id}"),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Selected",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    } else {
-                                        Text(
-                                            text = preset.emoji,
-                                            fontSize = 18.sp
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -671,31 +617,32 @@ fun EditProfileModalSheet(
                 item {
                     Column {
                         Text(
-                            text = "Display Name",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
+                            text = "DISPLAY NAME",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = InkMuted
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(SurfaceSecondary)
-                                .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                                .padding(horizontal = 14.dp),
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CanvasSubtle)
+                                .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 12.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             BasicTextField(
                                 value = displayName,
                                 onValueChange = { displayName = it },
                                 textStyle = TextStyle(
-                                    fontSize = 14.5.sp,
-                                    color = TextPrimary,
+                                    fontSize = 14.sp,
+                                    color = InkPrimary,
                                     fontWeight = FontWeight.Medium
                                 ),
-                                cursorBrush = SolidColor(BrandDark),
+                                cursorBrush = SolidColor(CanvasDark),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .testTag("edit_display_name_input")
@@ -712,43 +659,45 @@ fun EditProfileModalSheet(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Bio & Equipment Details",
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
+                                text = "BIO & GEAR FOCUS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = InkMuted
                             )
                             Text(
                                 text = "${bio.length}/180",
-                                fontSize = 11.5.sp,
-                                color = TextMuted
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = InkMuted
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(88.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(SurfaceSecondary)
-                                .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                                .padding(12.dp),
+                                .height(80.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CanvasSubtle)
+                                .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+                                .padding(10.dp),
                             contentAlignment = Alignment.TopStart
                         ) {
                             BasicTextField(
                                 value = bio,
                                 onValueChange = { if (it.length <= 180) bio = it },
                                 textStyle = TextStyle(
-                                    fontSize = 13.5.sp,
-                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    color = InkPrimary,
                                     lineHeight = 18.sp
                                 ),
-                                cursorBrush = SolidColor(BrandDark),
+                                cursorBrush = SolidColor(CanvasDark),
                                 decorationBox = { inner ->
                                     if (bio.isEmpty()) {
                                         Text(
-                                            text = "Tell other community members what camera, laptop, or tools you rent...",
+                                            text = "Tell neighbors about cameras, audio, or tools you share...",
                                             fontSize = 13.sp,
-                                            color = TextMuted
+                                            color = InkMuted
                                         )
                                     }
                                     inner()
@@ -767,30 +716,30 @@ fun EditProfileModalSheet(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Phone
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Phone Number",
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
+                                text = "PHONE",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = InkMuted
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(SurfaceSecondary)
-                                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 12.dp),
+                                    .height(46.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(CanvasSubtle)
+                                    .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 10.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 BasicTextField(
                                     value = phone,
                                     onValueChange = { phone = it },
-                                    textStyle = TextStyle(fontSize = 13.5.sp, color = TextPrimary),
-                                    cursorBrush = SolidColor(BrandDark),
+                                    textStyle = TextStyle(fontSize = 13.sp, color = InkPrimary),
+                                    cursorBrush = SolidColor(CanvasDark),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .testTag("edit_phone_input")
@@ -798,30 +747,30 @@ fun EditProfileModalSheet(
                             }
                         }
 
-                        // Location
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Location / City",
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
+                                text = "LOCATION",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = InkMuted
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(SurfaceSecondary)
-                                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 12.dp),
+                                    .height(46.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(CanvasSubtle)
+                                    .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 10.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 BasicTextField(
                                     value = location,
                                     onValueChange = { location = it },
-                                    textStyle = TextStyle(fontSize = 13.5.sp, color = TextPrimary),
-                                    cursorBrush = SolidColor(BrandDark),
+                                    textStyle = TextStyle(fontSize = 13.sp, color = InkPrimary),
+                                    cursorBrush = SolidColor(CanvasDark),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .testTag("edit_location_input")
@@ -831,7 +780,7 @@ fun EditProfileModalSheet(
                     }
                 }
 
-                // Action Buttons: Save Changes & Cancel
+                // Action Buttons
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -839,64 +788,33 @@ fun EditProfileModalSheet(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Cancel
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(SurfaceSecondary)
-                                .clickable(onClick = onDismiss),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Cancel",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                        }
+                        LoopSecondaryButton(
+                            text = "CANCEL",
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
+                        )
 
-                        // Save Changes
-                        Box(
-                            modifier = Modifier
-                                .weight(1.3f)
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(BrandDark)
-                                .clickable {
-                                    isSaving = true
-                                    coroutineScope.launch {
-                                        delay(400)
-                                        val updated = currentProfile.copy(
-                                            displayName = displayName.ifBlank { "Gokulan R" },
-                                            bio = bio,
-                                            phone = phone,
-                                            location = location.ifBlank { "White Town, Puducherry" },
-                                            avatarPresetIndex = selectedPresetIndex
-                                        )
-                                        onSave(updated)
-                                        isSaving = false
-                                    }
+                        LoopPrimaryButton(
+                            text = if (isSaving) "SAVING..." else "SAVE PROFILE",
+                            onClick = {
+                                isSaving = true
+                                coroutineScope.launch {
+                                    delay(400)
+                                    val updated = currentProfile.copy(
+                                        displayName = displayName.ifBlank { "Gokulan R" },
+                                        bio = bio,
+                                        phone = phone,
+                                        location = location.ifBlank { "White Town, Puducherry" },
+                                        avatarPresetIndex = selectedPresetIndex
+                                    )
+                                    onSave(updated)
+                                    isSaving = false
                                 }
-                                .testTag("save_profile_button"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isSaving) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Text(
-                                    text = "Save Profile",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
+                            },
+                            enabled = !isSaving,
+                            modifier = Modifier.weight(1.3f),
+                            testTag = "save_profile_button"
+                        )
                     }
                 }
             }
@@ -905,32 +823,34 @@ fun EditProfileModalSheet(
 }
 
 @Composable
-private fun MetricCard(
+private fun MetricBox(
     count: String,
     label: String,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(SurfaceCard)
-            .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
-            .padding(vertical = 14.dp, horizontal = 10.dp),
+            .clip(RoundedCornerShape(6.dp))
+            .background(CanvasWhite)
+            .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+            .padding(vertical = 12.dp, horizontal = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = count,
-                fontSize = 17.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                fontFamily = FontFamily.Monospace,
+                color = InkPrimary
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
-                fontSize = 11.5.sp,
-                color = TextSecondary,
-                maxLines = 1
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = InkMuted
             )
         }
     }
@@ -947,7 +867,7 @@ private fun ProfileMenuRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 14.dp, vertical = 13.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -955,15 +875,15 @@ private fun ProfileMenuRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = TextPrimary,
-                modifier = Modifier.size(20.dp)
+                tint = InkPrimary,
+                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = title,
-                fontSize = 14.sp,
+                fontSize = 13.5.sp,
                 fontWeight = FontWeight.Medium,
-                color = TextPrimary
+                color = InkPrimary
             )
         }
 
@@ -971,24 +891,25 @@ private fun ProfileMenuRow(
             if (badge != null) {
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(SurfaceSecondary)
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(CanvasSubtle)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = badge,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = BrandBlue
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = InkSecondary
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
             }
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = TextMuted,
-                modifier = Modifier.size(18.dp)
+                tint = InkMuted,
+                modifier = Modifier.size(16.dp)
             )
         }
     }

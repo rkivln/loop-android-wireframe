@@ -9,31 +9,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 val LoopShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(14.dp),
-    large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(28.dp)
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(6.dp),
+    medium = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(12.dp),
+    extraLarge = RoundedCornerShape(16.dp)
 )
 
 private val LoopLightColorScheme = lightColorScheme(
-    primary = BrandDark,
+    primary = CanvasDark,
     onPrimary = Color.White,
-    primaryContainer = SurfaceSecondary,
-    onPrimaryContainer = TextPrimary,
-    secondary = BrandBlue,
+    primaryContainer = CanvasSubtle,
+    onPrimaryContainer = InkPrimary,
+    secondary = AccentCobalt,
     onSecondary = Color.White,
-    secondaryContainer = CategoryElectronicsBg,
-    onSecondaryContainer = BrandBlue,
-    background = BackgroundLight,
-    onBackground = TextPrimary,
-    surface = SurfacePureWhite,
-    onSurface = TextPrimary,
-    surfaceVariant = SurfaceSecondary,
-    onSurfaceVariant = TextSecondary,
-    outline = BorderSubtle,
-    outlineVariant = BorderDefault,
-    error = BrandRed,
+    secondaryContainer = AccentCobaltSubtle,
+    onSecondaryContainer = AccentCobalt,
+    background = CanvasGround,
+    onBackground = InkPrimary,
+    surface = CanvasWhite,
+    onSurface = InkPrimary,
+    surfaceVariant = CanvasSubtle,
+    onSurfaceVariant = InkSecondary,
+    outline = LineHairline,
+    outlineVariant = LineHairline,
+    error = AlertCrimson,
     onError = Color.White
 )
 

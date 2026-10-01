@@ -24,10 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
@@ -37,6 +34,7 @@ import androidx.compose.material.icons.filled.SdCard
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -54,26 +52,26 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.RentalItem
 import com.example.data.models.SpecFeature
-import com.example.ui.components.DarkPillButton
-import com.example.ui.theme.BackgroundLight
-import com.example.ui.theme.BorderDefault
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandBlue
-import com.example.ui.theme.BrandDark
-import com.example.ui.theme.BrandGreen
-import com.example.ui.theme.BrandRed
-import com.example.ui.theme.BrandStarAmber
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceSecondary
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.components.LoopPrimaryButton
+import com.example.ui.components.LoopSecondaryButton
+import com.example.ui.theme.AccentCobalt
+import com.example.ui.theme.AlertCrimson
+import com.example.ui.theme.CanvasDark
+import com.example.ui.theme.CanvasGround
+import com.example.ui.theme.CanvasSubtle
+import com.example.ui.theme.CanvasWhite
+import com.example.ui.theme.InkMuted
+import com.example.ui.theme.InkPrimary
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.LineHairline
+import com.example.ui.theme.RatingAmber
+import com.example.ui.theme.StatusLive
 
 @Composable
 fun ItemDetailsScreen(
@@ -91,20 +89,20 @@ fun ItemDetailsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(CanvasGround)
     ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 80.dp)
+                .padding(bottom = 76.dp)
         ) {
-            // Hero Image Container with Top Action Icons & 1/5 counter badge
+            // Hardware Photo Gallery Showcase
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(340.dp)
-                        .background(SurfaceSecondary)
+                        .height(310.dp)
+                        .background(CanvasSubtle)
                 ) {
                     Image(
                         painter = painterResource(id = item.primaryImageRes),
@@ -125,9 +123,10 @@ fun ItemDetailsScreen(
                         // Back button
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CanvasWhite.copy(alpha = 0.92f))
+                                .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
                                 .clickable(onClick = onBack)
                                 .testTag("details_back_btn"),
                             contentAlignment = Alignment.Center
@@ -135,18 +134,19 @@ fun ItemDetailsScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(20.dp)
+                                tint = InkPrimary,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
 
                         // Right icons (Heart & Share)
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(CanvasWhite.copy(alpha = 0.92f))
+                                    .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
                                     .clickable {
                                         isFavorite = !isFavorite
                                         onToggleFavorite(item.id)
@@ -157,16 +157,17 @@ fun ItemDetailsScreen(
                                 Icon(
                                     imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                     contentDescription = "Favorite",
-                                    tint = if (isFavorite) BrandRed else TextPrimary,
-                                    modifier = Modifier.size(20.dp)
+                                    tint = if (isFavorite) AlertCrimson else InkPrimary,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
 
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(CanvasWhite.copy(alpha = 0.92f))
+                                    .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
                                     .clickable { /* share */ }
                                     .testTag("details_share_btn"),
                                 contentAlignment = Alignment.Center
@@ -174,265 +175,422 @@ fun ItemDetailsScreen(
                                 Icon(
                                     imageVector = Icons.Default.Share,
                                     contentDescription = "Share",
-                                    tint = TextPrimary,
-                                    modifier = Modifier.size(20.dp)
+                                    tint = InkPrimary,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                     }
 
-                    // 1 / 5 Photo Counter Badge (Bottom Right)
-                    Box(
+                    // Photo Counter & Inspection Status Pill (Bottom)
+                    Row(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(16.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = "1 / ${item.imageCount}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(CanvasDark.copy(alpha = 0.85f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "1 / ${item.imageCount} PHOTOS",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
 
-            // Title, Rating, Price, Badges, Specs, Description, Owner
+            // Hardware Dossier: Title, Price, Specs, Description, Host
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Title & Rating
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = item.title,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-
-                        // Rating Badge (⭐ 4.9 (32))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = BrandStarAmber,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${item.rating} (${item.reviewCount})",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Price per day
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "₹${item.pricePerDay}",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = " / day",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextSecondary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Location & Availability Badges
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Location badge
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = TextSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = item.location,
-                                fontSize = 13.sp,
-                                color = TextSecondary
-                            )
-                        }
-
-                        // Availability badge
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = null,
-                                tint = TextSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (item.availableToday) "Available today" else "Available from tomorrow",
-                                fontSize = 13.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Description text
-                    Text(
-                        text = item.description,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        color = TextSecondary
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // 4 Spec Feature Cards Grid
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item.features.take(4).forEach { feature ->
-                            SpecFeatureBox(
-                                feature = feature,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Owner Card Row (Rakesh Kumar ⭐ Top Owner)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(SurfaceCard)
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp))
-                            .clickable(onClick = onContactOwner)
-                            .padding(14.dp)
-                    ) {
+                    // Header Block: Category, Title, Rating, Price
+                    Column {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Text(
+                                text = "// ${item.category.title.uppercase()} HARDWARE",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.8.sp,
+                                color = InkMuted
+                            )
+
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                // Avatar RK
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF64748B), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = item.owner.initials,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = RatingAmber,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "${item.rating} (${item.reviewCount} reviews)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = InkPrimary
+                                )
+                            }
+                        }
 
-                                Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = item.owner.name,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = item.title,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp,
+                            color = InkPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "₹${item.pricePerDay}",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                color = InkPrimary
+                            )
+                            Text(
+                                text = " / day",
+                                fontSize = 13.sp,
+                                color = InkMuted,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(CanvasSubtle)
+                                    .border(1.dp, LineHairline, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "ZERO DEPOSIT WITH ID",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = StatusLive
+                                )
+                            }
+                        }
+                    }
+
+                    // Technical Specifications Matrix (Hairline Grid)
+                    Column {
+                        Text(
+                            text = "HARDWARE SPECIFICATIONS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.8.sp,
+                            color = InkMuted
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CanvasWhite)
+                                .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+                        ) {
+                            Column {
+                                val features = item.features
+                                for (i in features.indices step 2) {
+                                    if (i > 0) {
                                         Box(
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(Color(0xFFEFF6FF))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = "★ ${item.owner.badge}",
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = BrandBlue
+                                                .fillMaxWidth()
+                                                .height(1.dp)
+                                                .background(LineHairline)
+                                        )
+                                    }
+                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                        SpecMatrixCell(
+                                            feature = features[i],
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .width(1.dp)
+                                                .height(54.dp)
+                                                .background(LineHairline)
+                                        )
+                                        if (i + 1 < features.size) {
+                                            SpecMatrixCell(
+                                                feature = features[i + 1],
+                                                modifier = Modifier.weight(1f)
                                             )
+                                        } else {
+                                            Spacer(modifier = Modifier.weight(1f))
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = item.owner.memberSince,
-                                        fontSize = 12.sp,
-                                        color = TextMuted
-                                    )
                                 }
                             }
+                        }
+                    }
 
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = "View Profile",
-                                tint = TextMuted,
-                                modifier = Modifier.size(20.dp)
+                    // Equipment Description
+                    Column {
+                        Text(
+                            text = "DESCRIPTION & INCLUDED KIT",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.8.sp,
+                            color = InkMuted
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CanvasWhite)
+                                .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = item.description,
+                                fontSize = 13.5.sp,
+                                lineHeight = 20.sp,
+                                color = InkPrimary
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    // Verified Host Dossier Card
+                    Column {
+                        Text(
+                            text = "EQUIPMENT HOST",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.8.sp,
+                            color = InkMuted
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CanvasWhite)
+                                .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+                                .padding(14.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(CanvasDark),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = item.owner.initials,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = Color.White
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(10.dp))
+
+                                        Column {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = item.owner.name,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = InkPrimary
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Icon(
+                                                    imageVector = Icons.Default.VerifiedUser,
+                                                    contentDescription = "Verified",
+                                                    tint = AccentCobalt,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = "${item.owner.badge} · ${item.owner.memberSince}",
+                                                fontSize = 11.5.sp,
+                                                color = InkSecondary
+                                            )
+                                        }
+                                    }
+
+                                    // Direct Chat Action
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(CanvasSubtle)
+                                            .border(1.dp, LineHairline, RoundedCornerShape(4.dp))
+                                            .clickable(onClick = onContactOwner)
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                            .testTag("details_chat_host_btn"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "CHAT",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = InkPrimary
+                                        )
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(LineHairline)
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "AVG RESPONSE",
+                                            fontSize = 9.5.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = InkMuted
+                                        )
+                                        Text(
+                                            text = item.owner.responseTime,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = InkPrimary
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "TOTAL RENTALS",
+                                            fontSize = 9.5.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = InkMuted
+                                        )
+                                        Text(
+                                            text = "${item.owner.totalRentals} completed",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = InkPrimary
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "PICKUP AREA",
+                                            fontSize = 9.5.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = InkMuted
+                                        )
+                                        Text(
+                                            text = "White Town",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = InkPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
         }
 
-        // Sticky Bottom Rent Now Button
+        // Persistent Architectural Rental Action Bar
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color.White)
-                .border(1.dp, BorderSubtle, RoundedCornerShape(0.dp))
+                .background(CanvasWhite)
+                .border(1.dp, LineHairline, RoundedCornerShape(0.dp))
                 .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 18.dp, vertical = 10.dp)
         ) {
-            DarkPillButton(
-                text = "Rent Now",
-                onClick = onRentNow,
-                height = 52.dp,
-                showArrow = true,
-                testTag = "details_rent_now_btn"
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "₹${item.pricePerDay}",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            color = InkPrimary
+                        )
+                        Text(
+                            text = "/day",
+                            fontSize = 11.5.sp,
+                            color = InkMuted,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Text(
+                        text = "Zero Deposit · White Town Handover",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = StatusLive
+                    )
+                }
+
+                LoopPrimaryButton(
+                    text = "RENT NOW",
+                    onClick = onRentNow,
+                    height = 44.dp,
+                    showArrow = true,
+                    modifier = Modifier.width(160.dp),
+                    testTag = "details_rent_now_btn"
+                )
+            }
         }
     }
 }
 
 @Composable
-fun SpecFeatureBox(
+private fun SpecMatrixCell(
     feature: SpecFeature,
     modifier: Modifier = Modifier
 ) {
-    val boxShape = RoundedCornerShape(12.dp)
     val icon = when (feature.iconType) {
         "CAMERA" -> Icons.Default.PhotoCamera
         "LENS" -> Icons.Default.ZoomIn
@@ -442,34 +600,31 @@ fun SpecFeatureBox(
         else -> Icons.Default.PhotoCamera
     }
 
-    Box(
-        modifier = modifier
-            .height(84.dp)
-            .clip(boxShape)
-            .background(SurfaceCard, boxShape)
-            .border(1.dp, BorderSubtle, boxShape)
-            .padding(6.dp),
-        contentAlignment = Alignment.Center
+    Row(
+        modifier = modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = TextPrimary,
-                modifier = Modifier.size(20.dp)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = InkMuted,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                text = feature.iconType,
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = InkMuted
             )
-            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = feature.label,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = TextPrimary,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 13.sp,
-                maxLines = 2
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = InkPrimary,
+                maxLines = 1
             )
         }
     }

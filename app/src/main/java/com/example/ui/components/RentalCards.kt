@@ -24,9 +24,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -36,20 +38,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandDark
-import com.example.ui.theme.BrandRed
-import com.example.ui.theme.BrandStarAmber
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceSecondary
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.AlertCrimson
+import com.example.ui.theme.CanvasDark
+import com.example.ui.theme.CanvasSubtle
+import com.example.ui.theme.CanvasWhite
+import com.example.ui.theme.InkMuted
+import com.example.ui.theme.InkPrimary
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.LineHairline
+import com.example.ui.theme.RatingAmber
+import com.example.ui.theme.StatusLive
 
 @Composable
 fun CategoryAvatarRow(
@@ -59,8 +63,9 @@ fun CategoryAvatarRow(
 ) {
     val categories = listOf(
         RentalCategory.ELECTRONICS,
-        RentalCategory.FURNITURE,
         RentalCategory.VEHICLES,
+        RentalCategory.STUDY_OFFICE,
+        RentalCategory.FURNITURE,
         RentalCategory.TOOLS,
         RentalCategory.EVENTS
     )
@@ -69,46 +74,44 @@ fun CategoryAvatarRow(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         categories.forEach { cat ->
             val isSelected = selectedCategory == cat
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            val shape = RoundedCornerShape(6.dp)
+
+            Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onSelectCategory(cat) }
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                    .clip(shape)
+                    .background(if (isSelected) CanvasDark else CanvasWhite, shape)
+                    .border(1.dp, if (isSelected) CanvasDark else LineHairline, shape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = Color.LightGray),
+                        onClick = { onSelectCategory(cat) }
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .testTag("category_chip_${cat.name}")
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(Color(cat.bgHex), CircleShape)
-                        .border(
-                            if (isSelected) 2.dp else 0.dp,
-                            if (isSelected) BrandDark else Color.Transparent,
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = cat.iconEmoji,
-                        fontSize = 24.sp
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = cat.title,
+                        fontSize = 12.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else InkPrimary
                     )
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = cat.title,
-                    fontSize = 12.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = TextPrimary
-                )
             }
         }
     }
 }
 
+// Gear Listing Card: Editorial, high-clarity hardware frame
 @Composable
 fun PopularItemCard(
     item: RentalItem,
@@ -116,24 +119,28 @@ fun PopularItemCard(
     onToggleFavorite: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cardShape = RoundedCornerShape(16.dp)
+    val cardShape = RoundedCornerShape(8.dp)
 
     Box(
         modifier = modifier
-            .width(155.dp)
+            .width(172.dp)
             .clip(cardShape)
-            .background(SurfaceCard, cardShape)
-            .border(1.dp, BorderSubtle, cardShape)
-            .clickable(onClick = onClick)
+            .background(CanvasWhite, cardShape)
+            .border(1.dp, LineHairline, cardShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = Color.LightGray),
+                onClick = onClick
+            )
             .testTag("popular_card_${item.id}")
     ) {
         Column {
-            // Image Box
+            // Hardware Photo Container
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(130.dp)
-                    .background(SurfaceSecondary)
+                    .height(134.dp)
+                    .background(CanvasSubtle)
             ) {
                 Image(
                     painter = painterResource(id = item.primaryImageRes),
@@ -142,89 +149,142 @@ fun PopularItemCard(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Favorite Heart Button Top Right
+                // Live Availability Tag Top-Left
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(CanvasDark.copy(alpha = 0.85f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(StatusLive)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "AVAILABLE",
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.5.sp,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // Tactile Favorite Toggle Top-Right
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(8.dp)
+                        .padding(6.dp)
                         .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.85f), CircleShape)
-                        .clickable { onToggleFavorite(item.id) },
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(CanvasWhite.copy(alpha = 0.95f))
+                        .border(0.5.dp, LineHairline, RoundedCornerShape(6.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(color = AlertCrimson.copy(alpha = 0.2f)),
+                            onClick = { onToggleFavorite(item.id) }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (item.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (item.isFavorite) BrandRed else TextSecondary,
-                        modifier = Modifier.size(16.dp)
+                        tint = if (item.isFavorite) AlertCrimson else InkPrimary,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
 
-            // Details
+            // Technical Gear Specifications & Pricing
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(10.dp)
+                    .padding(horizontal = 10.dp, vertical = 10.dp)
             ) {
+                // Category Meta Tag
+                Text(
+                    text = item.category.title.uppercase(),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.5.sp,
+                    color = InkMuted
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
                 Text(
                     text = item.title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = InkPrimary,
                     maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(2.dp))
 
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = "₹${item.pricePerDay}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = " / day",
-                        fontSize = 11.sp,
-                        color = TextMuted
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    Text(
-                        text = item.location,
-                        fontSize = 11.sp,
-                        color = TextSecondary
-                    )
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "₹${item.pricePerDay}",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            color = InkPrimary
+                        )
+                        Text(
+                            text = "/d",
+                            fontSize = 11.sp,
+                            color = InkMuted,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
 
+                    // Rating
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.Star,
-                            contentDescription = "Rating",
-                            tint = BrandStarAmber,
+                            contentDescription = null,
+                            tint = RatingAmber,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = "${item.rating}",
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            fontFamily = FontFamily.Monospace,
+                            color = InkPrimary
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Location / Distance
+                Text(
+                    text = "White Town · ${item.location}",
+                    fontSize = 11.sp,
+                    color = InkSecondary,
+                    maxLines = 1
+                )
             }
         }
     }
 }
 
+// Curated Collection Banner: High-contrast architectural editorial split
 @Composable
 fun CategoryBannerCard(
     title: String,
@@ -233,19 +293,23 @@ fun CategoryBannerCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(8.dp)
 
     Box(
         modifier = modifier
-            .height(136.dp)
+            .height(132.dp)
             .clip(shape)
-            .background(Color(0xFFF1F5F9), shape)
-            .clickable(onClick = onClick)
+            .background(CanvasWhite, shape)
+            .border(1.dp, LineHairline, shape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = Color.LightGray),
+                onClick = onClick
+            )
+            .padding(12.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
@@ -257,47 +321,57 @@ fun CategoryBannerCard(
             ) {
                 Column {
                     Text(
+                        text = "COLLECTION",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.8.sp,
+                        color = InkMuted
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
                         text = title,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = InkPrimary
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = subtitle,
                         fontSize = 11.sp,
                         lineHeight = 14.sp,
-                        color = TextSecondary,
+                        color = InkSecondary,
                         maxLines = 2
                     )
                 }
 
-                // Bottom Left Circular Arrow Button
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color.White, CircleShape)
-                        .border(1.dp, BorderSubtle, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
+                // Clean forward arrow indicator
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "EXPLORE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.5.sp,
+                        color = InkPrimary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = BrandDark,
-                        modifier = Modifier.size(14.dp)
+                        tint = InkPrimary,
+                        modifier = Modifier.size(12.dp)
                     )
                 }
             }
 
-            // Right image
             Image(
                 painter = painterResource(id = imageRes),
                 contentDescription = title,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .weight(0.9f)
-                    .size(90.dp)
+                    .size(86.dp)
             )
         }
     }

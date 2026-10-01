@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -37,15 +37,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandDark
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.CanvasDark
+import com.example.ui.theme.CanvasWhite
+import com.example.ui.theme.InkMuted
+import com.example.ui.theme.InkPrimary
+import com.example.ui.theme.LineHairline
 
 enum class LoopTab {
     HOME,
@@ -64,28 +64,28 @@ fun LoopBottomNavigation(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .background(CanvasWhite)
+            .border(width = 1.dp, color = LineHairline, shape = RoundedCornerShape(0.dp))
             .navigationBarsPadding()
-            .background(SurfaceCard)
-            .border(1.dp, BorderSubtle, RoundedCornerShape(0.dp))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = 16.dp),
+                .height(60.dp)
+                .padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Home
+            // Home / Inventory
             LoopNavItem(
                 icon = if (selectedTab == LoopTab.HOME) Icons.Filled.Home else Icons.Outlined.Home,
-                label = "Home",
+                label = "Inventory",
                 isSelected = selectedTab == LoopTab.HOME,
                 onClick = { onTabSelected(LoopTab.HOME) },
                 testTag = "nav_home"
             )
 
-            // Explore
+            // Explore / Map
             LoopNavItem(
                 icon = if (selectedTab == LoopTab.EXPLORE) Icons.Filled.Explore else Icons.Outlined.Explore,
                 label = "Explore",
@@ -94,11 +94,11 @@ fun LoopBottomNavigation(
                 testTag = "nav_explore"
             )
 
-            // Center + List Button
+            // Center Technical "+ List" Action
             Box(
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(BrandDark, CircleShape)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(CanvasDark)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(color = Color.White),
@@ -111,15 +111,17 @@ fun LoopBottomNavigation(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "List item",
+                        contentDescription = "List gear",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(15.dp)
                     )
-                    Spacer(modifier = Modifier.size(2.dp))
+                    Spacer(modifier = Modifier.size(4.dp))
                     Text(
-                        text = "List",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        text = "LIST GEAR",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        fontFamily = FontFamily.Monospace,
                         color = Color.White
                     )
                 }
@@ -128,7 +130,7 @@ fun LoopBottomNavigation(
             // Messages
             LoopNavItem(
                 icon = if (selectedTab == LoopTab.MESSAGES) Icons.Filled.ChatBubble else Icons.Outlined.ChatBubbleOutline,
-                label = "Messages",
+                label = "Chats",
                 isSelected = selectedTab == LoopTab.MESSAGES,
                 onClick = { onTabSelected(LoopTab.MESSAGES) },
                 testTag = "nav_messages"
@@ -137,7 +139,7 @@ fun LoopBottomNavigation(
             // Profile
             LoopNavItem(
                 icon = if (selectedTab == LoopTab.PROFILE) Icons.Filled.Person else Icons.Outlined.Person,
-                label = "Profile",
+                label = "Identity",
                 isSelected = selectedTab == LoopTab.PROFILE,
                 onClick = { onTabSelected(LoopTab.PROFILE) },
                 testTag = "nav_profile"
@@ -159,25 +161,34 @@ private fun LoopNavItem(
         verticalArrangement = Arrangement.Center,
         modifier = Modifier
             .testTag(testTag)
-            .clip(RoundedCornerShape(8.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(color = Color.LightGray),
+                indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = if (isSelected) BrandDark else TextMuted,
-            modifier = Modifier.size(22.dp)
+            tint = if (isSelected) InkPrimary else InkMuted,
+            modifier = Modifier.size(20.dp)
         )
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
             fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) BrandDark else TextMuted
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            color = if (isSelected) InkPrimary else InkMuted
+        )
+
+        // Architectural indicator bar
+        Spacer(modifier = Modifier.height(3.dp))
+        Box(
+            modifier = Modifier
+                .width(16.dp)
+                .height(2.dp)
+                .background(if (isSelected) InkPrimary else Color.Transparent)
         )
     }
 }

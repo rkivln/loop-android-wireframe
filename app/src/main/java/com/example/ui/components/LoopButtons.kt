@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -27,29 +28,38 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.AccentCobalt
+import com.example.ui.theme.AccentCobaltSubtle
 import com.example.ui.theme.BorderDefault
 import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandDark
-import com.example.ui.theme.SurfaceCard
+import com.example.ui.theme.CanvasDark
+import com.example.ui.theme.CanvasSubtle
+import com.example.ui.theme.CanvasWhite
+import com.example.ui.theme.InkMuted
+import com.example.ui.theme.InkPrimary
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.LineHairline
 import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 
+// Primary Action Button: Architectural, solid, crisp 8dp radius
 @Composable
-fun DarkPillButton(
+fun LoopPrimaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    height: Dp = 54.dp,
+    height: Dp = 48.dp,
     showArrow: Boolean = true,
     enabled: Boolean = true,
-    testTag: String = "dark_pill_button"
+    testTag: String = "primary_button"
 ) {
-    val shape = RoundedCornerShape(27.dp)
+    val shape = RoundedCornerShape(8.dp)
 
     Box(
         modifier = modifier
@@ -57,7 +67,7 @@ fun DarkPillButton(
             .fillMaxWidth()
             .height(height)
             .clip(shape)
-            .background(if (enabled) BrandDark else TextMuted, shape)
+            .background(if (enabled) CanvasDark else InkMuted, shape)
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -72,33 +82,34 @@ fun DarkPillButton(
         ) {
             Text(
                 text = text,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextLight,
-                letterSpacing = 0.2.sp
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                letterSpacing = 0.3.sp
             )
             if (showArrow) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
-                    tint = TextLight,
-                    modifier = Modifier.size(18.dp)
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
     }
 }
 
+// Secondary Action Button: Clean white, hairline border, dark text
 @Composable
-fun OutlinedPillButton(
+fun LoopSecondaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    height: Dp = 54.dp,
-    testTag: String = "outlined_pill_button"
+    height: Dp = 48.dp,
+    testTag: String = "secondary_button"
 ) {
-    val shape = RoundedCornerShape(27.dp)
+    val shape = RoundedCornerShape(8.dp)
 
     Box(
         modifier = modifier
@@ -106,8 +117,8 @@ fun OutlinedPillButton(
             .fillMaxWidth()
             .height(height)
             .clip(shape)
-            .background(Color.White, shape)
-            .border(1.dp, BorderDefault, shape)
+            .background(CanvasWhite, shape)
+            .border(1.dp, LineHairline, shape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(color = Color.LightGray),
@@ -117,11 +128,103 @@ fun OutlinedPillButton(
     ) {
         Text(
             text = text,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            color = TextPrimary
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = InkPrimary,
+            letterSpacing = 0.2.sp
         )
     }
+}
+
+// Technical Filter Chip with counts
+@Composable
+fun LoopFilterChip(
+    label: String,
+    count: Int? = null,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(6.dp)
+
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(
+                if (isSelected) CanvasDark else CanvasSubtle,
+                shape
+            )
+            .border(
+                1.dp,
+                if (isSelected) CanvasDark else LineHairline,
+                shape
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = Color.LightGray),
+                onClick = onClick
+            )
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) Color.White else InkPrimary
+            )
+            if (count != null) {
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = "$count",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isSelected) Color.White.copy(alpha = 0.7f) else InkMuted
+                )
+            }
+        }
+    }
+}
+
+// Backwards-compatible aliases with modern refined styling
+@Composable
+fun DarkPillButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    height: Dp = 48.dp,
+    showArrow: Boolean = true,
+    enabled: Boolean = true,
+    testTag: String = "dark_pill_button"
+) {
+    LoopPrimaryButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        height = height,
+        showArrow = showArrow,
+        enabled = enabled,
+        testTag = testTag
+    )
+}
+
+@Composable
+fun OutlinedPillButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    height: Dp = 48.dp,
+    testTag: String = "outlined_pill_button"
+) {
+    LoopSecondaryButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        height = height,
+        testTag = testTag
+    )
 }
 
 @Composable
@@ -130,19 +233,21 @@ fun CircularIconButton(
     onClick: () -> Unit,
     contentDescription: String,
     modifier: Modifier = Modifier,
-    size: Dp = 40.dp,
-    iconSize: Dp = 20.dp,
-    backgroundColor: Color = SurfaceCard,
-    tint: Color = TextPrimary,
+    size: Dp = 38.dp,
+    iconSize: Dp = 18.dp,
+    backgroundColor: Color = CanvasWhite,
+    tint: Color = InkPrimary,
     testTag: String = "circular_icon_btn"
 ) {
+    val shape = RoundedCornerShape(8.dp)
+
     Box(
         modifier = modifier
             .testTag(testTag)
             .size(size)
-            .clip(CircleShape)
-            .background(backgroundColor, CircleShape)
-            .border(1.dp, BorderSubtle, CircleShape)
+            .clip(shape)
+            .background(backgroundColor, shape)
+            .border(1.dp, LineHairline, shape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(color = Color.LightGray),

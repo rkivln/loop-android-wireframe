@@ -153,9 +153,9 @@ fun BookingScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .background(SurfaceCard)
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp))
+                            .border(1.dp, BorderSubtle, RoundedCornerShape(6.dp))
                             .padding(12.dp)
                     ) {
                         Row(
@@ -168,8 +168,8 @@ fun BookingScreen(
                                 contentDescription = item.title,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(68.dp)
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .size(64.dp)
+                                    .clip(RoundedCornerShape(4.dp))
                             )
 
                             Spacer(modifier = Modifier.width(14.dp))
@@ -187,13 +187,15 @@ fun BookingScreen(
                                 Row(verticalAlignment = Alignment.Bottom) {
                                     Text(
                                         text = "₹${item.pricePerDay}",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Black,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                         color = TextPrimary
                                     )
                                     Text(
                                         text = " / day",
                                         fontSize = 12.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                         color = TextMuted
                                     )
                                 }
@@ -212,6 +214,7 @@ fun BookingScreen(
                                         text = "${item.rating} (${item.reviewCount})",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                         color = TextPrimary
                                     )
                                 }

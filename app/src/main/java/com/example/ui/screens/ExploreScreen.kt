@@ -23,9 +23,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -41,23 +41,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.RentalRepository
-import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
 import com.example.ui.components.CategoryAvatarRow
 import com.example.ui.components.PopularItemCard
-import com.example.ui.theme.BackgroundLight
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandDark
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.CanvasDark
+import com.example.ui.theme.CanvasGround
+import com.example.ui.theme.CanvasSubtle
+import com.example.ui.theme.CanvasWhite
+import com.example.ui.theme.InkMuted
+import com.example.ui.theme.InkPrimary
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.LineHairline
 
 @Composable
 fun ExploreScreen(
@@ -76,8 +77,10 @@ fun ExploreScreen(
     val filteredItems = remember(items, selectedCategory, searchQuery) {
         items.filter { item ->
             val matchesCategory = selectedCategory == null || item.category == selectedCategory
-            val matchesQuery = searchQuery.isBlank() || item.title.contains(searchQuery, ignoreCase = true) ||
-                    item.description.contains(searchQuery, ignoreCase = true) || item.location.contains(searchQuery, ignoreCase = true)
+            val matchesQuery = searchQuery.isBlank() ||
+                    item.title.contains(searchQuery, ignoreCase = true) ||
+                    item.description.contains(searchQuery, ignoreCase = true) ||
+                    item.location.contains(searchQuery, ignoreCase = true)
             matchesCategory && matchesQuery
         }
     }
@@ -94,7 +97,7 @@ fun ExploreScreen(
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(BackgroundLight)
+                .background(CanvasGround)
         ) {
             Column(
                 modifier = Modifier
@@ -102,39 +105,39 @@ fun ExploreScreen(
                     .statusBarsPadding()
                     .padding(horizontal = 18.dp)
             ) {
-                // Header Title with "🗺️ Map View" Toggle Button
+                // Header Bar: Catalogue Title & Map Switcher
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 12.dp),
+                        .padding(top = 10.dp, bottom = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Text(
-                            text = "Explore Loop",
-                            fontSize = 24.sp,
+                            text = "Equipment Catalogue",
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = InkPrimary
                         )
                         Text(
-                            text = "${filteredItems.size} items nearby in Puducherry",
+                            text = "${filteredItems.size} verified units listed in White Town",
                             fontSize = 12.sp,
-                            color = TextSecondary
+                            color = InkSecondary
                         )
                     }
 
                     // Map Discovery View Toggle Button
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(BrandDark)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(CanvasDark)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = ripple(color = Color.White),
                                 onClick = { isMapView = true }
                             )
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
                             .testTag("explore_map_toggle_btn"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -143,13 +146,15 @@ fun ExploreScreen(
                                 imageVector = Icons.Default.Map,
                                 contentDescription = "Map View",
                                 tint = Color.White,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Map View",
-                                fontSize = 12.5.sp,
+                                text = "RADAR MAP",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.5.sp,
                                 color = Color.White
                             )
                         }
@@ -157,83 +162,134 @@ fun ExploreScreen(
                 }
 
                 // Search Bar
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(CanvasWhite)
+                        .border(1.dp, LineHairline, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(SurfaceCard)
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                            .padding(horizontal = 14.dp),
-                        contentAlignment = Alignment.CenterStart
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = InkMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            textStyle = TextStyle(
+                                fontSize = 13.5.sp,
+                                color = InkPrimary,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            cursorBrush = SolidColor(CanvasDark),
+                            decorationBox = { inner ->
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Filter catalogue by gear, host, or specs...",
+                                        fontSize = 13.sp,
+                                        color = InkMuted
+                                    )
+                                }
+                                inner()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("explore_search_field")
+                        )
+                        if (searchQuery.isNotEmpty()) {
                             Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = TextMuted,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            BasicTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                textStyle = TextStyle(
-                                    fontSize = 14.sp,
-                                    color = TextPrimary
-                                ),
-                                cursorBrush = SolidColor(BrandDark),
-                                decorationBox = { innerTextField ->
-                                    if (searchQuery.isEmpty()) {
-                                        Text(
-                                            text = "Search camera, laptop, scooter...",
-                                            fontSize = 14.sp,
-                                            color = TextMuted
-                                        )
-                                    }
-                                    innerTextField()
-                                },
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = InkMuted,
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("explore_search_field")
+                                    .size(16.dp)
+                                    .clickable { searchQuery = "" }
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Categories list
+                // Category Chips Strip
                 CategoryAvatarRow(
                     selectedCategory = selectedCategory,
                     onSelectCategory = onSelectCategory,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Grid of Items
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(bottom = 90.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredItems, key = { it.id }) { item ->
-                        PopularItemCard(
-                            item = item,
-                            onClick = { onItemClick(item) },
-                            onToggleFavorite = onToggleFavorite,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                // Inventory Grid or Empty State
+                if (filteredItems.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "NO HARDWARE MATCHES",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 1.sp,
+                                color = InkMuted
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "No listed gear in White Town matches '$searchQuery'",
+                                fontSize = 13.sp,
+                                color = InkSecondary
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(CanvasDark)
+                                    .clickable { searchQuery = "" }
+                                    .padding(horizontal = 14.dp, vertical = 7.dp)
+                            ) {
+                                Text(
+                                    text = "RESET SEARCH",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 76.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredItems, key = { it.id }) { item ->
+                            PopularItemCard(
+                                item = item,
+                                onClick = { onItemClick(item) },
+                                onToggleFavorite = onToggleFavorite,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }
