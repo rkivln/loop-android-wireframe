@@ -1,6 +1,11 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AssignmentTurnedIn
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DateRange
@@ -33,6 +39,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
@@ -43,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,12 +67,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.RentalItem
+import com.example.ui.components.GearInspectionModal
+import com.example.ui.components.SmartKitBundler
 import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.AccentYellowDark
 import com.example.ui.theme.HeartRed
 import com.example.ui.theme.InkBlack
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.LoopType
 import com.example.ui.theme.ParchmentBg
 import com.example.ui.theme.ParchmentBorder
 import com.example.ui.theme.ParchmentSurface
@@ -85,6 +96,10 @@ fun ItemDetailsScreen(
 
     var isFavorite by remember(item.isFavorite) { mutableStateOf(item.isFavorite) }
     var isFollowing by remember { mutableStateOf(false) }
+    var bundledAccessoryTotal by remember { mutableIntStateOf(200) }
+    var showInspectionModal by remember { mutableStateOf(false) }
+
+    val effectiveDailyPrice = item.pricePerDay + bundledAccessoryTotal
 
     Box(
         modifier = modifier
@@ -121,9 +136,7 @@ fun ItemDetailsScreen(
                     ) {
                         Text(
                             text = "||| | |||| | ||||||",
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
+                            style = LoopType.CaptionTechnical,
                             color = InkBlack
                         )
                     }
@@ -231,9 +244,7 @@ fun ItemDetailsScreen(
                     ) {
                         Text(
                             text = item.title,
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = InkBlack,
+                            style = LoopType.H1,
                             modifier = Modifier.weight(1f)
                         )
 
@@ -246,8 +257,7 @@ fun ItemDetailsScreen(
                         ) {
                             Text(
                                 text = "✦ Available",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                style = LoopType.CaptionTechnical,
                                 color = StatusGreen
                             )
                         }
@@ -262,13 +272,12 @@ fun ItemDetailsScreen(
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
                                 text = "₹${item.pricePerDay}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
+                                style = LoopType.PriceLarge,
                                 color = InkBlack
                             )
                             Text(
                                 text = " / day",
-                                fontSize = 13.sp,
+                                style = LoopType.BodySmall,
                                 color = InkMuted
                             )
                         }
@@ -284,7 +293,7 @@ fun ItemDetailsScreen(
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "${item.rating} (${item.reviewCount})",
-                                fontSize = 13.sp,
+                                style = LoopType.BodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = InkBlack
                             )
@@ -294,9 +303,7 @@ fun ItemDetailsScreen(
                     // Description text
                     Text(
                         text = item.description,
-                        fontSize = 13.5.sp,
-                        lineHeight = 19.sp,
-                        color = InkSecondary
+                        style = LoopType.BodyEditorial
                     )
 
                     // 4-Card Hardware Specifications Strip (Matches Image 3)
@@ -328,6 +335,15 @@ fun ItemDetailsScreen(
                         )
                     }
 
+                    // Smart Kit Bundler Add-on Feature
+                    SmartKitBundler(
+                        baseItemTitle = item.title,
+                        onBundlePriceChanged = { added ->
+                            bundledAccessoryTotal = added
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     // Owner / Host Dossier Row (Arjun S. · Verified Owner · Follow)
                     Box(
                         modifier = Modifier
@@ -353,8 +369,7 @@ fun ItemDetailsScreen(
                                 ) {
                                     Text(
                                         text = item.owner.initials,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        style = LoopType.H3,
                                         color = Color.White
                                     )
                                 }
@@ -365,8 +380,7 @@ fun ItemDetailsScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = item.owner.name,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold,
+                                            style = LoopType.H3,
                                             color = InkBlack
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
@@ -391,7 +405,7 @@ fun ItemDetailsScreen(
 
                                     Text(
                                         text = "Verified Owner  ·  White Town",
-                                        fontSize = 12.sp,
+                                        style = LoopType.BodySmall,
                                         color = InkSecondary
                                     )
                                 }
@@ -413,11 +427,67 @@ fun ItemDetailsScreen(
                             ) {
                                 Text(
                                     text = if (isFollowing) "Following" else "Follow",
-                                    fontSize = 12.sp,
+                                    style = LoopType.BodySmall,
                                     fontWeight = FontWeight.Bold,
                                     color = InkBlack
                                 )
                             }
+                        }
+                    }
+
+                    // Handover Inspection & Condition Protocol Card (Impressive Feature)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(ParchmentWhite)
+                            .border(1.dp, ParchmentBorder, RoundedCornerShape(14.dp))
+                            .clickable { showInspectionModal = true }
+                            .padding(14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(AccentYellow),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AssignmentTurnedIn,
+                                        contentDescription = null,
+                                        tint = InkBlack,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column {
+                                    Text(
+                                        text = "Handover Inspection Protocol",
+                                        style = LoopType.H3,
+                                        color = InkBlack
+                                    )
+                                    Text(
+                                        text = "5-point sensor, lens & battery condition scan",
+                                        style = LoopType.BodySmall,
+                                        color = InkSecondary
+                                    )
+                                }
+                            }
+
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = InkMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
 
@@ -457,14 +527,13 @@ fun ItemDetailsScreen(
                                 Column {
                                     Text(
                                         text = "White Town, Puducherry",
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        style = LoopType.H3,
                                         color = InkBlack
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "📍 300 m away",
-                                        fontSize = 12.sp,
+                                        style = LoopType.BodySmall,
                                         color = InkSecondary
                                     )
                                 }
@@ -525,7 +594,7 @@ fun ItemDetailsScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Chat",
-                            fontSize = 14.sp,
+                            style = LoopType.BodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = InkBlack
                         )
@@ -556,14 +625,28 @@ fun ItemDetailsScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Rent Now",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "Rent Now · ₹$effectiveDailyPrice/d",
+                            style = LoopType.ButtonLabel,
                             color = Color.White
                         )
                     }
                 }
             }
+        }
+
+        // Inspection Checklist Modal Sheet
+        AnimatedVisibility(
+            visible = showInspectionModal,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut()
+        ) {
+            GearInspectionModal(
+                item = item,
+                onCompleteInspection = {
+                    showInspectionModal = false
+                },
+                onDismiss = { showInspectionModal = false }
+            )
         }
     }
 }
@@ -599,13 +682,14 @@ private fun DetailSpecBox(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = label,
-                fontSize = 10.sp,
+                style = LoopType.CaptionTechnical,
                 fontWeight = FontWeight.Bold,
                 color = InkBlack,
                 maxLines = 1
             )
             Text(
                 text = sublabel,
+                style = LoopType.BodySmall,
                 fontSize = 9.sp,
                 color = InkSecondary,
                 maxLines = 1

@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +31,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
@@ -60,14 +66,19 @@ import com.example.R
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.ui.components.CategoryAvatarRow
+import com.example.ui.components.CommunityPhotowalksSheet
 import com.example.ui.components.PopularItemCard
+import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.HeartRed
 import com.example.ui.theme.InkBlack
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.LoopType
 import com.example.ui.theme.ParchmentBg
 import com.example.ui.theme.ParchmentBorder
 import com.example.ui.theme.ParchmentWhite
+import com.example.ui.theme.StatusGreen
+import com.example.ui.theme.StatusGreenBg
 
 @Composable
 fun HomeScreen(
@@ -86,6 +97,7 @@ fun HomeScreen(
     var selectedLocation by remember { mutableStateOf("White Town, Puducherry") }
     var locationMenuExpanded by remember { mutableStateOf(false) }
     var activeCategory by remember { mutableStateOf<RentalCategory?>(RentalCategory.ELECTRONICS) }
+    var showPhotowalksModal by remember { mutableStateOf(false) }
 
     val locations = listOf("White Town, Puducherry", "Heritage Town", "Auroville", "Lawspet", "Mission Street")
     val popularItems = remember(items) { items.filter { it.isPopular } }
@@ -115,11 +127,9 @@ fun HomeScreen(
                     Column {
                         Text(
                             text = "LOOP",
+                            style = LoopType.H1,
                             fontSize = 26.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.5).sp,
-                            color = InkBlack,
-                            fontFamily = FontFamily.SansSerif
+                            fontWeight = FontWeight.Black
                         )
 
                         Spacer(modifier = Modifier.height(2.dp))
@@ -141,7 +151,7 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
                                     text = selectedLocation,
-                                    fontSize = 12.5.sp,
+                                    style = LoopType.BodySmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = InkBlack
                                 )
@@ -164,7 +174,7 @@ fun HomeScreen(
                                         text = {
                                             Text(
                                                 text = loc,
-                                                fontSize = 13.sp,
+                                                style = LoopType.BodyMedium,
                                                 fontWeight = if (loc == selectedLocation) FontWeight.Bold else FontWeight.Normal,
                                                 color = InkBlack
                                             )
@@ -222,7 +232,7 @@ fun HomeScreen(
                         ) {
                             Text(
                                 text = "AS",
-                                fontSize = 13.sp,
+                                style = LoopType.BodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
@@ -236,9 +246,9 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(154.dp)
+                        .height(156.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .clickable(onClick = onOpenMapDiscovery)
+                        .clickable(onClick = { showPhotowalksModal = true })
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.whitetown_promenade_banner_1790872139983),
@@ -268,17 +278,28 @@ fun HomeScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Top Right Script Tagline
+                        // Top Right Script Tagline & Meetup Chip
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(AccentYellow)
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "3 WALKS THIS WEEKEND ✦",
+                                    style = LoopType.CaptionTechnical,
+                                    color = InkBlack
+                                )
+                            }
+
                             Text(
                                 text = "Local Gear,\nReal People",
-                                fontSize = 19.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontStyle = FontStyle.Italic,
-                                fontFamily = FontFamily.Serif,
+                                style = LoopType.ScriptEditorial,
                                 color = Color.White,
                                 lineHeight = 22.sp
                             )
@@ -287,14 +308,13 @@ fun HomeScreen(
                         // Bottom Subtext
                         Column {
                             Text(
-                                text = "Capture. Create.",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
+                                text = "Capture. Create. Meet.",
+                                style = LoopType.H3,
                                 color = Color.White
                             )
                             Text(
-                                text = "Do more in White Town.",
-                                fontSize = 12.sp,
+                                text = "Do more together in White Town. Tap to view Photowalks →",
+                                style = LoopType.BodySmall,
                                 color = Color.White.copy(alpha = 0.9f)
                             )
                         }
@@ -343,7 +363,7 @@ fun HomeScreen(
                                     if (searchQuery.isEmpty()) {
                                         Text(
                                             text = "Search cameras, laptops, vehicles...",
-                                            fontSize = 13.sp,
+                                            style = LoopType.BodySmall,
                                             color = InkMuted
                                         )
                                     }
@@ -415,9 +435,7 @@ fun HomeScreen(
                     ) {
                         Text(
                             text = "Popular Near You",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = InkBlack
+                            style = LoopType.H2
                         )
 
                         Row(
@@ -428,7 +446,7 @@ fun HomeScreen(
                         ) {
                             Text(
                                 text = "See all",
-                                fontSize = 12.5.sp,
+                                style = LoopType.BodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = InkBlack
                             )
@@ -459,9 +477,87 @@ fun HomeScreen(
                 }
             }
 
+            // Community Creator Jam CTA Feature Card
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(ParchmentWhite)
+                        .border(1.dp, ParchmentBorder, RoundedCornerShape(14.dp))
+                        .clickable { showPhotowalksModal = true }
+                        .padding(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(AccentYellow),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Event,
+                                    contentDescription = null,
+                                    tint = InkBlack,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column {
+                                Text(
+                                    text = "Promenade Street Photowalk",
+                                    style = LoopType.H3,
+                                    color = InkBlack
+                                )
+                                Text(
+                                    text = "Sat 5:30 PM · 14 Creators Attending · Test Gear",
+                                    style = LoopType.BodySmall,
+                                    color = InkSecondary
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(InkBlack)
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "RSVP",
+                                style = LoopType.CaptionTechnical,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+
             item {
                 Spacer(modifier = Modifier.height(76.dp))
             }
+        }
+
+        // Community Photowalks Modal Sheet
+        AnimatedVisibility(
+            visible = showPhotowalksModal,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut()
+        ) {
+            CommunityPhotowalksSheet(
+                onDismiss = { showPhotowalksModal = false }
+            )
         }
     }
 }
