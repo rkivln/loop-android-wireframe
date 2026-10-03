@@ -1035,24 +1035,26 @@ fun LoopConversationScreen(
                                 isAudioRecording = false
                                 onSendMessage("Voice note", ChatMessageType.AUDIO_NOTE, null, null)
                             } else if (hasText) {
-                                val textToSend = inputMessage
+                                val textToSend = inputMessage.trim().take(1000)
                                 inputMessage = ""
-                                onSendMessage(textToSend, ChatMessageType.TEXT, null, null)
+                                if (textToSend.isNotBlank()) {
+                                    onSendMessage(textToSend, ChatMessageType.TEXT, null, null)
 
-                                // Intelligent host response simulation
-                                coroutineScope.launch {
-                                    delay(1200)
-                                    isTypingSimulation = true
-                                    delay(1700)
-                                    isTypingSimulation = false
-                                    val replyText = when {
-                                        textToSend.contains("hi", ignoreCase = true) || textToSend.contains("hello", ignoreCase = true) ->
-                                            "Hi Gokulan! Everything is ready for pickup."
-                                        textToSend.contains("time", ignoreCase = true) || textToSend.contains("reach", ignoreCase = true) ->
-                                            "11:00 AM works great. I'll meet you near White Town."
-                                        else -> "Got it! Thanks for confirming. See you soon! 👍"
+                                    // Intelligent host response simulation
+                                    coroutineScope.launch {
+                                        delay(1200)
+                                        isTypingSimulation = true
+                                        delay(1700)
+                                        isTypingSimulation = false
+                                        val replyText = when {
+                                            textToSend.contains("hi", ignoreCase = true) || textToSend.contains("hello", ignoreCase = true) ->
+                                                "Hi Gokulan! Everything is ready for pickup."
+                                            textToSend.contains("time", ignoreCase = true) || textToSend.contains("reach", ignoreCase = true) ->
+                                                "11:00 AM works great. I'll meet you near White Town."
+                                            else -> "Got it! Thanks for confirming. See you soon! 👍"
+                                        }
+                                        onSendMessage(replyText, ChatMessageType.TEXT, null, null)
                                     }
-                                    onSendMessage(replyText, ChatMessageType.TEXT, null, null)
                                 }
                             } else {
                                 isAudioRecording = true

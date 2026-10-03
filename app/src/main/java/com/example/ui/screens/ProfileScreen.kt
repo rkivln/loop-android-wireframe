@@ -800,12 +800,16 @@ fun EditProfileModalSheet(
                                 isSaving = true
                                 coroutineScope.launch {
                                     delay(400)
+                                    val sanitizedName = displayName.trim().take(60).ifBlank { "Gokulan R" }
+                                    val sanitizedBio = bio.trim().take(200)
+                                    val sanitizedPhone = phone.filter { it.isDigit() || it == '+' || it == ' ' || it == '-' }.take(20).ifBlank { "+91 98401 22345" }
+                                    val sanitizedLocation = location.trim().take(80).ifBlank { "White Town, Puducherry" }
                                     val updated = currentProfile.copy(
-                                        displayName = displayName.ifBlank { "Gokulan R" },
-                                        bio = bio,
-                                        phone = phone,
-                                        location = location.ifBlank { "White Town, Puducherry" },
-                                        avatarPresetIndex = selectedPresetIndex
+                                        displayName = sanitizedName,
+                                        bio = sanitizedBio,
+                                        phone = sanitizedPhone,
+                                        location = sanitizedLocation,
+                                        avatarPresetIndex = selectedPresetIndex.coerceIn(0, 5)
                                     )
                                     onSave(updated)
                                     isSaving = false

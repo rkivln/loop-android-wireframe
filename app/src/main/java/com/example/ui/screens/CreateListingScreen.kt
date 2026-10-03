@@ -294,13 +294,16 @@ fun CreateListingScreen(
             }
 
             // Submit Button
-            val isEnabled = title.isNotBlank() && priceText.isNotBlank()
+            val sanitizedTitle = title.trim().take(100)
+            val parsedPrice = priceText.filter { it.isDigit() }.toIntOrNull()?.coerceIn(10, 1_000_000)
+            val isEnabled = sanitizedTitle.isNotBlank() && parsedPrice != null
             Box(modifier = Modifier.padding(top = 24.dp)) {
                 DarkPillButton(
                     text = "Publish Listing",
                     onClick = {
-                        val price = priceText.toIntOrNull() ?: 300
-                        onListingCreated(title, price, selectedCategory, description)
+                        val price = parsedPrice ?: 300
+                        val sanitizedDesc = description.trim().take(1000)
+                        onListingCreated(sanitizedTitle, price, selectedCategory, sanitizedDesc)
                     },
                     enabled = isEnabled,
                     testTag = "listing_publish_btn"
