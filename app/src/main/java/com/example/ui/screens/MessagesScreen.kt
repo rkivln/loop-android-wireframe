@@ -317,7 +317,7 @@ fun EditorialInboxScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f),
-            contentPadding = PaddingValues(horizontal = 22.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 6.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(filteredList, key = { it.id }) { conv ->
@@ -521,7 +521,8 @@ fun EditorialConversationScreen(
                     .fillMaxWidth()
                     .background(PaperPureWhite)
                     .border(1.dp, PaperBorderSubtle, RoundedCornerShape(0.dp))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(bottom = 84.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(

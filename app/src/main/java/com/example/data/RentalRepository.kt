@@ -4,6 +4,7 @@ import com.example.R
 import com.example.data.firebase.FirestoreService
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
+import com.example.data.models.CuratedWalkingRoute
 import com.example.data.models.DeliveryOptionType
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
@@ -339,7 +340,7 @@ object RentalRepository {
             latitude = 11.9338,
             longitude = 79.8350,
             rating = 4.9f,
-            distance = "0.2 km away",
+            distance = "250 m away",
             tag = "★ Master Host",
             dateOrAvailability = "Available today",
             locationName = "Suffren St, White Town",
@@ -347,23 +348,33 @@ object RentalRepository {
             description = "Dedicated photographer renting vintage 35mm bodies, portrait lenses, and hard shell flight cases.",
             owner = defaultOwner,
             rentalItem = items[0],
-            imageRes = R.drawable.img_editorial_lifestyle_1_1791087263359
+            imageRes = R.drawable.img_editorial_lifestyle_1_1791087263359,
+            category = RentalCategory.ELECTRONICS,
+            neighborhood = "White Town",
+            walkingTime = "3 min walk",
+            cyclingTime = "1 min ride",
+            address = "10, Suffren Street, White Town, Puducherry"
         ),
         DiscoveryPinItem(
             id = "pin_event_photowalk",
-            title = "Promenade Golden Hour Walk",
+            title = "Promenade Sunset Walk",
             subtitle = "Rock Beach Promenade",
             type = DiscoveryPinType.COMMUNITY_EVENT,
             latitude = 11.9295,
             longitude = 79.8370,
             rating = 4.9f,
-            distance = "0.4 km away",
+            distance = "400 m away",
             tag = "📸 Photo Walk",
             dateOrAvailability = "Today · 5:00 PM – 7:00 PM",
             locationName = "Promenade Rock Beach",
             priceOrAttendees = "18 creators",
             description = "Casual twilight gathering of local photographers exploring the French Quarter seafront with shared lenses and analogue cameras.",
-            isAttending = true
+            isAttending = true,
+            category = RentalCategory.EVENTS,
+            neighborhood = "Promenade",
+            walkingTime = "5 min walk",
+            cyclingTime = "2 min ride",
+            address = "Rock Beach Promenade, White Town"
         ),
         DiscoveryPinItem(
             id = "pin_priya",
@@ -373,7 +384,7 @@ object RentalRepository {
             latitude = 11.9372,
             longitude = 79.8270,
             rating = 4.8f,
-            distance = "0.6 km away",
+            distance = "650 m away",
             tag = "Verified Host",
             dateOrAvailability = "Available today",
             locationName = "Heritage Quarter",
@@ -381,7 +392,12 @@ object RentalRepository {
             description = "Producer sharing synthesizers, studio audio interfaces, and high-spec creative laptops.",
             owner = ownerPriya,
             rentalItem = items[1],
-            imageRes = R.drawable.img_editorial_studio_2_1791087277042
+            imageRes = R.drawable.img_editorial_studio_2_1791087277042,
+            category = RentalCategory.STUDY_OFFICE,
+            neighborhood = "Heritage Quarter",
+            walkingTime = "8 min walk",
+            cyclingTime = "3 min ride",
+            address = "42, MG Road, Heritage Quarter, Puducherry"
         ),
         DiscoveryPinItem(
             id = "pin_vikram",
@@ -391,7 +407,7 @@ object RentalRepository {
             latitude = 11.9310,
             longitude = 79.8365,
             rating = 4.8f,
-            distance = "0.5 km away",
+            distance = "500 m away",
             tag = "⚡ Superhost",
             dateOrAvailability = "Available today",
             locationName = "Goubert Avenue",
@@ -399,7 +415,78 @@ object RentalRepository {
             description = "Curator of electric mobility and scrambler cruisers for seamless coastal wandering.",
             owner = ownerVikram,
             rentalItem = items[2],
-            imageRes = R.drawable.img_editorial_outdoor_3_1791087293034
+            imageRes = R.drawable.img_editorial_outdoor_3_1791087293034,
+            category = RentalCategory.VEHICLES,
+            neighborhood = "Promenade",
+            walkingTime = "6 min walk",
+            cyclingTime = "2 min ride",
+            address = "Goubert Avenue Seafront, Puducherry"
+        ),
+        DiscoveryPinItem(
+            id = "pin_hub_cafe",
+            title = "Café des Arts Lockbox",
+            subtitle = "Loop Contactless Pickup Hub",
+            type = DiscoveryPinType.PICKUP_HUB,
+            latitude = 11.9345,
+            longitude = 79.8340,
+            rating = 5.0f,
+            distance = "150 m away",
+            tag = "🔒 24/7 Smart Hub",
+            dateOrAvailability = "Open 7:00 AM – 10:00 PM",
+            locationName = "Suffren St Courtyard",
+            priceOrAttendees = "Free pickup",
+            description = "Official Loop community handoff depot. Drop off or collect verified pieces anytime with secure digital PIN lockers.",
+            category = RentalCategory.ELECTRONICS,
+            neighborhood = "White Town",
+            walkingTime = "2 min walk",
+            cyclingTime = "1 min ride",
+            address = "10, Suffren St Courtyard, White Town"
+        ),
+        DiscoveryPinItem(
+            id = "pin_ananya",
+            title = "Ananya Nair",
+            subtitle = "Cinema & Projector Setup",
+            type = DiscoveryPinType.USER_HOST,
+            latitude = 11.9510,
+            longitude = 79.8210,
+            rating = 4.9f,
+            distance = "1.8 km away",
+            tag = "Curator",
+            dateOrAvailability = "Available today",
+            locationName = "Lawspet Quarter",
+            priceOrAttendees = "₹500 / day",
+            description = "Film student renting 1080p portable cinema projector with tripod and HDMI casting kit.",
+            owner = ownerAnanya,
+            rentalItem = items[4],
+            imageRes = R.drawable.modern_projector_1790478027952,
+            category = RentalCategory.EVENTS,
+            neighborhood = "Lawspet",
+            walkingTime = "22 min walk",
+            cyclingTime = "7 min ride",
+            address = "Lawspet Cultural Quarter, Puducherry"
+        )
+    )
+
+    val curatedRoutes: List<CuratedWalkingRoute> = listOf(
+        CuratedWalkingRoute(
+            id = "route_makers_walk",
+            title = "French Quarter Makers Circuit",
+            subtitle = "Explore 35mm cameras, smart hub & studio desk",
+            distanceKm = "1.4 km",
+            durationMin = "18 min",
+            stopsCount = 4,
+            pinIds = listOf("pin_hub_cafe", "pin_rakesh", "pin_vikram", "pin_priya"),
+            description = "A peaceful stroll through French colonial heritage streets connecting top verified equipment makers and the central lockbox."
+        ),
+        CuratedWalkingRoute(
+            id = "route_promenade_sunset",
+            title = "Promenade Coastal Drift",
+            subtitle = "From Suffren Street to Rock Beach",
+            distanceKm = "2.1 km",
+            durationMin = "26 min",
+            stopsCount = 3,
+            pinIds = listOf("pin_rakesh", "pin_vikram", "pin_event_photowalk"),
+            description = "Follow the sea breeze along Goubert Avenue, connecting e-bike creators with the golden hour photographer meetup."
         )
     )
 

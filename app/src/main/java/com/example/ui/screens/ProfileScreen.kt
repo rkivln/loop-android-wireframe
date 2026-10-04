@@ -509,6 +509,7 @@ fun EditProfileModalSheet(
                 .clickable(enabled = false) {}
                 .padding(horizontal = 22.dp, vertical = 22.dp)
                 .navigationBarsPadding()
+                .padding(bottom = 86.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(

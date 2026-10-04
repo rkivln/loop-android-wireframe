@@ -123,7 +123,8 @@ data class ChatConversation(
 enum class DiscoveryPinType {
     USER_HOST,
     COMMUNITY_EVENT,
-    RENTAL_ITEM
+    RENTAL_ITEM,
+    PICKUP_HUB
 }
 
 data class DiscoveryPinItem(
@@ -143,5 +144,21 @@ data class DiscoveryPinItem(
     val owner: RentalOwner? = null,
     val rentalItem: RentalItem? = null,
     @DrawableRes val imageRes: Int? = null,
-    val isAttending: Boolean = false
+    val isAttending: Boolean = false,
+    val category: RentalCategory = RentalCategory.ELECTRONICS,
+    val neighborhood: String = "White Town",
+    val walkingTime: String = "4 min walk",
+    val cyclingTime: String = "1 min ride",
+    val address: String = "Suffren St, White Town, Puducherry"
+)
+
+data class CuratedWalkingRoute(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val distanceKm: String,
+    val durationMin: String,
+    val stopsCount: Int,
+    val pinIds: List<String>,
+    val description: String
 )
