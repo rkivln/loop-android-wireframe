@@ -1,13 +1,14 @@
 package com.example.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,23 +24,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.DirectionsWalk
+import androidx.compose.material.icons.outlined.LocalShipping
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,23 +50,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.DeliveryOptionType
 import com.example.data.models.RentalItem
-import com.example.ui.components.DarkPillButton
-import com.example.ui.theme.BackgroundLight
-import com.example.ui.theme.ParchmentBg
-import com.example.ui.theme.BorderDefault
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandBlue
-import com.example.ui.theme.BrandDark
-import com.example.ui.theme.BrandGreen
-import com.example.ui.theme.BrandStarAmber
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceSecondary
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.components.EditorialHeadline
+import com.example.ui.components.EditorialTopBar
+import com.example.ui.components.PrimaryCTA
+import com.example.ui.components.SectionLabel
+import com.example.ui.theme.AccentForestGreen
+import com.example.ui.theme.AccentMint
+import com.example.ui.theme.AccentPeach
+import com.example.ui.theme.AccentWarmYellow
+import com.example.ui.theme.InkCharcoal
+import com.example.ui.theme.InkMuted
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.InkWhite
+import com.example.ui.theme.LoopType
+import com.example.ui.theme.PaperBorder
+import com.example.ui.theme.PaperBorderSubtle
+import com.example.ui.theme.PaperIvory
+import com.example.ui.theme.PaperPureWhite
+import com.example.ui.theme.PaperWarm
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingScreen(
     item: RentalItem,
@@ -82,592 +76,413 @@ fun BookingScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onBack)
-
-    var startDate by remember { mutableStateOf("10 Oct 2026") }
-    var endDate by remember { mutableStateOf("12 Oct 2026") }
-    var daysCount by remember { mutableIntStateOf(3) }
+    var selectedDays by remember { mutableIntStateOf(3) }
     var selectedDelivery by remember { mutableStateOf(DeliveryOptionType.SELF_PICKUP) }
-    var showSuccessDialog by remember { mutableStateOf(false) }
+    var isConfirmedModalOpen by remember { mutableStateOf(false) }
 
-    val rentalPriceTotal = item.pricePerDay * daysCount
+    val dailyRate = item.pricePerDay
+    val rentalSubtotal = dailyRate * selectedDays
     val deliveryFee = selectedDelivery.fee
-    val serviceFee = 50
-    val grandTotal = rentalPriceTotal + deliveryFee + serviceFee
+    val serviceFee = 40
+    val totalAmount = rentalSubtotal + deliveryFee + serviceFee
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(ParchmentBg)
+            .background(PaperWarm)
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 84.dp)
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Top Bar: Back Arrow & "Book this item" centered title
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onBack)
-                            .testTag("booking_back_btn"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = TextPrimary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+            EditorialTopBar(
+                title = "Reservation",
+                onBack = onBack
+            )
 
-                    Text(
-                        text = "Book this item",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 38.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
-            }
-
-            // Main Booking Details Content
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp)
-                ) {
-                    // Mini Item Card
-                    Box(
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp)
+            ) {
+                // Item Preview Card
+                item {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(SurfaceCard)
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(6.dp))
-                            .padding(12.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(14.dp))
                         ) {
-                            // Thumbnail
                             Image(
                                 painter = painterResource(id = item.primaryImageRes),
                                 contentDescription = item.title,
                                 contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.title,
+                                style = LoopType.HeadlineMedium.copy(fontSize = 17.sp),
+                                color = InkCharcoal
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Host: ${item.owner.name} · ${item.location}",
+                                style = LoopType.Metadata,
+                                color = InkSecondary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "₹${item.pricePerDay} / day",
+                                style = LoopType.PriceSmall,
+                                color = InkCharcoal
+                            )
+                        }
+                    }
+                }
+
+                // Rental Duration Selector
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "DURATION OF USE",
+                        style = LoopType.EditorialTag,
+                        color = InkSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        listOf(1 to "1 Day", 3 to "3 Days", 7 to "1 Week").forEach { (days, label) ->
+                            val isSelected = selectedDays == days
+                            Box(
                                 modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                            )
-
-                            Spacer(modifier = Modifier.width(14.dp))
-
-                            Column {
-                                Text(
-                                    text = item.title,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-
-                                Spacer(modifier = Modifier.height(2.dp))
-
-                                Row(verticalAlignment = Alignment.Bottom) {
-                                    Text(
-                                        text = "₹${item.pricePerDay}",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Black,
-                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                        color = TextPrimary
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (isSelected) InkCharcoal else PaperPureWhite)
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) InkCharcoal else PaperBorder,
+                                        RoundedCornerShape(16.dp)
                                     )
-                                    Text(
-                                        text = " / day",
-                                        fontSize = 12.sp,
-                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                        color = TextMuted
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(2.dp))
-
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = null,
-                                        tint = BrandStarAmber,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "${item.rating} (${item.reviewCount})",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                        color = TextPrimary
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // "Rental Period" Section
-                    Text(
-                        text = "Rental Period",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Two Date Pickers Row (Start Date & End Date)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Start Date Picker Box
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(SurfaceCard)
-                                .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    // toggle mock date
-                                    startDate = if (startDate == "10 Oct 2026") "11 Oct 2026" else "10 Oct 2026"
-                                }
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .clickable { selectedDays = days }
+                                    .padding(vertical = 14.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Column {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "Start Date",
-                                        fontSize = 11.sp,
-                                        color = TextMuted
+                                        text = label,
+                                        style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = if (isSelected) InkWhite else InkCharcoal
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = startDate,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = TextPrimary
+                                        text = "₹${item.pricePerDay * days}",
+                                        style = LoopType.Metadata.copy(fontSize = 11.sp),
+                                        color = if (isSelected) AccentWarmYellow else InkSecondary
                                     )
                                 }
-
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = null,
-                                    tint = TextMuted,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
-                        // End Date Picker Box
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(SurfaceCard)
-                                .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    if (daysCount == 3) {
-                                        daysCount = 4
-                                        endDate = "13 Oct 2026"
-                                    } else {
-                                        daysCount = 3
-                                        endDate = "12 Oct 2026"
-                                    }
-                                }
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "End Date",
-                                        fontSize = 11.sp,
-                                        color = TextMuted
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = endDate,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = TextPrimary
-                                    )
-                                }
-
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = null,
-                                    tint = TextMuted,
-                                    modifier = Modifier.size(18.dp)
-                                )
                             }
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Days Subtotal Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "$daysCount days",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextSecondary
-                        )
-
-                        Text(
-                            text = "₹${"%,d".format(rentalPriceTotal)}",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                    }
-
+                // Hand-off Method
+                item {
                     Spacer(modifier = Modifier.height(24.dp))
-
-                    // "Delivery Option" Section
                     Text(
-                        text = "Delivery Option",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        text = "HAND-OFF MODE",
+                        style = LoopType.EditorialTag,
+                        color = InkSecondary
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Option 1: Self Pickup (Free)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(SurfaceCard)
-                            .border(
-                                1.dp,
-                                if (selectedDelivery == DeliveryOptionType.SELF_PICKUP) BrandBlue else BorderSubtle,
-                                RoundedCornerShape(12.dp)
-                            )
-                            .clickable { selectedDelivery = DeliveryOptionType.SELF_PICKUP }
-                            .padding(14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (selectedDelivery == DeliveryOptionType.SELF_PICKUP)
-                                        Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                                    contentDescription = null,
-                                    tint = if (selectedDelivery == DeliveryOptionType.SELF_PICKUP) BrandBlue else TextMuted,
-                                    modifier = Modifier.size(20.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = TextPrimary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                Text(
-                                    text = "Self Pickup",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = TextPrimary
-                                )
-                            }
-
-                            Text(
-                                text = "Free",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = BrandGreen
-                            )
-                        }
-                    }
-
                     Spacer(modifier = Modifier.height(10.dp))
-
-                    // Option 2: Owner Delivery (₹100)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(SurfaceCard)
-                            .border(
-                                1.dp,
-                                if (selectedDelivery == DeliveryOptionType.OWNER_DELIVERY) BrandBlue else BorderSubtle,
-                                RoundedCornerShape(12.dp)
-                            )
-                            .clickable { selectedDelivery = DeliveryOptionType.OWNER_DELIVERY }
-                            .padding(14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (selectedDelivery == DeliveryOptionType.OWNER_DELIVERY)
-                                        Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                                    contentDescription = null,
-                                    tint = if (selectedDelivery == DeliveryOptionType.OWNER_DELIVERY) BrandBlue else TextMuted,
-                                    modifier = Modifier.size(20.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                Icon(
-                                    imageVector = Icons.Default.LocalShipping,
-                                    contentDescription = null,
-                                    tint = TextPrimary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                Column {
-                                    Text(
-                                        text = "Owner Delivery",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = TextPrimary
-                                    )
-                                    Text(
-                                        text = "Delivery within Puducherry",
-                                        fontSize = 11.sp,
-                                        color = TextMuted
-                                    )
-                                }
-                            }
-
-                            Text(
-                                text = "₹100",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // "Total Amount" Breakdown Section
-                    Text(
-                        text = "Total Amount",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Rental (3 days)
+                        // Self Pickup
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Rental ($daysCount days)",
-                                fontSize = 14.sp,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = "₹${"%,d".format(rentalPriceTotal)}",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextPrimary
-                            )
-                        }
-
-                        // Delivery Fee
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Delivery Fee",
-                                fontSize = 14.sp,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = if (deliveryFee == 0) "₹0" else "₹$deliveryFee",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextPrimary
-                            )
-                        }
-
-                        // Service Fee
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(if (selectedDelivery == DeliveryOptionType.SELF_PICKUP) PaperPureWhite else PaperIvory)
+                                .border(
+                                    1.dp,
+                                    if (selectedDelivery == DeliveryOptionType.SELF_PICKUP) InkCharcoal else PaperBorder,
+                                    RoundedCornerShape(18.dp)
+                                )
+                                .clickable { selectedDelivery = DeliveryOptionType.SELF_PICKUP }
+                                .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.DirectionsWalk,
+                                contentDescription = null,
+                                tint = InkCharcoal,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Service Fee",
-                                    fontSize = 14.sp,
-                                    color = TextSecondary
+                                    text = "Self Pickup (Café des Arts)",
+                                    style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = InkCharcoal
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = "Info",
-                                    tint = TextMuted,
-                                    modifier = Modifier.size(14.dp)
+                                Text(
+                                    text = "Meet the host at 10, Suffren St, White Town",
+                                    style = LoopType.Metadata,
+                                    color = InkSecondary
                                 )
                             }
                             Text(
-                                text = "₹$serviceFee",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextPrimary
+                                text = "Free",
+                                style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold, color = AccentForestGreen)
                             )
                         }
 
-                        // Divider line
+                        // Doorstep Delivery
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(if (selectedDelivery == DeliveryOptionType.OWNER_DELIVERY) PaperPureWhite else PaperIvory)
+                                .border(
+                                    1.dp,
+                                    if (selectedDelivery == DeliveryOptionType.OWNER_DELIVERY) InkCharcoal else PaperBorder,
+                                    RoundedCornerShape(18.dp)
+                                )
+                                .clickable { selectedDelivery = DeliveryOptionType.OWNER_DELIVERY }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocalShipping,
+                                contentDescription = null,
+                                tint = InkCharcoal,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Host Courier Delivery",
+                                    style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = InkCharcoal
+                                )
+                                Text(
+                                    text = "Direct delivery to your doorstep in Puducherry",
+                                    style = LoopType.Metadata,
+                                    color = InkSecondary
+                                )
+                            }
+                            Text(
+                                text = "+₹100",
+                                style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold, color = InkCharcoal)
+                            )
+                        }
+                    }
+                }
+
+                // Transparent Price Breakdown
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "PRICE BREAKDOWN",
+                        style = LoopType.EditorialTag,
+                        color = InkSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
+                            .padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "₹${item.pricePerDay} × $selectedDays days",
+                                style = LoopType.BodySmall,
+                                color = InkSecondary
+                            )
+                            Text(
+                                text = "₹$rentalSubtotal",
+                                style = LoopType.BodyMedium,
+                                color = InkCharcoal
+                            )
+                        }
+
+                        if (selectedDelivery.fee > 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Delivery Fee",
+                                    style = LoopType.BodySmall,
+                                    color = InkSecondary
+                                )
+                                Text(
+                                    text = "₹$deliveryFee",
+                                    style = LoopType.BodyMedium,
+                                    color = InkCharcoal
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Community Protection & Guarantee",
+                                style = LoopType.BodySmall,
+                                color = InkSecondary
+                            )
+                            Text(
+                                text = "₹$serviceFee",
+                                style = LoopType.BodyMedium,
+                                color = InkCharcoal
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(1.dp)
-                                .background(BorderSubtle)
+                                .background(PaperBorderSubtle)
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                        // Grand Total
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Total",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                text = "Total Due",
+                                style = LoopType.HeadlineMedium.copy(fontSize = 17.sp),
+                                color = InkCharcoal
                             )
                             Text(
-                                text = "₹${"%,d".format(grandTotal)}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                text = "₹$totalAmount",
+                                style = LoopType.PriceHeadline,
+                                color = InkCharcoal
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
+            }
+
+            // Bottom CTA
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(PaperPureWhite)
+                    .border(1.dp, PaperBorderSubtle, RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .navigationBarsPadding()
+                    .padding(horizontal = 22.dp, vertical = 14.dp)
+            ) {
+                PrimaryCTA(
+                    text = "Confirm & Request Piece",
+                    onClick = {
+                        isConfirmedModalOpen = true
+                    },
+                    testTag = "booking_confirm_btn"
+                )
             }
         }
 
-        // Sticky Bottom "Proceed to Book ->" Button
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(Color.White)
-                .border(1.dp, BorderSubtle, RoundedCornerShape(0.dp))
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
-        ) {
-            DarkPillButton(
-                text = "Proceed to Book",
-                onClick = {
-                    showSuccessDialog = true
-                },
-                height = 52.dp,
-                showArrow = true,
-                testTag = "booking_proceed_btn"
-            )
-        }
-
-        // Booking Success Dialog
-        if (showSuccessDialog) {
-            AlertDialog(
-                onDismissRequest = { showSuccessDialog = false },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = BrandGreen,
-                        modifier = Modifier.size(48.dp)
-                    )
-                },
-                title = {
-                    Text(
-                        text = "Booking Confirmed!",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                },
-                text = {
-                    Column {
-                        Text(
-                            text = "Your rental request for ${item.title} has been confirmed.",
-                            fontSize = 14.sp,
-                            color = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Pickup location: ${item.location}\nDates: $startDate – $endDate\nTotal Paid: ₹${"%,d".format(grandTotal)}",
-                            fontSize = 13.sp,
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showSuccessDialog = false
-                            onBookingConfirmed()
-                        }
+        // Confirmation Sheet / Dialog
+        if (isConfirmedModalOpen) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(PaperPureWhite)
+                        .border(1.dp, PaperBorder, RoundedCornerShape(26.dp))
+                        .padding(26.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(AccentMint),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("View in Messages", fontWeight = FontWeight.Bold, color = BrandBlue)
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Success",
+                            tint = AccentForestGreen,
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "Reservation Sent",
+                        style = LoopType.HeroDisplay.copy(fontSize = 22.sp),
+                        color = InkCharcoal
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "${item.owner.name} has received your reservation request for ${item.title}. Chat initiated in Studio tab.",
+                        style = LoopType.BodySmall,
+                        color = InkSecondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    PrimaryCTA(
+                        text = "Go to Studio Messages",
+                        onClick = {
+                            isConfirmedModalOpen = false
+                            onBookingConfirmed()
+                        },
+                        testTag = "modal_go_to_chat_btn"
+                    )
                 }
-            )
+            }
         }
     }
 }

@@ -2,166 +2,205 @@ package com.example.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.example.R
+
+// Google Fonts installed locally via font-util
+val PlayfairFontFamily = FontFamily(
+    Font(R.font.playfair_display, FontWeight.Normal),
+    Font(R.font.playfair_display, FontWeight.Medium),
+    Font(R.font.playfair_display, FontWeight.SemiBold),
+    Font(R.font.playfair_display, FontWeight.Bold)
+)
+
+val PlusJakartaFontFamily = FontFamily(
+    Font(R.font.plus_jakarta_sans, FontWeight.Normal),
+    Font(R.font.plus_jakarta_sans, FontWeight.Medium),
+    Font(R.font.plus_jakarta_sans, FontWeight.SemiBold),
+    Font(R.font.plus_jakarta_sans, FontWeight.Bold)
+)
 
 /**
- * LOOP Unified Editorial Typography System
- * Enforces strict hierarchy across Display, H1, H2, H3, Body, Technical Captions, and Editorial Script.
+ * Editorial Lifestyle Typography Hierarchy
+ * Restrained, elegant serif headlines paired with clean contemporary sans-serif body.
  */
 object LoopType {
-    // 1. Display / Poster Scale (Marketing, Onboarding, Hero Mastheads)
-    val DisplayPosterHuge = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Black,
-        fontSize = 68.sp,
-        lineHeight = 68.sp,
-        letterSpacing = (-2.5).sp,
-        color = InkBlack
+
+    // 1. Hero & Masthead Display (Playfair Serif)
+    val HeroDisplay = TextStyle(
+        fontFamily = PlayfairFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 32.sp,
+        lineHeight = 38.sp,
+        letterSpacing = (-0.5).sp,
+        color = InkCharcoal
     )
 
-    val DisplayPosterMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Black,
-        fontSize = 38.sp,
-        lineHeight = 44.sp,
-        letterSpacing = (-1.0).sp,
-        color = InkBlack
+    val HeroDisplayLarge = TextStyle(
+        fontFamily = PlayfairFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 36.sp,
+        lineHeight = 42.sp,
+        letterSpacing = (-0.8).sp,
+        color = InkCharcoal
     )
 
-    // 2. Headings Scale
-    val H1 = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
+    // 2. Headlines
+    val HeadlineLarge = TextStyle(
+        fontFamily = PlayfairFontFamily,
+        fontWeight = FontWeight.Medium,
         fontSize = 24.sp,
         lineHeight = 30.sp,
-        letterSpacing = (-0.5).sp,
-        color = InkBlack
+        letterSpacing = (-0.3).sp,
+        color = InkCharcoal
     )
 
-    val H2 = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
+    val HeadlineMedium = TextStyle(
+        fontFamily = PlayfairFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
         letterSpacing = (-0.2).sp,
-        color = InkBlack
+        color = InkCharcoal
     )
 
-    val H3 = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 15.sp,
-        lineHeight = 20.sp,
+    val Subtitle = TextStyle(
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
         letterSpacing = 0.sp,
-        color = InkBlack
+        color = InkCharcoal
     )
 
-    // 3. Body Scale
+    // 3. Body Text (Plus Jakarta Sans)
     val BodyEditorial = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.15.sp,
+        fontSize = 14.5.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.1.sp,
         color = InkSecondary
     )
 
     val BodyMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 13.5.sp,
-        lineHeight = 19.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
         letterSpacing = 0.1.sp,
-        color = InkBlack
+        color = InkCharcoal
     )
 
     val BodySmall = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.5.sp,
-        lineHeight = 17.sp,
-        letterSpacing = 0.2.sp,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.1.sp,
         color = InkSecondary
     )
 
-    // 4. Technical / Monospace Captions (Metadata, Coordinates, Hardware Specs)
-    val CaptionTechnical = TextStyle(
-        fontFamily = FontFamily.Monospace,
-        fontWeight = FontWeight.Bold,
-        fontSize = 10.5.sp,
-        lineHeight = 14.sp,
-        letterSpacing = 0.8.sp,
+    // 4. Metadata & Editorial Badges
+    val Metadata = TextStyle(
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.5.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.6.sp,
         color = InkMuted
     )
 
-    val PriceLarge = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+    val EditorialTag = TextStyle(
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 1.2.sp,
+        color = InkCharcoal
+    )
+
+    // 5. Button Text
+    val ButtonLabel = TextStyle(
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.2.sp,
+        color = InkWhite
+    )
+
+    val ButtonSecondaryLabel = TextStyle(
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.2.sp,
+        color = InkCharcoal
+    )
+
+    // 6. Price & Numeric Callouts
+    val PriceHeadline = TextStyle(
+        fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 20.sp,
         lineHeight = 24.sp,
-        letterSpacing = (-0.3).sp,
-        color = InkBlack
+        letterSpacing = (-0.4).sp,
+        color = InkCharcoal
     )
 
-    val PriceCard = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 15.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.sp,
-        color = InkBlack
-    )
-
-    // 5. Editorial Vintage Script (Postcards, Hand-lettered Callouts)
-    val ScriptEditorial = TextStyle(
-        fontFamily = FontFamily.Serif,
-        fontWeight = FontWeight.Bold,
-        fontStyle = FontStyle.Italic,
-        fontSize = 19.sp,
-        lineHeight = 23.sp,
-        letterSpacing = 0.sp,
-        color = InkBlack
-    )
-
-    val ScriptHandwritten = TextStyle(
-        fontFamily = FontFamily.Serif,
-        fontWeight = FontWeight.Medium,
-        fontStyle = FontStyle.Italic,
-        fontSize = 20.sp,
-        lineHeight = 25.sp,
-        letterSpacing = 0.sp,
-        color = InkBlack
-    )
-
-    // 6. Interactive Labels
-    val ButtonLabel = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
+    val PriceSmall = TextStyle(
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
         lineHeight = 18.sp,
-        letterSpacing = 0.3.sp,
-        color = InkInverse
+        letterSpacing = (-0.2).sp,
+        color = InkCharcoal
     )
+
+    // 7. Script / Italic Accent
+    val EditorialScript = TextStyle(
+        fontFamily = PlayfairFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontStyle = FontStyle.Italic,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.sp,
+        color = InkSecondary
+    )
+
+    // Legacy compatibility constants
+    val DisplayPosterHuge = HeroDisplayLarge
+    val DisplayPosterMedium = HeroDisplay
+    val H1 = HeadlineLarge
+    val H2 = HeadlineMedium
+    val H3 = Subtitle
+    val CaptionTechnical = Metadata
+    val PriceLarge = PriceHeadline
+    val PriceCard = PriceSmall
+    val ScriptEditorial = EditorialScript
+    val ScriptHandwritten = EditorialScript
 }
 
-// Material 3 Typography Mapping
+// Material 3 Typography integration
 val Typography = Typography(
-    displayLarge = LoopType.DisplayPosterHuge,
-    displayMedium = LoopType.DisplayPosterMedium,
-    displaySmall = LoopType.H1,
-    headlineLarge = LoopType.H1,
-    headlineMedium = LoopType.H2,
-    headlineSmall = LoopType.H3,
-    titleLarge = LoopType.H2,
-    titleMedium = LoopType.H3,
+    displayLarge = LoopType.HeroDisplayLarge,
+    displayMedium = LoopType.HeroDisplay,
+    displaySmall = LoopType.HeadlineLarge,
+    headlineLarge = LoopType.HeadlineLarge,
+    headlineMedium = LoopType.HeadlineMedium,
+    headlineSmall = LoopType.Subtitle,
+    titleLarge = LoopType.HeadlineMedium,
+    titleMedium = LoopType.Subtitle,
     titleSmall = LoopType.BodyMedium,
     bodyLarge = LoopType.BodyEditorial,
     bodyMedium = LoopType.BodyMedium,
     bodySmall = LoopType.BodySmall,
     labelLarge = LoopType.ButtonLabel,
-    labelMedium = LoopType.CaptionTechnical,
-    labelSmall = LoopType.CaptionTechnical
+    labelMedium = LoopType.Metadata,
+    labelSmall = LoopType.Metadata
 )

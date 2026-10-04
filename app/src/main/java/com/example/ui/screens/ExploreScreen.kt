@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,17 +20,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,261 +44,272 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.RentalRepository
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
-import com.example.ui.components.CategoryAvatarRow
-import com.example.ui.components.PopularItemCard
-import com.example.ui.theme.CanvasDark
-import com.example.ui.theme.CanvasGround
-import com.example.ui.theme.CanvasSubtle
-import com.example.ui.theme.CanvasWhite
+import com.example.ui.components.EditorialPhotoCard
+import com.example.ui.theme.AccentBeigeOat
+import com.example.ui.theme.AccentMint
+import com.example.ui.theme.AccentPeach
+import com.example.ui.theme.AccentPowderBlue
+import com.example.ui.theme.AccentWarmYellow
+import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
-import com.example.ui.theme.InkPrimary
 import com.example.ui.theme.InkSecondary
-import com.example.ui.theme.LineHairline
+import com.example.ui.theme.InkWhite
+import com.example.ui.theme.LoopType
+import com.example.ui.theme.PaperBorder
+import com.example.ui.theme.PaperBorderSubtle
+import com.example.ui.theme.PaperIvory
+import com.example.ui.theme.PaperPureWhite
+import com.example.ui.theme.PaperWarm
 
 @Composable
 fun ExploreScreen(
     items: List<RentalItem>,
     selectedCategory: RentalCategory?,
-    onSelectCategory: (RentalCategory) -> Unit,
+    onSelectCategory: (RentalCategory?) -> Unit,
     onItemClick: (RentalItem) -> Unit,
     onToggleFavorite: (String) -> Unit,
-    onContactOwnerFromMap: (RentalOwner) -> Unit,
+    onContactOwnerFromMap: (RentalOwner) -> Unit = {},
     initialMapView: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    var isMapView by remember { mutableStateOf(initialMapView) }
     var searchQuery by remember { mutableStateOf("") }
+    var isMapView by remember { mutableStateOf(initialMapView) }
 
-    val filteredItems = remember(items, selectedCategory, searchQuery) {
-        items.filter { item ->
-            val matchesCategory = selectedCategory == null || item.category == selectedCategory
-            val matchesQuery = searchQuery.isBlank() ||
-                    item.title.contains(searchQuery, ignoreCase = true) ||
-                    item.description.contains(searchQuery, ignoreCase = true) ||
-                    item.location.contains(searchQuery, ignoreCase = true)
-            matchesCategory && matchesQuery
-        }
+    val filteredItems = items.filter { item ->
+        val matchesCategory = selectedCategory == null || item.category == selectedCategory
+        val matchesQuery = searchQuery.isBlank() ||
+                item.title.contains(searchQuery, ignoreCase = true) ||
+                item.description.contains(searchQuery, ignoreCase = true) ||
+                item.location.contains(searchQuery, ignoreCase = true)
+        matchesCategory && matchesQuery
     }
 
     if (isMapView) {
         DiscoveryMapScreen(
-            pins = RentalRepository.discoveryPins,
-            onPinChatClick = onContactOwnerFromMap,
-            onPinItemClick = onItemClick,
-            onSwitchToList = { isMapView = false },
-            modifier = modifier
+            onBackToCatalog = { isMapView = false },
+            onItemClick = onItemClick,
+            onContactOwner = onContactOwnerFromMap
         )
     } else {
-        Box(
+        Column(
             modifier = modifier
                 .fillMaxSize()
-                .background(CanvasGround)
+                .background(PaperWarm)
+                .statusBarsPadding()
         ) {
-            Column(
+            // Header with Title and Mode Switcher (Catalog / Map)
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(horizontal = 18.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header Bar: Catalogue Title & Map Switcher
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Equipment Catalogue",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = InkPrimary
-                        )
-                        Text(
-                            text = "${filteredItems.size} verified units listed in White Town",
-                            fontSize = 12.sp,
-                            color = InkSecondary
-                        )
-                    }
-
-                    // Map Discovery View Toggle Button
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(CanvasDark)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(color = Color.White),
-                                onClick = { isMapView = true }
-                            )
-                            .padding(horizontal = 12.dp, vertical = 7.dp)
-                            .testTag("explore_map_toggle_btn"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Map,
-                                contentDescription = "Map View",
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "RADAR MAP",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace,
-                                letterSpacing = 0.5.sp,
-                                color = Color.White
-                            )
-                        }
-                    }
+                Column {
+                    Text(
+                        text = "The Catalog",
+                        style = LoopType.HeroDisplayLarge.copy(fontSize = 28.sp),
+                        color = InkCharcoal
+                    )
+                    Text(
+                        text = "${filteredItems.size} verified pieces available",
+                        style = LoopType.Metadata,
+                        color = InkSecondary
+                    )
                 }
 
-                // Search Bar
+                // Map View Toggle Pill
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(CanvasWhite)
-                        .border(1.dp, LineHairline, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(PaperPureWhite)
+                        .border(1.dp, PaperBorder, RoundedCornerShape(20.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true),
+                            onClick = { isMapView = true }
+                        )
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .testTag("explore_toggle_map_view"),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.Map,
+                            contentDescription = null,
+                            tint = InkCharcoal,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Map",
+                            style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
+                            color = InkCharcoal
+                        )
+                    }
+                }
+            }
+
+            // Minimalist Search Input
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp, vertical = 6.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = {
+                        Text(
+                            text = "Search 35mm cameras, e-bikes, synthesizers...",
+                            style = LoopType.BodyEditorial.copy(fontSize = 13.5.sp),
+                            color = InkMuted
+                        )
+                    },
+                    leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
                             tint = InkMuted,
                             modifier = Modifier.size(19.dp)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            textStyle = TextStyle(
-                                fontSize = 13.5.sp,
-                                color = InkPrimary,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            cursorBrush = SolidColor(CanvasDark),
-                            decorationBox = { inner ->
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "Search cameras, laptops, vehicles...",
-                                        fontSize = 13.sp,
-                                        color = InkMuted
-                                    )
-                                }
-                                inner()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("explore_search_field")
-                        )
+                    },
+                    trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Clear",
                                 tint = InkMuted,
                                 modifier = Modifier
-                                    .size(16.dp)
+                                    .size(18.dp)
                                     .clickable { searchQuery = "" }
                             )
                         }
-                    }
+                    },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = PaperPureWhite,
+                        unfocusedContainerColor = PaperPureWhite,
+                        focusedIndicatorColor = InkCharcoal,
+                        unfocusedIndicatorColor = PaperBorder,
+                        focusedTextColor = InkCharcoal,
+                        unfocusedTextColor = InkCharcoal,
+                        cursorColor = InkCharcoal
+                    ),
+                    shape = RoundedCornerShape(24.dp),
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("explore_search_input")
+                )
+            }
+
+            // Horizontal Filter Pills
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                contentPadding = PaddingValues(horizontal = 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    FilterChipPill(
+                        label = "All Pieces",
+                        isSelected = selectedCategory == null,
+                        onClick = { onSelectCategory(null) }
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                items(RentalCategory.values()) { category ->
+                    FilterChipPill(
+                        label = "${category.iconEmoji} ${category.title}",
+                        isSelected = selectedCategory == category,
+                        onClick = { onSelectCategory(if (selectedCategory == category) null else category) }
+                    )
+                }
+            }
 
-                // Category Chips Strip
-                CategoryAvatarRow(
-                    selectedCategory = selectedCategory,
-                    onSelectCategory = onSelectCategory,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Inventory Grid or Empty State
+            // Catalog Photo Feed
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(start = 22.dp, end = 22.dp, bottom = 90.dp, top = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 if (filteredItems.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    item {
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 60.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "NO HARDWARE MATCHES",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace,
-                                letterSpacing = 1.sp,
-                                color = InkMuted
+                                text = "No pieces found",
+                                style = LoopType.HeadlineMedium,
+                                color = InkCharcoal
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "No listed gear in White Town matches '$searchQuery'",
-                                fontSize = 13.sp,
+                                text = "Try searching for another object or clearing your filter.",
+                                style = LoopType.BodyEditorial,
                                 color = InkSecondary
                             )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(CanvasDark)
-                                    .clickable { searchQuery = "" }
-                                    .padding(horizontal = 14.dp, vertical = 7.dp)
-                            ) {
-                                Text(
-                                    text = "RESET SEARCH",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = Color.White
-                                )
-                            }
                         }
                     }
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(bottom = 76.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(filteredItems, key = { it.id }) { item ->
-                            PopularItemCard(
-                                item = item,
-                                onClick = { onItemClick(item) },
-                                onToggleFavorite = onToggleFavorite,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+                    items(filteredItems) { item ->
+                        EditorialPhotoCard(
+                            item = item,
+                            onClick = { onItemClick(item) },
+                            onToggleFavorite = { onToggleFavorite(item.id) },
+                            isLarge = true
+                        )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FilterChipPill(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(100.dp))
+            .background(if (isSelected) InkCharcoal else PaperPureWhite)
+            .border(
+                1.dp,
+                if (isSelected) InkCharcoal else PaperBorder,
+                RoundedCornerShape(100.dp)
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = true),
+                onClick = onClick
+            )
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = LoopType.Metadata.copy(
+                fontSize = 12.sp,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+            ),
+            color = if (isSelected) InkWhite else InkCharcoal
+        )
     }
 }

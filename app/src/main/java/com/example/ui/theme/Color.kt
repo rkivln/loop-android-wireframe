@@ -2,62 +2,73 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// LOOP Editorial Paper / Vintage Creator Aesthetic Palette (from design mockups)
+// Premium Editorial Lifestyle Color System
+// Inspired by high-end independent publications (Kinfolk, Cereal, Monocle, Modern iOS)
 
-val ParchmentBg = Color(0xFFF4F0E8)         // Warm newsprint / paper textured background
-val ParchmentSurface = Color(0xFFFAF8F3)    // Clean card surface
-val ParchmentWhite = Color(0xFFFFFFFF)      // Pure white card element
-val ParchmentBorder = Color(0xFFE6E1D8)     // Subtle paper edge border
+// Foundation Backgrounds & Neutrals
+val PaperWarm = Color(0xFFF8F8F3)          // Primary warm off-white canvas
+val PaperIvory = Color(0xFFF3F1E8)         // Soft ivory card surface
+val PaperPureWhite = Color(0xFFFFFFFF)     // Crisp white photo containers
+val PaperBorder = Color(0xFFE7E5DC)        // Hairline subtle warm border
+val PaperBorderSubtle = Color(0xFFEDEBE3)  // Ultra soft divider
 
-val AccentYellow = Color(0xFFFFD54F)        // Signature highlighter yellow (Near You, Camera card, CTA)
-val AccentYellowDark = Color(0xFFF59E0B)    // Amber / Star rating
-val AccentYellowSoft = Color(0xFFFEF3C7)    // Soft yellow pill fill
+// Typography Colors
+val InkCharcoal = Color(0xFF111111)        // Primary text - deep matte charcoal
+val InkSecondary = Color(0xFF6E6E6E)       // Secondary editorial text & captions
+val InkMuted = Color(0xFFA0A0A0)           // Muted timestamps and tags
+val InkWhite = Color(0xFFFFFFFF)           // White text on dark elements
 
-val InkBlack = Color(0xFF111215)            // Primary bold poster typography
-val InkPrimary = InkBlack
-val InkSecondary = Color(0xFF4B4F58)        // Subtitles and editorial captions
-val InkMuted = Color(0xFF8A909D)            // Light metadata & borders
-val InkInverse = Color(0xFFFFFFFF)          // White text
+// Solid Editorial Accents (Restrained, no neon, no techy gradients)
+val AccentForestGreen = Color(0xFF1B4332)  // Deep forest green (Nature / verified)
+val AccentWarmYellow = Color(0xFFE5A93C)   // Sun-drenched warm ochre (Active / featured)
+val AccentPeach = Color(0xFFF0A288)        // Soft muted terracotta / peach
+val AccentMint = Color(0xFFD8E8DF)         // Pale mint pastel tile
+val AccentPowderBlue = Color(0xFFD6E3E9)   // Quiet powder blue pastel tile
+val AccentBeigeOat = Color(0xFFEFE8DE)     // Soft oat pastel tile
+val AccentYellowSoft = Color(0xFFFAF0D7)   // Soft butter yellow pastel tile
 
-val StatusGreen = Color(0xFF16A34A)         // "Available" badge green
-val StatusGreenBg = Color(0xFFDCFCE7)       // "Available" badge background
-
-val HeartRed = Color(0xFFEF4444)            // Favorite heart accent
+// Dark Editorial Screens & Maps (Section 17 & 18)
+val DarkCanvasNearBlack = Color(0xFF11110E)// Deep matte charcoal for dark screens
+val DarkSurfaceCard = Color(0xFF1D1D19)    // Dark card surface
+val DarkMapRoad = Color(0xFF262621)        // Quiet dark map roads
+val DarkMapWater = Color(0xFF181B1C)       // Quiet dark map water
+val DarkTextPrimary = Color(0xFFF5F5F0)    // Warm white text on dark
+val DarkTextSecondary = Color(0xFF9E9E96)  // Muted grey text on dark
 
 // Backwards-compatible aliases
-val CanvasGround = ParchmentBg
-val CanvasWhite = ParchmentWhite
-val CanvasSubtle = ParchmentSurface
-val CanvasDark = InkBlack
-val BackgroundLight = ParchmentBg
-val SurfacePureWhite = ParchmentWhite
-val SurfaceSecondary = ParchmentSurface
-val SurfaceCard = ParchmentWhite
-val SurfaceDarkPill = InkBlack
-val SurfaceMuted = ParchmentBorder
-
-val BrandDark = InkBlack
-val BrandDarkHover = Color(0xFF262626)
-val BrandBlue = Color(0xFF2563EB)
-val BrandStarAmber = AccentYellowDark
-val BrandGreen = StatusGreen
-val BrandRed = HeartRed
-
-val TextPrimary = InkBlack
+val ParchmentBg = PaperWarm
+val ParchmentSurface = PaperIvory
+val ParchmentWhite = PaperPureWhite
+val ParchmentBorder = PaperBorder
+val AccentYellow = AccentWarmYellow
+val AccentYellowDark = AccentWarmYellow
+val InkBlack = InkCharcoal
+val InkPrimary = InkCharcoal
+val StatusGreen = AccentForestGreen
+val StatusGreenBg = AccentMint
+val HeartRed = Color(0xFFD9534F)
+val CanvasGround = PaperWarm
+val CanvasWhite = PaperPureWhite
+val CanvasSubtle = PaperIvory
+val CanvasDark = InkCharcoal
+val BorderSubtle = PaperBorder
+val BorderDefault = PaperBorder
+val TextPrimary = InkCharcoal
 val TextSecondary = InkSecondary
 val TextMuted = InkMuted
-val TextLight = InkInverse
-
-val BorderSubtle = ParchmentBorder
-val BorderDefault = ParchmentBorder
-val BorderFocused = InkBlack
-
-val LineHairline = ParchmentBorder
+val TextLight = InkWhite
+val BackgroundLight = PaperWarm
+val SurfaceCard = PaperPureWhite
+val SurfaceSecondary = PaperIvory
+val BrandDark = InkCharcoal
+val BrandBlue = Color(0xFF2B4C7E)
+val BrandGreen = AccentForestGreen
+val BrandStarAmber = AccentWarmYellow
+val LineHairline = PaperBorder
 val LineMedium = Color(0xFFD4CEBF)
-val LineDark = InkBlack
-val AccentCobalt = Color(0xFF2563EB)
-val AccentCobaltSubtle = Color(0xFFEFF6FF)
-val StatusLive = StatusGreen
-val StatusLiveSubtle = StatusGreenBg
-val RatingAmber = AccentYellowDark
-val AlertCrimson = HeartRed
+val LineDark = InkCharcoal
+val AlertCrimson = Color(0xFFD9534F)
+val AccentCobalt = Color(0xFF2B4C7E)
+val AccentCobaltSubtle = Color(0xFFEFF4FA)
+val StatusLive = AccentForestGreen
+val RatingAmber = AccentWarmYellow

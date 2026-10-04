@@ -4,9 +4,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,16 +19,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,16 +49,25 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.RentalCategory
-import com.example.ui.components.DarkPillButton
-import com.example.ui.theme.BackgroundLight
-import com.example.ui.theme.ParchmentBg
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.BrandDark
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceSecondary
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.components.CategoryTile
+import com.example.ui.components.EditorialTopBar
+import com.example.ui.components.PrimaryCTA
+import com.example.ui.components.SectionLabel
+import com.example.ui.theme.AccentBeigeOat
+import com.example.ui.theme.AccentMint
+import com.example.ui.theme.AccentPeach
+import com.example.ui.theme.AccentPowderBlue
+import com.example.ui.theme.AccentWarmYellow
+import com.example.ui.theme.InkCharcoal
+import com.example.ui.theme.InkMuted
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.InkWhite
+import com.example.ui.theme.LoopType
+import com.example.ui.theme.PaperBorder
+import com.example.ui.theme.PaperBorderSubtle
+import com.example.ui.theme.PaperIvory
+import com.example.ui.theme.PaperPureWhite
+import com.example.ui.theme.PaperWarm
 
 @Composable
 fun CreateListingScreen(
@@ -67,241 +81,234 @@ fun CreateListingScreen(
     var priceText by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(RentalCategory.ELECTRONICS) }
-    var location by remember { mutableStateOf("Puducherry") }
-
-    val categories = listOf(
-        RentalCategory.ELECTRONICS,
-        RentalCategory.FURNITURE,
-        RentalCategory.VEHICLES,
-        RentalCategory.TOOLS,
-        RentalCategory.EVENTS
-    )
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(ParchmentBg)
+            .background(PaperWarm)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxSize()
         ) {
-            Column {
-                // Header Bar
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "List an Item to Rent",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+            EditorialTopBar(
+                title = "Publish Piece",
+                onBack = onClose
+            )
 
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp)
+            ) {
+                // Photo Drop Zone
+                item {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(SurfaceSecondary)
-                            .clickable(onClick = onClose)
-                            .testTag("create_listing_close_btn"),
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorderSubtle, RoundedCornerShape(22.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true),
+                                onClick = {}
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = TextPrimary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Photo Upload Box
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(130.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(SurfaceSecondary)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
-                        .clickable { /* upload */ },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.AddPhotoAlternate,
-                            contentDescription = "Add Photo",
-                            tint = TextMuted,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Add photos of your item",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = "Up to 5 clear photos",
-                            fontSize = 11.sp,
-                            color = TextMuted
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Item Title Input
-                Text(
-                    text = "Item Title",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    BasicTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
-                        cursorBrush = SolidColor(BrandDark),
-                        decorationBox = { inner ->
-                            if (title.isEmpty()) Text("e.g. Sony Mirrorless Camera A7", color = TextMuted, fontSize = 14.sp)
-                            inner()
-                        },
-                        modifier = Modifier.fillMaxWidth().testTag("listing_title_input")
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Price Per Day
-                Text(
-                    text = "Rental Price (₹ / day)",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    BasicTextField(
-                        value = priceText,
-                        onValueChange = { priceText = it },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
-                        cursorBrush = SolidColor(BrandDark),
-                        decorationBox = { inner ->
-                            if (priceText.isEmpty()) Text("e.g. 450", color = TextMuted, fontSize = 14.sp)
-                            inner()
-                        },
-                        modifier = Modifier.fillMaxWidth().testTag("listing_price_input")
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Category Selection
-                Text(
-                    text = "Category",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    categories.forEach { cat ->
-                        val isSelected = selectedCategory == cat
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) BrandDark else SurfaceSecondary, RoundedCornerShape(8.dp))
-                                .clickable { selectedCategory = cat },
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(PaperIvory),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AddPhotoAlternate,
+                                    contentDescription = "Upload",
+                                    tint = InkCharcoal,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = cat.title.split(" ").first(),
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) Color.White else TextSecondary
+                                text = "Upload Studio Photography",
+                                style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = InkCharcoal
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Natural lighting, front and detail perspectives",
+                                style = LoopType.Metadata,
+                                color = InkSecondary
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Description
-                Text(
-                    text = "Description & Condition",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                        .padding(14.dp)
-                ) {
-                    BasicTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        textStyle = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = TextPrimary),
-                        cursorBrush = SolidColor(BrandDark),
-                        decorationBox = { inner ->
-                            if (description.isEmpty()) Text("Mention accessories included, condition, and pickup guidelines...", color = TextMuted, fontSize = 13.sp)
-                            inner()
-                        },
-                        modifier = Modifier.fillMaxSize().testTag("listing_desc_input")
+                // Category Selection with Tactile Tiles
+                item {
+                    Spacer(modifier = Modifier.height(22.dp))
+                    Text(
+                        text = "DEPARTMENT",
+                        style = LoopType.EditorialTag,
+                        color = InkSecondary
                     )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(RentalCategory.values()) { cat ->
+                            CategoryTile(
+                                category = cat,
+                                isSelected = selectedCategory == cat,
+                                onClick = { selectedCategory = cat }
+                            )
+                        }
+                    }
+                }
+
+                // Object Title
+                item {
+                    Spacer(modifier = Modifier.height(22.dp))
+                    Text(
+                        text = "OBJECT NAME",
+                        style = LoopType.EditorialTag,
+                        color = InkSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorder, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        BasicTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            textStyle = TextStyle(fontSize = 15.sp, color = InkCharcoal, fontWeight = FontWeight.Medium),
+                            cursorBrush = SolidColor(InkCharcoal),
+                            decorationBox = { inner ->
+                                if (title.isEmpty()) Text("e.g. Leica M10 & 35mm Summicron", color = InkMuted, fontSize = 14.sp)
+                                inner()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("listing_title_input")
+                        )
+                    }
+                }
+
+                // Daily Rate
+                item {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(
+                        text = "DAILY CIRCULATION RATE (₹)",
+                        style = LoopType.EditorialTag,
+                        color = InkSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorder, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        BasicTextField(
+                            value = priceText,
+                            onValueChange = { priceText = it },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = TextStyle(fontSize = 15.sp, color = InkCharcoal, fontWeight = FontWeight.SemiBold),
+                            cursorBrush = SolidColor(InkCharcoal),
+                            decorationBox = { inner ->
+                                if (priceText.isEmpty()) Text("e.g. 750", color = InkMuted, fontSize = 14.sp)
+                                inner()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("listing_price_input")
+                        )
+                    }
+                }
+
+                // Description & Object Notes
+                item {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(
+                        text = "CURATOR'S NOTES & SPECS",
+                        style = LoopType.EditorialTag,
+                        color = InkSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorder, RoundedCornerShape(16.dp))
+                            .padding(14.dp),
+                        contentAlignment = Alignment.TopStart
+                    ) {
+                        BasicTextField(
+                            value = description,
+                            onValueChange = { description = it },
+                            textStyle = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = InkCharcoal),
+                            cursorBrush = SolidColor(InkCharcoal),
+                            decorationBox = { inner ->
+                                if (description.isEmpty()) {
+                                    Text(
+                                        text = "Detail included lenses, flight case, battery health, and care instructions...",
+                                        color = InkMuted,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                inner()
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("listing_desc_input")
+                        )
+                    }
                 }
             }
 
-            // Submit Button
+            // Bottom Publish CTA
             val sanitizedTitle = title.trim().take(100)
             val parsedPrice = priceText.filter { it.isDigit() }.toIntOrNull()?.coerceIn(10, 1_000_000)
             val isEnabled = sanitizedTitle.isNotBlank() && parsedPrice != null
-            Box(modifier = Modifier.padding(top = 24.dp)) {
-                DarkPillButton(
-                    text = "Publish Listing",
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(PaperPureWhite)
+                    .border(1.dp, PaperBorderSubtle, RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .navigationBarsPadding()
+                    .padding(horizontal = 22.dp, vertical = 14.dp)
+            ) {
+                PrimaryCTA(
+                    text = "Publish to Living Catalog",
                     onClick = {
-                        val price = parsedPrice ?: 300
+                        val price = parsedPrice ?: 500
                         val sanitizedDesc = description.trim().take(1000)
                         onListingCreated(sanitizedTitle, price, selectedCategory, sanitizedDesc)
                     },

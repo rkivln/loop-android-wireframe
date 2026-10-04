@@ -31,21 +31,21 @@ object RentalRepository {
     val defaultOwner = RentalOwner(
         id = "owner_1",
         name = "Rakesh Kumar",
-        badge = "Top Owner",
+        badge = "Top Maker",
         initials = "RK",
-        memberSince = "Joined 1 year ago",
+        memberSince = "Host since 2024",
         rating = 4.9f,
         totalRentals = 48,
-        responseTime = "< 15 mins",
+        responseTime = "< 10 mins",
         phone = "+91 98401 22345"
     )
 
     val ownerPriya = RentalOwner(
         id = "owner_2",
         name = "Priya Sharma",
-        badge = "Verified Owner",
+        badge = "Verified Creator",
         initials = "PS",
-        memberSince = "Joined 6 months ago",
+        memberSince = "Host since 2024",
         rating = 4.8f,
         totalRentals = 22,
         responseTime = "< 5 mins",
@@ -55,194 +55,192 @@ object RentalRepository {
     val ownerVikram = RentalOwner(
         id = "owner_3",
         name = "Vikram David",
-        badge = "Superhost",
+        badge = "Studio Superhost",
         initials = "VD",
-        memberSince = "Joined 2 years ago",
-        rating = 4.7f,
+        memberSince = "Host since 2023",
+        rating = 4.9f,
         totalRentals = 64,
-        responseTime = "< 30 mins",
+        responseTime = "< 15 mins",
         phone = "+91 94432 19876"
     )
 
     val ownerAnanya = RentalOwner(
         id = "owner_4",
         name = "Ananya Nair",
-        badge = "Top Owner",
+        badge = "Curator",
         initials = "AN",
-        memberSince = "Joined 8 months ago",
+        memberSince = "Host since 2024",
         rating = 4.9f,
         totalRentals = 35,
         responseTime = "< 10 mins",
         phone = "+91 99520 87654"
     )
 
-    val ownerArun = RentalOwner(
-        id = "owner_5",
-        name = "Arun Prakash",
-        badge = "Sound Specialist",
-        initials = "AP",
-        memberSince = "Joined 1 year ago",
-        rating = 4.9f,
-        totalRentals = 30,
-        responseTime = "< 15 mins",
-        phone = "+91 98840 11223"
-    )
-
-    val ownerSneha = RentalOwner(
-        id = "owner_6",
-        name = "Sneha Patel",
-        badge = "Outdoor Guide",
-        initials = "SP",
-        memberSince = "Joined 4 months ago",
-        rating = 4.8f,
-        totalRentals = 18,
-        responseTime = "< 20 mins",
-        phone = "+91 97911 33445"
-    )
-
     val items: List<RentalItem> = listOf(
         RentalItem(
-            id = "item_canon_200d",
-            title = "Canon EOS 200D",
+            id = "item_leica_m",
+            title = "Canon EOS & 35mm Glass",
             category = RentalCategory.ELECTRONICS,
-            pricePerDay = 700,
-            location = "Puducherry",
+            pricePerDay = 750,
+            location = "White Town, Puducherry",
             rating = 4.9f,
-            reviewCount = 32,
-            description = "Well maintained Canon EOS 200D with 18-55mm lens. Perfect for travel, events and casual shoots. Comes with battery, charger and 32GB SD card.",
-            primaryImageRes = R.drawable.canon_eos_camera_1790477967758,
+            reviewCount = 38,
+            description = "Impeccably maintained 35mm photographic setup with prime portrait glass. Natural film rendering, leather neck strap, extra high-capacity battery, and fast 64GB card included.",
+            primaryImageRes = R.drawable.img_editorial_lifestyle_1_1791087263359,
             imageCount = 5,
             features = listOf(
-                SpecFeature("CAMERA", "24.2 MP"),
-                SpecFeature("LENS", "18-55mm Lens"),
-                SpecFeature("STORAGE", "32GB SD Card"),
-                SpecFeature("BAG", "Carry Bag Included")
+                SpecFeature("CAMERA", "24.2 MP APS-C"),
+                SpecFeature("LENS", "35mm f/1.8 Prime"),
+                SpecFeature("STORAGE", "64GB Extreme SD"),
+                SpecFeature("BAG", "Horween Leather Strap")
             ),
             owner = defaultOwner,
             isPopular = true,
             isFavorite = true,
-            availableToday = true
+            availableToday = true,
+            securityDeposit = 1500
         ),
         RentalItem(
-            id = "item_laptop",
-            title = "Laptop",
-            category = RentalCategory.ELECTRONICS,
-            pricePerDay = 500,
-            location = "Puducherry",
-            rating = 4.8f,
-            reviewCount = 19,
-            description = "Ultra-fast modern laptop with M2 chip, 16GB RAM and 512GB SSD. Great for coding, video editing and office presentations.",
-            primaryImageRes = R.drawable.modern_laptop_1790477981432,
+            id = "item_synth_station",
+            title = "Analogue Synth & Studio Desk",
+            category = RentalCategory.STUDY_OFFICE,
+            pricePerDay = 850,
+            location = "Heritage Quarter",
+            rating = 4.9f,
+            reviewCount = 24,
+            description = "Complete creative desktop audio setup featuring compact analogue synthesizer, closed-back studio monitors, and oak workspace accessories for music production and podcast sessions.",
+            primaryImageRes = R.drawable.img_editorial_studio_2_1791087277042,
             imageCount = 4,
             features = listOf(
-                SpecFeature("CHIP", "M2 Chip"),
-                SpecFeature("STORAGE", "512GB SSD"),
-                SpecFeature("BATTERY", "18h Battery"),
-                SpecFeature("BAG", "Sleeve Included")
+                SpecFeature("CHIP", "Analogue Engine"),
+                SpecFeature("STORAGE", "USB-C Audio Interface"),
+                SpecFeature("BAG", "Hard Shell Flight Case"),
+                SpecFeature("BATTERY", "Power Supply & Cables")
             ),
             owner = ownerPriya,
             isPopular = true,
             isFavorite = false,
-            availableToday = true
+            availableToday = true,
+            securityDeposit = 2000
         ),
         RentalItem(
-            id = "item_scooter",
-            title = "Scooter",
+            id = "item_coastal_ebike",
+            title = "Coastal Cruiser Electric E-Bike",
             category = RentalCategory.VEHICLES,
-            pricePerDay = 350,
-            location = "Puducherry",
-            rating = 4.7f,
-            reviewCount = 45,
-            description = "Smooth electric scooter with 85km full range. Helmet and fast home charger included. Helmet provided.",
-            primaryImageRes = R.drawable.electric_scooter_1790477992190,
-            imageCount = 3,
+            pricePerDay = 450,
+            location = "Goubert Avenue",
+            rating = 4.8f,
+            reviewCount = 52,
+            description = "Minimalist matte scrambler e-bike with 75km range, integrated LED headlamp, woven front basket, and dual disk brakes. Ideal for scenic coastal rides along the Promenade.",
+            primaryImageRes = R.drawable.img_editorial_outdoor_3_1791087293034,
+            imageCount = 4,
             features = listOf(
-                SpecFeature("RANGE", "85 km Range"),
-                SpecFeature("BATTERY", "Fast Charging"),
-                SpecFeature("BAG", "Helmet Included"),
-                SpecFeature("CAMERA", "Digital Lock")
+                SpecFeature("RANGE", "75 km Range"),
+                SpecFeature("BATTERY", "Quick-Swap Battery"),
+                SpecFeature("BAG", "Kevlar Helmet Included"),
+                SpecFeature("CAMERA", "Integrated U-Lock")
             ),
             owner = ownerVikram,
             isPopular = true,
-            isFavorite = false,
-            availableToday = true
+            isFavorite = true,
+            availableToday = true,
+            securityDeposit = 1000
         ),
         RentalItem(
             id = "item_armchair",
-            title = "Modern Armchair",
+            title = "Scandinavian Linen Armchair",
             category = RentalCategory.FURNITURE,
-            pricePerDay = 250,
-            location = "Puducherry",
+            pricePerDay = 300,
+            location = "Suffren Street",
             rating = 4.9f,
-            reviewCount = 14,
-            description = "Cozy Scandinavian beige armchair for photoshoots, guest staging, or temporary living setups.",
+            reviewCount = 19,
+            description = "Artisanal neutral linen armchair with solid oak joinery. Sourced for architectural photoshoots, pop-up gallery lounges, and relaxed reading corners.",
             primaryImageRes = R.drawable.modern_armchair_1790478015816,
             imageCount = 3,
             features = listOf(
-                SpecFeature("BAG", "Fabric Cushion"),
-                SpecFeature("LENS", "Ergonomic"),
-                SpecFeature("CAMERA", "Stain Guard"),
-                SpecFeature("CHIP", "Lightweight")
+                SpecFeature("BAG", "Natural Linen Cover"),
+                SpecFeature("LENS", "Solid White Oak"),
+                SpecFeature("CHIP", "Lightweight Modular")
             ),
             owner = defaultOwner,
             isPopular = false,
             isFavorite = false,
-            availableToday = true
+            availableToday = true,
+            securityDeposit = 800
         ),
         RentalItem(
             id = "item_projector",
-            title = "Mini Projector",
-            category = RentalCategory.STUDY_OFFICE,
-            pricePerDay = 450,
-            location = "Puducherry",
+            title = "Portable Cinema Projector",
+            category = RentalCategory.EVENTS,
+            pricePerDay = 500,
+            location = "Lawspet Quarter",
             rating = 4.8f,
-            reviewCount = 28,
-            description = "1080p full HD portable cinema projector with HDMI and wireless screen mirroring.",
+            reviewCount = 31,
+            description = "Compact 1080p full HD cinematic projector with built-in Harman Kardon acoustics, lightweight tripod, and wireless AirPlay / Chromecast support for outdoor courtyard screenings.",
             primaryImageRes = R.drawable.modern_projector_1790478027952,
             imageCount = 4,
             features = listOf(
-                SpecFeature("CAMERA", "1080p Full HD"),
-                SpecFeature("STORAGE", "HDMI & Wi-Fi"),
-                SpecFeature("BAG", "Tripod Included"),
-                SpecFeature("CHIP", "Speaker Built-in")
+                SpecFeature("CAMERA", "1080p Cine Lens"),
+                SpecFeature("STORAGE", "HDMI & AirPlay"),
+                SpecFeature("BAG", "Carbon Tripod Bag"),
+                SpecFeature("CHIP", "360° Audio Speaker")
             ),
             owner = ownerAnanya,
             isPopular = false,
             isFavorite = false,
-            availableToday = true
+            availableToday = true,
+            securityDeposit = 1200
+        ),
+        RentalItem(
+            id = "item_pro_laptop",
+            title = "M2 Pro Workstation Laptop",
+            category = RentalCategory.ELECTRONICS,
+            pricePerDay = 600,
+            location = "Mission Street",
+            rating = 4.9f,
+            reviewCount = 27,
+            description = "High-performance laptop calibrated for Lightroom, DaVinci Resolve, and mobile development. Sourced with padded felt sleeve and 96W USB-C charger.",
+            primaryImageRes = R.drawable.modern_laptop_1790477981432,
+            imageCount = 4,
+            features = listOf(
+                SpecFeature("CHIP", "M2 Pro 12-Core"),
+                SpecFeature("STORAGE", "1TB Fast NVMe"),
+                SpecFeature("BATTERY", "16h Battery Life"),
+                SpecFeature("BAG", "Felt Wool Sleeve")
+            ),
+            owner = ownerPriya,
+            isPopular = false,
+            isFavorite = false,
+            availableToday = true,
+            securityDeposit = 2500
         )
     )
-
-    val canonItem = items[0]
-    val laptopItem = items[1]
-    val scooterItem = items[2]
-    val projectorItem = items[4]
 
     val initialConversations: List<ChatConversation> = listOf(
         ChatConversation(
             id = "conv_rakesh",
             owner = defaultOwner,
-            itemContext = canonItem,
+            itemContext = items[0],
             isOnline = true,
             isTyping = false,
-            unreadCount = 2,
+            unreadCount = 1,
             isPinned = true,
             messages = listOf(
                 RentalMessage(
                     id = "m_rakesh_0",
                     senderName = "System",
-                    text = "Rental Inquiry Started for Canon EOS 200D (₹700/day)",
+                    text = "Inquiry started for Canon EOS & 35mm Glass (₹750/day)",
                     timestamp = "10:28 AM",
                     isFromMe = false,
                     messageType = ChatMessageType.RENTAL_OFFER,
-                    itemTitle = "Canon EOS 200D",
-                    itemPricePerDay = 700,
-                    itemImageRes = R.drawable.canon_eos_camera_1790477967758
+                    itemTitle = "Canon EOS & 35mm Glass",
+                    itemPricePerDay = 750,
+                    itemImageRes = R.drawable.img_editorial_lifestyle_1_1791087263359
                 ),
                 RentalMessage(
                     id = "m_rakesh_1",
                     senderName = "Rakesh Kumar",
-                    text = "Hi Gokulan! Thanks for booking the Canon EOS 200D.",
+                    text = "Hello! Looking forward to passing over the 35mm kit. The glass is freshly cleaned.",
                     timestamp = "10:30 AM",
                     isFromMe = false,
                     messageType = ChatMessageType.TEXT,
@@ -251,37 +249,27 @@ object RentalRepository {
                 RentalMessage(
                     id = "m_rakesh_2",
                     senderName = "Me",
-                    text = "Hi Rakesh! Is it possible to pick it up around 11 AM near White Town?",
+                    text = "Hi Rakesh! Could we meet around 11 AM near Café des Arts in White Town?",
                     timestamp = "10:32 AM",
                     isFromMe = true,
                     messageType = ChatMessageType.TEXT,
                     status = MessageStatus.READ
                 ),
                 RentalMessage(
-                    id = "m_rakesh_3",
-                    senderName = "Rakesh Kumar",
-                    text = "Voice note from Rakesh",
-                    timestamp = "10:34 AM",
-                    isFromMe = false,
-                    messageType = ChatMessageType.AUDIO_NOTE,
-                    audioDuration = "0:24",
-                    status = MessageStatus.READ
-                ),
-                RentalMessage(
                     id = "m_rakesh_4",
                     senderName = "Rakesh Kumar",
-                    text = "Pickup Location Pin",
+                    text = "Pickup Location",
                     timestamp = "10:35 AM",
                     isFromMe = false,
                     messageType = ChatMessageType.LOCATION_PIN,
-                    locationTitle = "Café des Arts, White Town",
+                    locationTitle = "Café des Arts Courtyard",
                     locationAddress = "10, Suffren St, White Town, Puducherry",
                     status = MessageStatus.READ
                 ),
                 RentalMessage(
                     id = "m_rakesh_5",
                     senderName = "Rakesh Kumar",
-                    text = "Yes, absolutely! The camera is fully charged with the extra 32GB SD card packed. See you at 11 AM! 👍",
+                    text = "Perfect! I'll have the camera, leather strap, and extra battery ready for you. See you there.",
                     timestamp = "10:36 AM",
                     isFromMe = false,
                     messageType = ChatMessageType.TEXT,
@@ -292,7 +280,7 @@ object RentalRepository {
         ChatConversation(
             id = "conv_priya",
             owner = ownerPriya,
-            itemContext = laptopItem,
+            itemContext = items[1],
             isOnline = true,
             isTyping = false,
             unreadCount = 0,
@@ -301,7 +289,7 @@ object RentalRepository {
                 RentalMessage(
                     id = "m_priya_1",
                     senderName = "Me",
-                    text = "Hi Priya! Is the MacBook / M2 Laptop available for this weekend?",
+                    text = "Hi Priya! Is the synth station available for recording this Saturday?",
                     timestamp = "Yesterday",
                     isFromMe = true,
                     messageType = ChatMessageType.TEXT,
@@ -310,18 +298,9 @@ object RentalRepository {
                 RentalMessage(
                     id = "m_priya_2",
                     senderName = "Priya Sharma",
-                    text = "Yes, it is! Comes with the original 67W fast charger and sleeve.",
+                    text = "Yes, it is! Comes packed in the flight case with all required cables.",
                     timestamp = "Yesterday",
                     isFromMe = false,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.READ
-                ),
-                RentalMessage(
-                    id = "m_priya_3",
-                    senderName = "Me",
-                    text = "Perfect, I've sent the booking request! 💻",
-                    timestamp = "Yesterday",
-                    isFromMe = true,
                     messageType = ChatMessageType.TEXT,
                     status = MessageStatus.READ
                 )
@@ -330,7 +309,7 @@ object RentalRepository {
         ChatConversation(
             id = "conv_vikram",
             owner = ownerVikram,
-            itemContext = scooterItem,
+            itemContext = items[2],
             isOnline = false,
             isTyping = false,
             unreadCount = 0,
@@ -339,37 +318,8 @@ object RentalRepository {
                 RentalMessage(
                     id = "m_vikram_1",
                     senderName = "Vikram David",
-                    text = "Hey! Scooter battery is at 100% and helmet is sanitized.",
+                    text = "Coastal E-bike is fully charged and tire pressure is dialed in.",
                     timestamp = "Tuesday",
-                    isFromMe = false,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.READ
-                ),
-                RentalMessage(
-                    id = "m_vikram_2",
-                    senderName = "Me",
-                    text = "Thanks Vikram, will return it by 7 PM.",
-                    timestamp = "Tuesday",
-                    isFromMe = true,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.READ
-                )
-            )
-        ),
-        ChatConversation(
-            id = "conv_ananya",
-            owner = ownerAnanya,
-            itemContext = projectorItem,
-            isOnline = true,
-            isTyping = false,
-            unreadCount = 1,
-            isPinned = false,
-            messages = listOf(
-                RentalMessage(
-                    id = "m_ananya_1",
-                    senderName = "Ananya Nair",
-                    text = "Hi! Did the HDMI cable and tripod work well for your movie night? 🎬",
-                    timestamp = "Monday",
                     isFromMe = false,
                     messageType = ChatMessageType.TEXT,
                     status = MessageStatus.READ
@@ -378,45 +328,47 @@ object RentalRepository {
         )
     )
 
+    val sampleMessages: List<RentalMessage> = initialConversations.first().messages
+
     val discoveryPins: List<DiscoveryPinItem> = listOf(
         DiscoveryPinItem(
             id = "pin_rakesh",
             title = "Rakesh Kumar",
-            subtitle = "Canon DSLR & Lens Host",
+            subtitle = "35mm Optics & Cameras",
             type = DiscoveryPinType.USER_HOST,
             latitude = 11.9338,
             longitude = 79.8350,
             rating = 4.9f,
             distance = "0.2 km away",
-            tag = "★ Top Host",
+            tag = "★ Master Host",
             dateOrAvailability = "Available today",
-            locationName = "White Town, Puducherry",
-            priceOrAttendees = "₹700 / day",
-            description = "Top rated equipment owner in White Town. Rents Canon DSLR cameras, tripods, prime lenses and studio accessories.",
+            locationName = "Suffren St, White Town",
+            priceOrAttendees = "₹750 / day",
+            description = "Dedicated photographer renting vintage 35mm bodies, portrait lenses, and hard shell flight cases.",
             owner = defaultOwner,
-            rentalItem = canonItem,
-            imageRes = R.drawable.canon_eos_camera_1790477967758
+            rentalItem = items[0],
+            imageRes = R.drawable.img_editorial_lifestyle_1_1791087263359
         ),
         DiscoveryPinItem(
             id = "pin_event_photowalk",
-            title = "Puducherry Sunset Photowalk",
-            subtitle = "Promenade Rock Beach",
+            title = "Promenade Golden Hour Walk",
+            subtitle = "Rock Beach Promenade",
             type = DiscoveryPinType.COMMUNITY_EVENT,
             latitude = 11.9295,
             longitude = 79.8370,
             rating = 4.9f,
             distance = "0.4 km away",
-            tag = "📸 Community Event",
-            dateOrAvailability = "Today · 5:00 PM – 7:30 PM",
-            locationName = "Rock Beach Promenade, White Town",
-            priceOrAttendees = "18 creators attending",
-            description = "Join 18 local photographers and creators for a golden hour photowalk along the Promenade Beach. Camera gear tryouts and lens sharing welcome!",
+            tag = "📸 Photo Walk",
+            dateOrAvailability = "Today · 5:00 PM – 7:00 PM",
+            locationName = "Promenade Rock Beach",
+            priceOrAttendees = "18 creators",
+            description = "Casual twilight gathering of local photographers exploring the French Quarter seafront with shared lenses and analogue cameras.",
             isAttending = true
         ),
         DiscoveryPinItem(
             id = "pin_priya",
             title = "Priya Sharma",
-            subtitle = "M2 Laptop & Workstation Host",
+            subtitle = "Audio & Studio Gear",
             type = DiscoveryPinType.USER_HOST,
             latitude = 11.9372,
             longitude = 79.8270,
@@ -424,137 +376,51 @@ object RentalRepository {
             distance = "0.6 km away",
             tag = "Verified Host",
             dateOrAvailability = "Available today",
-            locationName = "MG Road, Heritage Town",
-            priceOrAttendees = "₹500 / day",
-            description = "Software engineer sharing powerful M2 laptops, mechanical keyboards, portable monitors, and fast chargers.",
+            locationName = "Heritage Quarter",
+            priceOrAttendees = "₹850 / day",
+            description = "Producer sharing synthesizers, studio audio interfaces, and high-spec creative laptops.",
             owner = ownerPriya,
-            rentalItem = laptopItem,
-            imageRes = R.drawable.modern_laptop_1790477981432
-        ),
-        DiscoveryPinItem(
-            id = "pin_event_jam",
-            title = "Acoustic Jam & Open Mic",
-            subtitle = "Café des Arts Courtyard",
-            type = DiscoveryPinType.COMMUNITY_EVENT,
-            latitude = 11.9345,
-            longitude = 79.8340,
-            rating = 5.0f,
-            distance = "0.3 km away",
-            tag = "🎵 Community Meetup",
-            dateOrAvailability = "Tomorrow · 6:30 PM",
-            locationName = "Café des Arts, Suffren St",
-            priceOrAttendees = "24 members attending",
-            description = "Chill community acoustic evening with local musicians, guitar jams, storytelling, and hot filter coffee. Free entry for Loop community.",
-            isAttending = false
+            rentalItem = items[1],
+            imageRes = R.drawable.img_editorial_studio_2_1791087277042
         ),
         DiscoveryPinItem(
             id = "pin_vikram",
             title = "Vikram David",
-            subtitle = "Electric Mobility & Scooter Host",
+            subtitle = "Coastal E-Bikes",
             type = DiscoveryPinType.USER_HOST,
             latitude = 11.9310,
             longitude = 79.8365,
-            rating = 4.7f,
+            rating = 4.8f,
             distance = "0.5 km away",
             tag = "⚡ Superhost",
             dateOrAvailability = "Available today",
-            locationName = "Goubert Ave, Puducherry",
-            priceOrAttendees = "₹350 / day",
-            description = "Eco mobility enthusiast offering maintained electric scooters with 85km range, helmets, and fast home chargers.",
-            owner = ownerVikram,
-            rentalItem = scooterItem,
-            imageRes = R.drawable.electric_scooter_1790477992190
-        ),
-        DiscoveryPinItem(
-            id = "pin_ananya",
-            title = "Ananya Nair",
-            subtitle = "Cinema & Projector Host",
-            type = DiscoveryPinType.USER_HOST,
-            latitude = 11.9510,
-            longitude = 79.8210,
-            rating = 4.9f,
-            distance = "1.8 km away",
-            tag = "Top Host",
-            dateOrAvailability = "Available today",
-            locationName = "Lawspet, Puducherry",
+            locationName = "Goubert Avenue",
             priceOrAttendees = "₹450 / day",
-            description = "Film student renting 1080p portable projectors, portable projection screens, and HDMI wireless transmitters.",
-            owner = ownerAnanya,
-            rentalItem = projectorItem,
-            imageRes = R.drawable.modern_projector_1790478027952
-        ),
-        DiscoveryPinItem(
-            id = "pin_event_beach_clean",
-            title = "Auroville Eco Beach Ride & Clean",
-            subtitle = "Auroville Beach Meet",
-            type = DiscoveryPinType.COMMUNITY_EVENT,
-            latitude = 11.9840,
-            longitude = 79.8290,
-            rating = 4.8f,
-            distance = "5.2 km away",
-            tag = "🌱 Eco Community",
-            dateOrAvailability = "Sunday · 6:30 AM",
-            locationName = "Auroville Beach Main Entrance",
-            priceOrAttendees = "32 attending",
-            description = "Community sunrise cycling ride to Auroville Beach followed by a beach cleanup and breakfast coconut water social.",
-            isAttending = false
-        ),
-        DiscoveryPinItem(
-            id = "pin_event_tech_coffee",
-            title = "Indie Creators & Tech Coffee",
-            subtitle = "Mission Street Hub",
-            type = DiscoveryPinType.COMMUNITY_EVENT,
-            latitude = 11.9360,
-            longitude = 79.8300,
-            rating = 4.9f,
-            distance = "0.7 km away",
-            tag = "💻 Tech Meetup",
-            dateOrAvailability = "Saturday · 11:00 AM",
-            locationName = "Mission St, Heritage Quarter",
-            priceOrAttendees = "15 makers attending",
-            description = "Weekly casual coffee meetup for indie hackers, mobile app developers, UI designers, and creators in Puducherry.",
-            isAttending = false
-        ),
-        DiscoveryPinItem(
-            id = "pin_sneha",
-            title = "Sneha Patel",
-            subtitle = "Camping & Trekking Gear Host",
-            type = DiscoveryPinType.USER_HOST,
-            latitude = 11.9355,
-            longitude = 79.8310,
-            rating = 4.8f,
-            distance = "0.5 km away",
-            tag = "Verified Host",
-            dateOrAvailability = "Available today",
-            locationName = "Mission Street",
-            priceOrAttendees = "₹300 / day",
-            description = "Backpacker renting 2-person waterproof Quechua tents, sleeping bags, trekking poles, and portable camp stoves.",
-            owner = ownerSneha,
-            imageRes = R.drawable.modern_armchair_1790478015816
+            description = "Curator of electric mobility and scrambler cruisers for seamless coastal wandering.",
+            owner = ownerVikram,
+            rentalItem = items[2],
+            imageRes = R.drawable.img_editorial_outdoor_3_1791087293034
         )
     )
-
-    val sampleMessages: List<RentalMessage> = initialConversations.first().messages
 
     val initialUserProfile = UserProfile(
         uid = "user_me",
         displayName = "Gokulan R",
         email = "gokulan.rkivln@gmail.com",
         phone = "+91 98401 22345",
-        bio = "Tech creator & photography enthusiast in White Town, Puducherry. Sharing Canon DSLR gear and exploring local events.",
+        bio = "Designer and photographer based in White Town, Puducherry. Passionate about tactile objects, analogue processes, and quiet travels.",
         location = "White Town, Puducherry",
         avatarPresetIndex = 0,
         rating = 5.0f,
         reviewCount = 18,
         rentalsCompleted = 14,
-        listingsCount = 3,
-        earnedAmount = 1850,
+        listingsCount = 2,
+        earnedAmount = 2450,
         isVerified = true,
-        memberSince = "Joined Oct 2024",
-        badges = listOf("✓ ID Verified", "★ Top Host", "📸 Creator Club", "⚡ Quick Responder")
+        memberSince = "Member since 2024",
+        badges = listOf("✓ ID Verified", "★ Curated Host", "📸 35mm Club", "⚡ Quick Responder")
     )
 
-    // Reactive StateFlows connected to Firestore live listeners
     private val _itemsFlow = MutableStateFlow(items)
     val itemsFlow: StateFlow<List<RentalItem>> = _itemsFlow.asStateFlow()
 
@@ -568,7 +434,6 @@ object RentalRepository {
     val userProfileFlow: StateFlow<UserProfile> = _userProfileFlow.asStateFlow()
 
     init {
-        // Start listening to real-time Firestore collections
         repositoryScope.launch {
             firestoreService.listenToItems().collectLatest { cloudItems ->
                 if (cloudItems.isNotEmpty()) {
@@ -592,9 +457,6 @@ object RentalRepository {
         }
     }
 
-    /**
-     * Update user profile and sync with Firestore in background
-     */
     fun updateUserProfile(profile: UserProfile) {
         _userProfileFlow.value = profile
         repositoryScope.launch {
@@ -602,9 +464,6 @@ object RentalRepository {
         }
     }
 
-    /**
-     * Send a new message and sync with Firestore in background
-     */
     fun sendMessage(
         conversationId: String,
         text: String,
@@ -624,7 +483,6 @@ object RentalRepository {
             locationAddress = locationAddress
         )
 
-        // Update local StateFlow immediately for zero-lag UI
         _conversationsFlow.value = _conversationsFlow.value.map { conv ->
             if (conv.id == conversationId) {
                 conv.copy(
@@ -634,15 +492,11 @@ object RentalRepository {
             } else conv
         }
 
-        // Sync with Firestore Cloud Backend
         repositoryScope.launch {
             firestoreService.sendMessage(conversationId, newMsg)
         }
     }
 
-    /**
-     * Create listing and sync with Firestore in background
-     */
     fun createListing(
         title: String,
         price: Int,
@@ -654,22 +508,22 @@ object RentalRepository {
             title = title,
             category = category,
             pricePerDay = price,
-            location = "Puducherry",
+            location = "White Town, Puducherry",
             rating = 5.0f,
             reviewCount = 1,
-            description = desc.ifBlank { "Newly listed item by Gokulan R." },
+            description = desc.ifBlank { "Newly listed object curated by Gokulan R." },
             primaryImageRes = when (category) {
-                RentalCategory.ELECTRONICS, RentalCategory.STUDY_OFFICE -> R.drawable.modern_laptop_1790477981432
+                RentalCategory.ELECTRONICS, RentalCategory.STUDY_OFFICE -> R.drawable.img_editorial_studio_2_1791087277042
                 RentalCategory.FURNITURE, RentalCategory.HOME_LIVING -> R.drawable.modern_armchair_1790478015816
-                RentalCategory.VEHICLES -> R.drawable.electric_scooter_1790477992190
-                else -> R.drawable.canon_eos_camera_1790477967758
+                RentalCategory.VEHICLES -> R.drawable.img_editorial_outdoor_3_1791087293034
+                else -> R.drawable.img_editorial_lifestyle_1_1791087263359
             },
             imageCount = 3,
             features = listOf(
-                SpecFeature("CAMERA", "Verified Item"),
+                SpecFeature("CAMERA", "Verified Object"),
                 SpecFeature("BAG", "Accessories Included")
             ),
-            owner = RentalOwner("owner_me", _userProfileFlow.value.displayName, "New Host", _userProfileFlow.value.initials, "Joined today", 5.0f),
+            owner = RentalOwner("owner_me", _userProfileFlow.value.displayName, "New Maker", _userProfileFlow.value.initials, "Joined today", 5.0f),
             isPopular = true,
             isFavorite = false,
             availableToday = true
