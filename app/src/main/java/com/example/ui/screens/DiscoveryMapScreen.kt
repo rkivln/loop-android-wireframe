@@ -44,8 +44,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
@@ -82,10 +85,12 @@ import com.example.data.RentalRepository
 import com.example.data.models.CuratedWalkingRoute
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
+import com.example.data.models.MapCategoryFilter
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
 import com.example.ui.components.ProfileMarker
+import com.example.ui.theme.AccentBeigeOat
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
 import com.example.ui.theme.AccentPeach
@@ -103,7 +108,7 @@ import com.example.ui.theme.PaperPureWhite
 import com.example.ui.theme.PaperWarm
 import kotlinx.coroutines.launch
 
-// Light Themed Editorial Map Palette
+// Light Themed Architectural Map Palette
 private val MapGroundPaper = Color(0xFFF6F4ED)        // Warm ivory / parchment terrain
 private val MapWaterSeaside = Color(0xFFD6E4EB)       // Serene coastal watercolor wash
 private val MapWaterCoastline = Color(0xFFBFD2DC)     // Coastline shore border
@@ -125,7 +130,8 @@ fun DiscoveryMapScreen(
     val allPins = RentalRepository.discoveryPins
     val allRoutes = RentalRepository.curatedRoutes
 
-    var selectedCategoryFilter by remember { mutableStateOf("All") }
+    // Simple State-Based Category Filtering Logic
+    var selectedCategoryFilter by remember { mutableStateOf(MapCategoryFilter.ALL) }
     var selectedRoute by remember { mutableStateOf<CuratedWalkingRoute?>(null) }
     var selectedPin by remember { mutableStateOf<DiscoveryPinItem?>(allPins.firstOrNull()) }
 
@@ -193,19 +199,36 @@ fun DiscoveryMapScreen(
         }
     }
 
-    // Filter pins based on category & active route
+    // Filter pins based on category chip group & active route using simple state-based logic
     val filteredPins = remember(selectedCategoryFilter, selectedRoute, allPins) {
         if (selectedRoute != null) {
             allPins.filter { it.id in selectedRoute!!.pinIds }
         } else {
             when (selectedCategoryFilter) {
-                "Cameras" -> allPins.filter { it.category == RentalCategory.ELECTRONICS }
-                "E-Bikes" -> allPins.filter { it.category == RentalCategory.VEHICLES }
-                "Audio/Synths" -> allPins.filter { it.category == RentalCategory.STUDY_OFFICE }
-                "Hubs" -> allPins.filter { it.type == DiscoveryPinType.PICKUP_HUB }
-                "Meetups" -> allPins.filter { it.type == DiscoveryPinType.COMMUNITY_EVENT }
-                else -> allPins
+                MapCategoryFilter.ALL -> allPins
+                MapCategoryFilter.STUDY_GROUPS -> allPins.filter {
+                    it.filterCategory == MapCategoryFilter.STUDY_GROUPS || it.type == DiscoveryPinType.STUDY_GROUP
+                }
+                MapCategoryFilter.HELP_NEEDED -> allPins.filter {
+                    it.filterCategory == MapCategoryFilter.HELP_NEEDED || it.type == DiscoveryPinType.HELP_REQUEST
+                }
+                MapCategoryFilter.LOCAL_EVENTS -> allPins.filter {
+                    it.filterCategory == MapCategoryFilter.LOCAL_EVENTS || it.type == DiscoveryPinType.COMMUNITY_EVENT
+                }
+                MapCategoryFilter.GEAR_HUBS -> allPins.filter {
+                    it.filterCategory == MapCategoryFilter.GEAR_HUBS || it.type == DiscoveryPinType.PICKUP_HUB
+                }
+                MapCategoryFilter.MAKERS -> allPins.filter {
+                    it.filterCategory == MapCategoryFilter.MAKERS || it.type == DiscoveryPinType.USER_HOST
+                }
             }
+        }
+    }
+
+    // Auto-update selectedPin if filtered out
+    LaunchedEffect(filteredPins) {
+        if (selectedPin == null || selectedPin !in filteredPins) {
+            selectedPin = filteredPins.firstOrNull()
         }
     }
 
@@ -346,6 +369,8 @@ fun DiscoveryMapScreen(
                 "pin_rakesh" -> 220.dp to 180.dp
                 "pin_vikram" -> 270.dp to 320.dp
                 "pin_priya" -> 80.dp to 300.dp
+                "pin_study_courtyard" -> 110.dp to 240.dp
+                "pin_help_darkroom" -> 180.dp to 340.dp
                 "pin_event_photowalk" -> 280.dp to 410.dp
                 else -> 140.dp to 450.dp
             }
@@ -356,42 +381,151 @@ fun DiscoveryMapScreen(
             Box(
                 modifier = Modifier.offset(x = renderedX, y = renderedY)
             ) {
-                if (pin.type == DiscoveryPinType.PICKUP_HUB) {
-                    // Smart Hub Badge Marker (Solid Forest Green)
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(AccentForestGreen)
-                            .border(2.5.dp, PaperPureWhite, CircleShape)
-                            .clickable {
-                                selectedPin = pin
-                            }
-                            .testTag("map_marker_${pin.id}"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Lock,
-                            contentDescription = "Smart Hub",
-                            tint = InkWhite,
-                            modifier = Modifier.size(20.dp)
-                        )
+                when (pin.type) {
+                    DiscoveryPinType.PICKUP_HUB -> {
+                        // Smart Hub Badge Marker (Solid Forest Green)
+                        Box(
+                            modifier = Modifier
+                                .size(if (isSelected) 46.dp else 40.dp)
+                                .clip(CircleShape)
+                                .background(AccentForestGreen)
+                                .border(
+                                    2.5.dp,
+                                    if (isSelected) AccentWarmYellow else PaperPureWhite,
+                                    CircleShape
+                                )
+                                .clickable {
+                                    selectedPin = pin
+                                    val pinIndex = filteredPins.indexOf(pin)
+                                    if (pinIndex >= 0) {
+                                        coroutineScope.launch {
+                                            carouselState.animateScrollToItem(pinIndex)
+                                        }
+                                    }
+                                }
+                                .testTag("map_marker_${pin.id}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Lock,
+                                contentDescription = "Smart Hub",
+                                tint = InkWhite,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
-                } else {
-                    ProfileMarker(
-                        initials = pin.title.take(2).uppercase(),
-                        imageRes = pin.imageRes,
-                        isSelected = isSelected,
-                        onClick = {
-                            selectedPin = pin
-                            val pinIndex = filteredPins.indexOf(pin)
-                            if (pinIndex >= 0) {
-                                coroutineScope.launch {
-                                    carouselState.animateScrollToItem(pinIndex)
+                    DiscoveryPinType.STUDY_GROUP -> {
+                        // Study Group Badge Marker (Soft Powder Blue)
+                        Box(
+                            modifier = Modifier
+                                .size(if (isSelected) 46.dp else 40.dp)
+                                .clip(CircleShape)
+                                .background(AccentPowderBlue)
+                                .border(
+                                    2.5.dp,
+                                    if (isSelected) AccentWarmYellow else PaperPureWhite,
+                                    CircleShape
+                                )
+                                .clickable {
+                                    selectedPin = pin
+                                    val pinIndex = filteredPins.indexOf(pin)
+                                    if (pinIndex >= 0) {
+                                        coroutineScope.launch {
+                                            carouselState.animateScrollToItem(pinIndex)
+                                        }
+                                    }
+                                }
+                                .testTag("map_marker_${pin.id}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MenuBook,
+                                contentDescription = "Study Group",
+                                tint = InkCharcoal,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    }
+                    DiscoveryPinType.HELP_REQUEST -> {
+                        // Help Needed Badge Marker (Warm Coral Peach)
+                        Box(
+                            modifier = Modifier
+                                .size(if (isSelected) 46.dp else 40.dp)
+                                .clip(CircleShape)
+                                .background(AccentPeach)
+                                .border(
+                                    2.5.dp,
+                                    if (isSelected) AccentWarmYellow else PaperPureWhite,
+                                    CircleShape
+                                )
+                                .clickable {
+                                    selectedPin = pin
+                                    val pinIndex = filteredPins.indexOf(pin)
+                                    if (pinIndex >= 0) {
+                                        coroutineScope.launch {
+                                            carouselState.animateScrollToItem(pinIndex)
+                                        }
+                                    }
+                                }
+                                .testTag("map_marker_${pin.id}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Handshake,
+                                contentDescription = "Help Needed",
+                                tint = InkCharcoal,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    }
+                    DiscoveryPinType.COMMUNITY_EVENT -> {
+                        // Local Event Badge Marker (Warm Mint / Photo)
+                        Box(
+                            modifier = Modifier
+                                .size(if (isSelected) 46.dp else 40.dp)
+                                .clip(CircleShape)
+                                .background(AccentMint)
+                                .border(
+                                    2.5.dp,
+                                    if (isSelected) AccentWarmYellow else PaperPureWhite,
+                                    CircleShape
+                                )
+                                .clickable {
+                                    selectedPin = pin
+                                    val pinIndex = filteredPins.indexOf(pin)
+                                    if (pinIndex >= 0) {
+                                        coroutineScope.launch {
+                                            carouselState.animateScrollToItem(pinIndex)
+                                        }
+                                    }
+                                }
+                                .testTag("map_marker_${pin.id}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = "Local Event",
+                                tint = InkCharcoal,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    }
+                    else -> {
+                        ProfileMarker(
+                            initials = pin.title.take(2).uppercase(),
+                            imageRes = pin.imageRes,
+                            isSelected = isSelected,
+                            onClick = {
+                                selectedPin = pin
+                                val pinIndex = filteredPins.indexOf(pin)
+                                if (pinIndex >= 0) {
+                                    coroutineScope.launch {
+                                        carouselState.animateScrollToItem(pinIndex)
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -482,7 +616,7 @@ fun DiscoveryMapScreen(
                 }
             }
 
-            // Department / Type Filter Pills Row (Light Theme)
+            // Category Filter Chip Group for Discovery Map (Simple state-based filtering logic)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -490,15 +624,8 @@ fun DiscoveryMapScreen(
                     .padding(horizontal = 20.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf(
-                    "All" to "All",
-                    "📸 Cameras" to "Cameras",
-                    "🛵 E-Bikes" to "E-Bikes",
-                    "🎛️ Audio" to "Audio/Synths",
-                    "🔒 Hubs" to "Hubs",
-                    "✨ Meetups" to "Meetups"
-                ).forEach { (label, key) ->
-                    val isSelected = selectedCategoryFilter == key && selectedRoute == null
+                MapCategoryFilter.values().forEach { filter ->
+                    val isSelected = selectedCategoryFilter == filter && selectedRoute == null
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(100.dp))
@@ -510,18 +637,23 @@ fun DiscoveryMapScreen(
                             )
                             .clickable {
                                 selectedRoute = null
-                                selectedCategoryFilter = key
+                                selectedCategoryFilter = filter
                             }
-                            .padding(horizontal = 13.dp, vertical = 6.dp)
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                            .testTag("map_filter_chip_${filter.name}")
                     ) {
-                        Text(
-                            text = label,
-                            style = LoopType.Metadata.copy(
-                                fontSize = 11.5.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            ),
-                            color = if (isSelected) InkWhite else InkCharcoal
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = filter.emoji, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = filter.title,
+                                style = LoopType.Metadata.copy(
+                                    fontSize = 11.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                ),
+                                color = if (isSelected) InkWhite else InkCharcoal
+                            )
+                        }
                     }
                 }
             }
@@ -569,13 +701,12 @@ fun DiscoveryMapScreen(
             }
         }
 
-        // Bottom Discovery Carousel & Direct Actions Drawer (Light Theme)
+        // Bottom Discovery Carousel & Direct Actions Drawer (Light Theme, Safe-Area aware)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(bottom = 86.dp)
+                .padding(bottom = 14.dp)
         ) {
             LazyRow(
                 state = carouselState,
@@ -605,7 +736,7 @@ fun DiscoveryMapScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Photo / Hub Icon
+                                // Photo / Type Icon
                                 if (pin.imageRes != null) {
                                     Box(
                                         modifier = Modifier
@@ -620,17 +751,30 @@ fun DiscoveryMapScreen(
                                         )
                                     }
                                 } else {
+                                    val iconBg = when (pin.type) {
+                                        DiscoveryPinType.PICKUP_HUB -> AccentForestGreen
+                                        DiscoveryPinType.STUDY_GROUP -> AccentPowderBlue
+                                        DiscoveryPinType.HELP_REQUEST -> AccentPeach
+                                        DiscoveryPinType.COMMUNITY_EVENT -> AccentMint
+                                        else -> PaperIvory
+                                    }
                                     Box(
                                         modifier = Modifier
                                             .size(68.dp)
                                             .clip(RoundedCornerShape(14.dp))
-                                            .background(AccentForestGreen),
+                                            .background(iconBg),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Outlined.Lock,
+                                            imageVector = when (pin.type) {
+                                                DiscoveryPinType.PICKUP_HUB -> Icons.Outlined.Lock
+                                                DiscoveryPinType.STUDY_GROUP -> Icons.Default.MenuBook
+                                                DiscoveryPinType.HELP_REQUEST -> Icons.Default.Handshake
+                                                DiscoveryPinType.COMMUNITY_EVENT -> Icons.Default.PhotoCamera
+                                                else -> Icons.Default.NearMe
+                                            },
                                             contentDescription = null,
-                                            tint = InkWhite,
+                                            tint = if (pin.type == DiscoveryPinType.PICKUP_HUB) InkWhite else InkCharcoal,
                                             modifier = Modifier.size(28.dp)
                                         )
                                     }
@@ -646,15 +790,18 @@ fun DiscoveryMapScreen(
                                     ) {
                                         Text(
                                             text = pin.title,
-                                            style = LoopType.HeadlineMedium.copy(fontSize = 16.sp),
+                                            style = LoopType.HeadlineMedium.copy(fontSize = 15.sp),
                                             color = InkCharcoal,
                                             maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
                                         )
+
+                                        Spacer(modifier = Modifier.width(6.dp))
 
                                         Text(
                                             text = pin.priceOrAttendees,
-                                            style = LoopType.PriceSmall.copy(fontSize = 13.5.sp),
+                                            style = LoopType.PriceSmall.copy(fontSize = 12.5.sp),
                                             color = InkCharcoal
                                         )
                                     }
@@ -767,7 +914,11 @@ fun DiscoveryMapScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = if (pin.rentalItem != null) "Reserve Piece" else if (pin.type == DiscoveryPinType.PICKUP_HUB) "Hub Info" else "Connect",
+                                        text = if (pin.rentalItem != null) "Reserve Piece"
+                                               else if (pin.type == DiscoveryPinType.PICKUP_HUB) "Hub Info"
+                                               else if (pin.type == DiscoveryPinType.STUDY_GROUP) "Join Table"
+                                               else if (pin.type == DiscoveryPinType.HELP_REQUEST) "Offer Help"
+                                               else "Connect",
                                         style = LoopType.ButtonLabel.copy(fontSize = 12.5.sp),
                                         color = InkWhite
                                     )

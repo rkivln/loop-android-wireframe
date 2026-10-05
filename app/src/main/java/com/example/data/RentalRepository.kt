@@ -4,16 +4,22 @@ import com.example.R
 import com.example.data.firebase.FirestoreService
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
+import com.example.data.models.CommunityPostStatus
+import com.example.data.models.CommunityPostType
 import com.example.data.models.CuratedWalkingRoute
 import com.example.data.models.DeliveryOptionType
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
+import com.example.data.models.MapCategoryFilter
 import com.example.data.models.MessageStatus
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalMessage
 import com.example.data.models.RentalOwner
 import com.example.data.models.SpecFeature
+import com.example.data.models.UserActivityItem
+import com.example.data.models.UserActivityType
+import com.example.data.models.UserCommunityPost
 import com.example.data.models.UserProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -350,10 +356,55 @@ object RentalRepository {
             rentalItem = items[0],
             imageRes = R.drawable.img_editorial_lifestyle_1_1791087263359,
             category = RentalCategory.ELECTRONICS,
+            filterCategory = MapCategoryFilter.MAKERS,
             neighborhood = "White Town",
             walkingTime = "3 min walk",
             cyclingTime = "1 min ride",
             address = "10, Suffren Street, White Town, Puducherry"
+        ),
+        DiscoveryPinItem(
+            id = "pin_study_courtyard",
+            title = "Alliance Courtyard Study Table",
+            subtitle = "Quiet Co-working & Design Circle",
+            type = DiscoveryPinType.STUDY_GROUP,
+            latitude = 11.9328,
+            longitude = 79.8335,
+            rating = 4.95f,
+            distance = "320 m away",
+            tag = "📚 Study Group",
+            dateOrAvailability = "Daily · 9:00 AM – 6:00 PM",
+            locationName = "Alliance Française Courtyard",
+            priceOrAttendees = "6 open desks",
+            description = "Quiet shaded veranda with high-speed fiber Wi-Fi, power banks, and shared architecture & photography design volumes.",
+            imageRes = R.drawable.img_editorial_studio_2_1791087277042,
+            category = RentalCategory.STUDY_OFFICE,
+            filterCategory = MapCategoryFilter.STUDY_GROUPS,
+            neighborhood = "White Town",
+            walkingTime = "4 min walk",
+            cyclingTime = "1 min ride",
+            address = "58, Suffren Street, White Town, Puducherry"
+        ),
+        DiscoveryPinItem(
+            id = "pin_help_darkroom",
+            title = "35mm Film Roll Loading & Darkroom Help",
+            subtitle = "Community Skill Exchange",
+            type = DiscoveryPinType.HELP_REQUEST,
+            latitude = 11.9360,
+            longitude = 79.8320,
+            rating = 4.9f,
+            distance = "450 m away",
+            tag = "🤝 Help Needed",
+            dateOrAvailability = "Today · Flexible",
+            locationName = "Romain Rolland Studio",
+            priceOrAttendees = "Exchange / Coffee",
+            description = "Beginner photographer seeking a fellow film shooter to assist with spooling 120 medium format roll into Paterson developing tank.",
+            imageRes = R.drawable.canon_eos_camera_1790477967758,
+            category = RentalCategory.ELECTRONICS,
+            filterCategory = MapCategoryFilter.HELP_NEEDED,
+            neighborhood = "White Town",
+            walkingTime = "6 min walk",
+            cyclingTime = "2 min ride",
+            address = "22, Romain Rolland St, White Town"
         ),
         DiscoveryPinItem(
             id = "pin_event_photowalk",
@@ -370,7 +421,9 @@ object RentalRepository {
             priceOrAttendees = "18 creators",
             description = "Casual twilight gathering of local photographers exploring the French Quarter seafront with shared lenses and analogue cameras.",
             isAttending = true,
+            imageRes = R.drawable.img_editorial_lifestyle_1_1791087263359,
             category = RentalCategory.EVENTS,
+            filterCategory = MapCategoryFilter.LOCAL_EVENTS,
             neighborhood = "Promenade",
             walkingTime = "5 min walk",
             cyclingTime = "2 min ride",
@@ -394,6 +447,7 @@ object RentalRepository {
             rentalItem = items[1],
             imageRes = R.drawable.img_editorial_studio_2_1791087277042,
             category = RentalCategory.STUDY_OFFICE,
+            filterCategory = MapCategoryFilter.MAKERS,
             neighborhood = "Heritage Quarter",
             walkingTime = "8 min walk",
             cyclingTime = "3 min ride",
@@ -417,6 +471,7 @@ object RentalRepository {
             rentalItem = items[2],
             imageRes = R.drawable.img_editorial_outdoor_3_1791087293034,
             category = RentalCategory.VEHICLES,
+            filterCategory = MapCategoryFilter.MAKERS,
             neighborhood = "Promenade",
             walkingTime = "6 min walk",
             cyclingTime = "2 min ride",
@@ -437,6 +492,7 @@ object RentalRepository {
             priceOrAttendees = "Free pickup",
             description = "Official Loop community handoff depot. Drop off or collect verified pieces anytime with secure digital PIN lockers.",
             category = RentalCategory.ELECTRONICS,
+            filterCategory = MapCategoryFilter.GEAR_HUBS,
             neighborhood = "White Town",
             walkingTime = "2 min walk",
             cyclingTime = "1 min ride",
@@ -460,6 +516,7 @@ object RentalRepository {
             rentalItem = items[4],
             imageRes = R.drawable.modern_projector_1790478027952,
             category = RentalCategory.EVENTS,
+            filterCategory = MapCategoryFilter.MAKERS,
             neighborhood = "Lawspet",
             walkingTime = "22 min walk",
             cyclingTime = "7 min ride",
@@ -508,6 +565,93 @@ object RentalRepository {
         badges = listOf("✓ ID Verified", "★ Curated Host", "📸 35mm Club", "⚡ Quick Responder")
     )
 
+    val initialUserActivities: List<UserActivityItem> = listOf(
+        UserActivityItem(
+            id = "act_1",
+            title = "Reserved Canon EOS 200D & 35mm Glass",
+            subtitle = "Active handoff from Rakesh Kumar · Return in 2 days",
+            type = UserActivityType.RESERVATION,
+            timestamp = "Today, 10:30 AM",
+            statusBadge = "Active",
+            iconEmoji = "📸",
+            relatedId = "conv_rakesh"
+        ),
+        UserActivityItem(
+            id = "act_2",
+            title = "Posted Help Request: 35mm Film Roll Loading",
+            subtitle = "Seeking darkroom assistance for 120 medium format spooling",
+            type = UserActivityType.HELP_REQUEST,
+            timestamp = "Today, 9:15 AM",
+            statusBadge = "Open",
+            iconEmoji = "🤝",
+            relatedId = "post_help_1"
+        ),
+        UserActivityItem(
+            id = "act_3",
+            title = "Created Community Event: Promenade Sunset Walk",
+            subtitle = "18 creators registered for twilight photography gathering",
+            type = UserActivityType.COMMUNITY_EVENT,
+            timestamp = "Yesterday",
+            statusBadge = "Upcoming",
+            iconEmoji = "🌅",
+            relatedId = "post_event_1"
+        ),
+        UserActivityItem(
+            id = "act_4",
+            title = "Smart Hub Pickup: Suffren Street Lockbox",
+            subtitle = "Contactless code #8492 verified for lens hood pickup",
+            type = UserActivityType.HUB_CHECKIN,
+            timestamp = "2 days ago",
+            statusBadge = "Completed",
+            iconEmoji = "🔒"
+        ),
+        UserActivityItem(
+            id = "act_5",
+            title = "Returned M2 Pro Laptop to Priya Sharma",
+            subtitle = "Inspected and closed with 5.0★ host rating",
+            type = UserActivityType.RESERVATION,
+            timestamp = "4 days ago",
+            statusBadge = "Returned",
+            iconEmoji = "💻"
+        )
+    )
+
+    val initialCommunityPosts: List<UserCommunityPost> = listOf(
+        UserCommunityPost(
+            id = "post_event_1",
+            title = "Promenade Sunset Walk",
+            type = CommunityPostType.EVENT,
+            description = "Casual twilight gathering of local photographers exploring the French Quarter seafront with shared lenses and analogue cameras.",
+            location = "Rock Beach Promenade, White Town",
+            dateTime = "Today · 5:00 PM – 7:00 PM",
+            attendeesOrResponses = "18 creators attending",
+            status = CommunityPostStatus.ACTIVE,
+            createdAt = "Yesterday"
+        ),
+        UserCommunityPost(
+            id = "post_help_1",
+            title = "35mm Film Roll Loading & Darkroom Help",
+            type = CommunityPostType.HELP_REQUEST,
+            description = "Beginner photographer seeking a fellow film shooter to assist with spooling 120 medium format roll into Paterson developing tank.",
+            location = "Romain Rolland Studio, White Town",
+            dateTime = "Flexible timing today",
+            attendeesOrResponses = "2 responses received",
+            status = CommunityPostStatus.ACTIVE,
+            createdAt = "Today"
+        ),
+        UserCommunityPost(
+            id = "post_study_1",
+            title = "Alliance Courtyard Study Table",
+            type = CommunityPostType.STUDY_GROUP,
+            description = "Quiet shaded veranda with high-speed fiber Wi-Fi, power banks, and shared architecture & photography design volumes.",
+            location = "Alliance Française Courtyard, Suffren St",
+            dateTime = "Daily · 9:00 AM – 6:00 PM",
+            attendeesOrResponses = "6 desks booked",
+            status = CommunityPostStatus.ACTIVE,
+            createdAt = "3 days ago"
+        )
+    )
+
     private val _itemsFlow = MutableStateFlow(items)
     val itemsFlow: StateFlow<List<RentalItem>> = _itemsFlow.asStateFlow()
 
@@ -519,6 +663,12 @@ object RentalRepository {
 
     private val _userProfileFlow = MutableStateFlow(initialUserProfile)
     val userProfileFlow: StateFlow<UserProfile> = _userProfileFlow.asStateFlow()
+
+    private val _userActivityFlow = MutableStateFlow(initialUserActivities)
+    val userActivityFlow: StateFlow<List<UserActivityItem>> = _userActivityFlow.asStateFlow()
+
+    private val _userCommunityPostsFlow = MutableStateFlow(initialCommunityPosts)
+    val userCommunityPostsFlow: StateFlow<List<UserCommunityPost>> = _userCommunityPostsFlow.asStateFlow()
 
     init {
         repositoryScope.launch {
@@ -623,6 +773,68 @@ object RentalRepository {
         }
 
         return newItem
+    }
+
+    fun createCommunityPost(
+        title: String,
+        type: CommunityPostType,
+        description: String,
+        location: String,
+        dateTime: String
+    ): UserCommunityPost {
+        val newPost = UserCommunityPost(
+            id = "post_${System.currentTimeMillis()}",
+            title = title,
+            type = type,
+            description = description,
+            location = location.ifBlank { "White Town, Puducherry" },
+            dateTime = dateTime.ifBlank { "Upcoming · Scheduled" },
+            attendeesOrResponses = when (type) {
+                CommunityPostType.EVENT -> "1 creator registered"
+                CommunityPostType.HELP_REQUEST -> "Seeking assistance"
+                CommunityPostType.STUDY_GROUP -> "1 desk claimed"
+            },
+            status = CommunityPostStatus.ACTIVE,
+            createdAt = "Just now"
+        )
+
+        _userCommunityPostsFlow.value = listOf(newPost) + _userCommunityPostsFlow.value
+
+        // Also record an activity entry in the user's ledger
+        val newActivity = UserActivityItem(
+            id = "act_${System.currentTimeMillis()}",
+            title = when (type) {
+                CommunityPostType.EVENT -> "Created Event: $title"
+                CommunityPostType.HELP_REQUEST -> "Posted Help Request: $title"
+                CommunityPostType.STUDY_GROUP -> "Hosted Study Table: $title"
+            },
+            subtitle = "${newPost.location} · ${newPost.dateTime}",
+            type = when (type) {
+                CommunityPostType.EVENT -> UserActivityType.COMMUNITY_EVENT
+                CommunityPostType.HELP_REQUEST -> UserActivityType.HELP_REQUEST
+                CommunityPostType.STUDY_GROUP -> UserActivityType.STUDY_GROUP
+            },
+            timestamp = "Just now",
+            statusBadge = "Active",
+            iconEmoji = type.emoji,
+            relatedId = newPost.id
+        )
+
+        _userActivityFlow.value = listOf(newActivity) + _userActivityFlow.value
+        return newPost
+    }
+
+    fun toggleCommunityPostStatus(postId: String) {
+        _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.map { post ->
+            if (post.id == postId) {
+                val newStatus = if (post.status == CommunityPostStatus.ACTIVE) CommunityPostStatus.COMPLETED else CommunityPostStatus.ACTIVE
+                post.copy(status = newStatus)
+            } else post
+        }
+    }
+
+    fun deleteCommunityPost(postId: String) {
+        _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.filterNot { it.id == postId }
     }
 
     fun toggleFavorite(itemId: String) {

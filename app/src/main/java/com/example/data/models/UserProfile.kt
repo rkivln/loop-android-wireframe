@@ -5,7 +5,7 @@ data class UserProfile(
     val displayName: String = "Gokulan R",
     val email: String = "gokulan.rkivln@gmail.com",
     val phone: String = "+91 98401 22345",
-    val bio: String = "Tech creator & photography enthusiast in White Town, Puducherry. Sharing Canon DSLR gear and exploring local events.",
+    val bio: String = "Designer and photographer based in White Town, Puducherry. Passionate about tactile objects, analogue processes, and quiet travels.",
     val location: String = "White Town, Puducherry",
     val avatarPresetIndex: Int = 0, // 0 to 5 preset avatars
     val customAvatarUri: String? = null,
@@ -13,10 +13,10 @@ data class UserProfile(
     val reviewCount: Int = 18,
     val rentalsCompleted: Int = 14,
     val listingsCount: Int = 3,
-    val earnedAmount: Int = 1850,
+    val earnedAmount: Int = 2450,
     val isVerified: Boolean = true,
-    val memberSince: String = "Joined Oct 2024",
-    val badges: List<String> = listOf("✓ ID Verified", "★ Top Host", "📸 Creator Club", "⚡ Quick Responder")
+    val memberSince: String = "Member since Oct 2024",
+    val badges: List<String> = listOf("✓ ID Verified", "★ Curated Host", "📸 35mm Club", "⚡ Quick Responder")
 ) {
     val initials: String
         get() {
@@ -45,4 +45,48 @@ val AVATAR_PRESETS = listOf(
     AvatarPreset(3, "Sunset Amber", 0xFFC2410C, 0xFFF97316, "⚡"),
     AvatarPreset(4, "Royal Purple", 0xFF5B21B6, 0xFF8B5CF6, "🎧"),
     AvatarPreset(5, "Rose Quartz", 0xFF9F1239, 0xFFF43F5E, "✨")
+)
+
+enum class UserActivityType {
+    RESERVATION,
+    COMMUNITY_EVENT,
+    HELP_REQUEST,
+    STUDY_GROUP,
+    HUB_CHECKIN,
+    LISTING_PUBLISHED
+}
+
+data class UserActivityItem(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val type: UserActivityType,
+    val timestamp: String,
+    val statusBadge: String,
+    val iconEmoji: String,
+    val relatedId: String? = null
+)
+
+enum class CommunityPostType(val title: String, val emoji: String) {
+    EVENT("Local Event", "📸"),
+    HELP_REQUEST("Help Needed", "🤝"),
+    STUDY_GROUP("Study Group", "📚")
+}
+
+enum class CommunityPostStatus(val label: String) {
+    ACTIVE("Active / Open"),
+    COMPLETED("Resolved / Completed"),
+    ARCHIVED("Archived")
+}
+
+data class UserCommunityPost(
+    val id: String,
+    val title: String,
+    val type: CommunityPostType,
+    val description: String,
+    val location: String,
+    val dateTime: String,
+    val attendeesOrResponses: String,
+    val status: CommunityPostStatus = CommunityPostStatus.ACTIVE,
+    val createdAt: String = "Today"
 )

@@ -124,7 +124,22 @@ enum class DiscoveryPinType {
     USER_HOST,
     COMMUNITY_EVENT,
     RENTAL_ITEM,
-    PICKUP_HUB
+    PICKUP_HUB,
+    STUDY_GROUP,
+    HELP_REQUEST
+}
+
+enum class MapCategoryFilter(
+    val title: String,
+    val emoji: String,
+    val subtitle: String
+) {
+    ALL("All", "✨", "All neighborhood discoveries"),
+    STUDY_GROUPS("Study Groups", "📚", "Co-working & study tables"),
+    HELP_NEEDED("Help Needed", "🤝", "Gear setup & skill sharing"),
+    LOCAL_EVENTS("Local Events", "📸", "Photowalks & gatherings"),
+    GEAR_HUBS("Gear Hubs", "🔒", "24/7 Smart pickup hubs"),
+    MAKERS("Makers", "🛠️", "Verified creators & gear hosts")
 }
 
 data class DiscoveryPinItem(
@@ -146,6 +161,7 @@ data class DiscoveryPinItem(
     @DrawableRes val imageRes: Int? = null,
     val isAttending: Boolean = false,
     val category: RentalCategory = RentalCategory.ELECTRONICS,
+    val filterCategory: MapCategoryFilter = MapCategoryFilter.MAKERS,
     val neighborhood: String = "White Town",
     val walkingTime: String = "4 min walk",
     val cyclingTime: String = "1 min ride",
