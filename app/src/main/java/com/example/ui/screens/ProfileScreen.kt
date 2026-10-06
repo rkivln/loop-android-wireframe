@@ -31,7 +31,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -43,15 +42,12 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -86,6 +82,8 @@ import com.example.data.models.UserActivityItem
 import com.example.data.models.UserActivityType
 import com.example.data.models.UserCommunityPost
 import com.example.data.models.UserProfile
+import com.example.ui.components.CommunityFormData
+import com.example.ui.components.CommunityInitiativeForm
 import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.SecondaryCTA
 import com.example.ui.components.SectionLabel
@@ -727,21 +725,74 @@ fun ProfileScreen(
             )
         }
 
-        // Create Community Event / Help Request Modal Sheet
+        // Create Community Event / Help Request Modal Sheet using Reusable CommunityInitiativeForm
         AnimatedVisibility(
             visible = isCreatingPost,
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut()
         ) {
-            CreateCommunityPostModalSheet(
-                onPostCreated = { title, type, desc, loc, dt ->
-                    RentalRepository.createCommunityPost(title, type, desc, loc, dt)
-                    isCreatingPost = false
-                    selectedTab = ProfileTab.MY_POSTS
-                    showFeedback("Community ${type.title} published!")
-                },
-                onDismiss = { isCreatingPost = false }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable { isCreatingPost = false },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                        .background(PaperPureWhite)
+                        .clickable(enabled = false) {}
+                        .padding(horizontal = 22.dp, vertical = 20.dp)
+                        .navigationBarsPadding()
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "New Community Initiative",
+                                style = LoopType.HeadlineMedium,
+                                color = InkCharcoal
+                            )
+
+                            IconButton(onClick = { isCreatingPost = false }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = InkSecondary
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Embedding Reusable CommunityInitiativeForm Component
+                        CommunityInitiativeForm(
+                            onSubmit = { formData ->
+                                RentalRepository.createCommunityPost(
+                                    title = formData.title,
+                                    type = formData.type,
+                                    description = formData.description,
+                                    location = formData.locationName,
+                                    dateTime = formData.dateTime,
+                                    latitude = formData.latitude,
+                                    longitude = formData.longitude,
+                                    category = formData.category
+                                )
+                                isCreatingPost = false
+                                selectedTab = ProfileTab.MY_POSTS
+                                showFeedback("Community ${formData.type.title} published and mapped!")
+                            },
+                            onCancel = { isCreatingPost = false },
+                            submitButtonLabel = "Publish to Neighborhood"
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -753,7 +804,6 @@ private fun CommunityPostCard(
     onDelete: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-
     val isCompleted = post.status == CommunityPostStatus.COMPLETED
 
     Box(
@@ -1334,219 +1384,6 @@ fun EditProfileModalSheet(
                         onSave(updated)
                     },
                     testTag = "save_profile_button"
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun CreateCommunityPostModalSheet(
-    onPostCreated: (title: String, type: CommunityPostType, desc: String, loc: String, dt: String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var title by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(CommunityPostType.EVENT) }
-    var description by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("White Town, Puducherry") }
-    var dateTime by remember { mutableStateOf("Today · 5:00 PM") }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
-            .clickable(onClick = onDismiss),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(PaperPureWhite)
-                .clickable(enabled = false) {}
-                .padding(horizontal = 22.dp, vertical = 22.dp)
-                .navigationBarsPadding()
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "New Community Initiative",
-                        style = LoopType.HeadlineMedium,
-                        color = InkCharcoal
-                    )
-
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = InkSecondary
-                        )
-                    }
-                }
-
-                // Type selector
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    CommunityPostType.values().forEach { type ->
-                        val isSelected = selectedType == type
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(100.dp))
-                                .background(if (isSelected) InkCharcoal else PaperIvory)
-                                .border(1.dp, if (isSelected) InkCharcoal else PaperBorder, RoundedCornerShape(100.dp))
-                                .clickable { selectedType = type }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "${type.emoji} ${type.title}",
-                                style = LoopType.Metadata.copy(
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                ),
-                                color = if (isSelected) InkWhite else InkCharcoal
-                            )
-                        }
-                    }
-                }
-
-                Column {
-                    Text(
-                        text = "TITLE / SUBJECT",
-                        style = LoopType.EditorialTag,
-                        color = InkSecondary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(PaperIvory)
-                            .padding(horizontal = 14.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        BasicTextField(
-                            value = title,
-                            onValueChange = { title = it },
-                            textStyle = TextStyle(fontSize = 14.sp, color = InkCharcoal),
-                            cursorBrush = SolidColor(InkCharcoal),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-
-                Column {
-                    Text(
-                        text = "DESCRIPTION & OBJECTIVES",
-                        style = LoopType.EditorialTag,
-                        color = InkSecondary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(72.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(PaperIvory)
-                            .padding(12.dp),
-                        contentAlignment = Alignment.TopStart
-                    ) {
-                        BasicTextField(
-                            value = description,
-                            onValueChange = { description = it },
-                            textStyle = TextStyle(fontSize = 13.sp, color = InkCharcoal),
-                            cursorBrush = SolidColor(InkCharcoal),
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "LOCATION",
-                            style = LoopType.EditorialTag,
-                            color = InkSecondary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(PaperIvory)
-                                .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            BasicTextField(
-                                value = location,
-                                onValueChange = { location = it },
-                                textStyle = TextStyle(fontSize = 13.sp, color = InkCharcoal),
-                                cursorBrush = SolidColor(InkCharcoal),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "DATE & TIME",
-                            style = LoopType.EditorialTag,
-                            color = InkSecondary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(PaperIvory)
-                                .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            BasicTextField(
-                                value = dateTime,
-                                onValueChange = { dateTime = it },
-                                textStyle = TextStyle(fontSize = 13.sp, color = InkCharcoal),
-                                cursorBrush = SolidColor(InkCharcoal),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                }
-
-                if (errorMessage != null) {
-                    Text(
-                        text = errorMessage ?: "",
-                        style = LoopType.Metadata.copy(color = Color(0xFFDC2626)),
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                PrimaryCTA(
-                    text = "Publish to Community Feed",
-                    onClick = {
-                        if (title.isBlank()) {
-                            errorMessage = "Please enter an initiative title."
-                        } else {
-                            onPostCreated(title.trim(), selectedType, description.trim(), location.trim(), dateTime.trim())
-                        }
-                    },
-                    testTag = "publish_community_post_btn"
                 )
             }
         }

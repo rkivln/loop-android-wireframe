@@ -88,5 +88,8 @@ data class UserCommunityPost(
     val dateTime: String,
     val attendeesOrResponses: String,
     val status: CommunityPostStatus = CommunityPostStatus.ACTIVE,
-    val createdAt: String = "Today"
+    val createdAt: String = "Today",
+    val latitude: Double = 11.9338,
+    val longitude: Double = 79.8350,
+    val category: RentalCategory = RentalCategory.ELECTRONICS
 )

@@ -780,7 +780,10 @@ object RentalRepository {
         type: CommunityPostType,
         description: String,
         location: String,
-        dateTime: String
+        dateTime: String,
+        latitude: Double = 11.9338,
+        longitude: Double = 79.8350,
+        category: RentalCategory = RentalCategory.ELECTRONICS
     ): UserCommunityPost {
         val newPost = UserCommunityPost(
             id = "post_${System.currentTimeMillis()}",
@@ -795,7 +798,10 @@ object RentalRepository {
                 CommunityPostType.STUDY_GROUP -> "1 desk claimed"
             },
             status = CommunityPostStatus.ACTIVE,
-            createdAt = "Just now"
+            createdAt = "Just now",
+            latitude = latitude,
+            longitude = longitude,
+            category = category
         )
 
         _userCommunityPostsFlow.value = listOf(newPost) + _userCommunityPostsFlow.value
@@ -821,6 +827,44 @@ object RentalRepository {
         )
 
         _userActivityFlow.value = listOf(newActivity) + _userActivityFlow.value
+
+        // Also add to Discovery Map pins
+        val newPin = DiscoveryPinItem(
+            id = "pin_${newPost.id}",
+            title = title,
+            subtitle = when (type) {
+                CommunityPostType.EVENT -> "Community Event"
+                CommunityPostType.HELP_REQUEST -> "Community Help Inquiry"
+                CommunityPostType.STUDY_GROUP -> "Open Study Table"
+            },
+            type = when (type) {
+                CommunityPostType.EVENT -> DiscoveryPinType.COMMUNITY_EVENT
+                CommunityPostType.HELP_REQUEST -> DiscoveryPinType.HELP_REQUEST
+                CommunityPostType.STUDY_GROUP -> DiscoveryPinType.STUDY_GROUP
+            },
+            latitude = latitude,
+            longitude = longitude,
+            rating = 5.0f,
+            distance = "Nearby",
+            tag = type.title,
+            dateOrAvailability = dateTime,
+            locationName = location,
+            priceOrAttendees = newPost.attendeesOrResponses,
+            description = description,
+            category = category,
+            filterCategory = when (type) {
+                CommunityPostType.EVENT -> MapCategoryFilter.LOCAL_EVENTS
+                CommunityPostType.HELP_REQUEST -> MapCategoryFilter.HELP_NEEDED
+                CommunityPostType.STUDY_GROUP -> MapCategoryFilter.STUDY_GROUPS
+            },
+            neighborhood = "White Town",
+            walkingTime = "4 min walk",
+            cyclingTime = "1 min ride",
+            address = location
+        )
+
+        _discoveryPinsFlow.value = listOf(newPin) + _discoveryPinsFlow.value
+
         return newPost
     }
 
