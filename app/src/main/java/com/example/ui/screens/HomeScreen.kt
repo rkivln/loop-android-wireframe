@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Icon
@@ -75,6 +76,7 @@ fun HomeScreen(
     onSelectCategory: (RentalCategory) -> Unit,
     onSearchClick: () -> Unit,
     onOpenMapDiscovery: () -> Unit,
+    onOpenCommunityFeed: () -> Unit = {},
     onNotificationsClick: () -> Unit,
     onSeeAllPopular: () -> Unit,
     onSeeAllCategories: () -> Unit,
@@ -120,6 +122,29 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Live Community Feed shortcut button
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(PaperPureWhite)
+                                .border(1.dp, PaperBorderSubtle, CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(bounded = true),
+                                    onClick = onOpenCommunityFeed
+                                )
+                                .testTag("home_feed_btn"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.DynamicFeed,
+                                contentDescription = "Community Feed",
+                                tint = InkCharcoal,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+
                         // Map shortcut button
                         Box(
                             modifier = Modifier
@@ -317,7 +342,7 @@ fun HomeScreen(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = true),
-                        onClick = onOpenMapDiscovery
+                        onClick = onOpenCommunityFeed
                     )
                     .padding(20.dp)
                     .testTag("home_community_dispatch_banner")

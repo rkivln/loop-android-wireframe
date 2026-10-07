@@ -5,6 +5,8 @@ import com.example.R
 import com.example.data.RentalRepository
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
+import com.example.data.models.CommunityPostStatus
+import com.example.data.models.CommunityPostType
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
 import com.example.data.models.MessageStatus
@@ -13,6 +15,7 @@ import com.example.data.models.RentalItem
 import com.example.data.models.RentalMessage
 import com.example.data.models.RentalOwner
 import com.example.data.models.SpecFeature
+import com.example.data.models.UserCommunityPost
 import com.example.data.models.UserProfile
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -590,6 +593,185 @@ class FirestoreService private constructor() {
             batch.commit()
         } catch (e: Exception) {
             Log.w(TAG, "Initial message seed skipped: ${e.message}")
+        }
+    }
+
+    /**
+     * Real-time listener for Active Community Posts (Help Requests & Events) from Firestore
+     */
+    fun listenToCommunityPosts(): Flow<List<UserCommunityPost>> = callbackFlow {
+        val db = firestore
+        if (db == null) {
+            trySend(RentalRepository.initialCommunityPosts)
+            awaitClose { }
+            return@callbackFlow
+        }
+
+        val registration: ListenerRegistration = db.collection("community_posts")
+            .orderBy("createdAtEpoch", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error listening to community posts: ${error.message}")
+                    trySend(RentalRepository.initialCommunityPosts)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null && !snapshot.isEmpty) {
+                    val posts = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            val typeStr = doc.getString("typeStr") ?: "EVENT"
+                            val type = try {
+                                CommunityPostType.valueOf(typeStr)
+                            } catch (e: Exception) {
+                                CommunityPostType.EVENT
+                            }
+
+                            val catStr = doc.getString("categoryName") ?: "ELECTRONICS"
+                            val cat = try {
+                                RentalCategory.valueOf(catStr)
+                            } catch (e: Exception) {
+                                RentalCategory.ELECTRONICS
+                            }
+
+                            val statusStr = doc.getString("statusStr") ?: "ACTIVE"
+                            val status = try {
+                                CommunityPostStatus.valueOf(statusStr)
+                            } catch (e: Exception) {
+                                CommunityPostStatus.ACTIVE
+                            }
+
+                            UserCommunityPost(
+                                id = doc.id,
+                                title = doc.getString("title") ?: "Community Initiative",
+                                type = type,
+                                description = doc.getString("description") ?: "",
+                                location = doc.getString("location") ?: "White Town, Puducherry",
+                                dateTime = doc.getString("dateTime") ?: "Upcoming",
+                                attendeesOrResponses = doc.getString("attendeesOrResponses") ?: "Active",
+                                status = status,
+                                createdAt = doc.getString("createdAt") ?: "Recent",
+                                latitude = doc.getDouble("latitude") ?: 11.9338,
+                                longitude = doc.getDouble("longitude") ?: 79.8350,
+                                category = cat
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing community post doc: ${e.message}")
+                            null
+                        }
+                    }
+                    trySend(posts)
+                } else {
+                    seedInitialCommunityPosts(db)
+                    trySend(RentalRepository.initialCommunityPosts)
+                }
+            }
+
+        awaitClose { registration.remove() }
+    }
+
+    /**
+     * Create or publish a new community post in Firestore
+     */
+    suspend fun createCommunityPost(post: UserCommunityPost) {
+        val db = firestore ?: return
+        try {
+            val data = hashMapOf(
+                "id" to post.id,
+                "title" to post.title,
+                "typeStr" to post.type.name,
+                "categoryName" to post.category.name,
+                "description" to post.description,
+                "location" to post.location,
+                "dateTime" to post.dateTime,
+                "attendeesOrResponses" to post.attendeesOrResponses,
+                "statusStr" to post.status.name,
+                "createdAt" to post.createdAt,
+                "createdAtEpoch" to System.currentTimeMillis(),
+                "latitude" to post.latitude,
+                "longitude" to post.longitude
+            )
+            db.collection("community_posts")
+                .document(post.id)
+                .set(data)
+                .await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create community post in Firestore: ${e.message}")
+        }
+    }
+
+    /**
+     * Update status of community post in Firestore
+     */
+    suspend fun updateCommunityPostStatus(postId: String, status: CommunityPostStatus) {
+        val db = firestore ?: return
+        try {
+            db.collection("community_posts")
+                .document(postId)
+                .update("statusStr", status.name)
+                .await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update community post status in Firestore: ${e.message}")
+        }
+    }
+
+    /**
+     * RSVP or Respond to Community Post in Firestore
+     */
+    suspend fun updateCommunityPostAttendees(postId: String, newAttendeesText: String) {
+        val db = firestore ?: return
+        try {
+            db.collection("community_posts")
+                .document(postId)
+                .update("attendeesOrResponses", newAttendeesText)
+                .await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update attendees in Firestore: ${e.message}")
+        }
+    }
+
+    /**
+     * Delete community post from Firestore
+     */
+    suspend fun deleteCommunityPost(postId: String) {
+        val db = firestore ?: return
+        try {
+            db.collection("community_posts")
+                .document(postId)
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete community post in Firestore: ${e.message}")
+        }
+    }
+
+    /**
+     * Seed initial community initiatives to Firestore
+     */
+    private fun seedInitialCommunityPosts(db: FirebaseFirestore) {
+        try {
+            val batch = db.batch()
+            RentalRepository.initialCommunityPosts.forEach { post ->
+                val docRef = db.collection("community_posts").document(post.id)
+                val data = hashMapOf(
+                    "id" to post.id,
+                    "title" to post.title,
+                    "typeStr" to post.type.name,
+                    "categoryName" to post.category.name,
+                    "description" to post.description,
+                    "location" to post.location,
+                    "dateTime" to post.dateTime,
+                    "attendeesOrResponses" to post.attendeesOrResponses,
+                    "statusStr" to post.status.name,
+                    "createdAt" to post.createdAt,
+                    "createdAtEpoch" to (System.currentTimeMillis() - 3600000),
+                    "latitude" to post.latitude,
+                    "longitude" to post.longitude
+                )
+                batch.set(docRef, data)
+            }
+            batch.commit()
+        } catch (e: Exception) {
+            Log.w(TAG, "Initial community posts seed skipped: ${e.message}")
         }
     }
 

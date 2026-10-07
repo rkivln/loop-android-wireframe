@@ -126,3 +126,22 @@ data class FirestoreBooking(
     val handoverOtp: String = "8492",
     val createdAt: Long = System.currentTimeMillis()
 )
+
+data class FirestoreCommunityPost(
+    val id: String = "",
+    val title: String = "",
+    val typeStr: String = "EVENT",
+    val categoryName: String = "ELECTRONICS",
+    val description: String = "",
+    val location: String = "White Town, Puducherry",
+    val latitude: Double = 11.9338,
+    val longitude: Double = 79.8350,
+    val dateTime: String = "Today · 5:00 PM – 7:00 PM",
+    val attendeesOrResponses: String = "18 creators attending",
+    val statusStr: String = "ACTIVE",
+    val createdAtEpoch: Long = System.currentTimeMillis(),
+    val authorName: String = "Gokulan R",
+    val authorId: String = "user_me",
+    val authorInitials: String = "GR"
+)
+

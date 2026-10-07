@@ -59,6 +59,7 @@ fun LoopApp() {
         var selectedCategory by remember { mutableStateOf<RentalCategory?>(null) }
         var selectedConversationId by remember { mutableStateOf<String?>(null) }
         var exploreMapViewEnabled by remember { mutableStateOf(false) }
+        var exploreFeedViewEnabled by remember { mutableStateOf(false) }
 
         // Observe real-time flows from Firestore backend
         val itemsList by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
@@ -136,14 +137,22 @@ fun LoopApp() {
                                         onSelectCategory = { cat ->
                                             selectedCategory = cat
                                             exploreMapViewEnabled = false
+                                            exploreFeedViewEnabled = false
                                             currentTab = LoopTab.EXPLORE
                                         },
                                         onSearchClick = {
                                             exploreMapViewEnabled = false
+                                            exploreFeedViewEnabled = false
                                             currentTab = LoopTab.EXPLORE
                                         },
                                         onOpenMapDiscovery = {
                                             exploreMapViewEnabled = true
+                                            exploreFeedViewEnabled = false
+                                            currentTab = LoopTab.EXPLORE
+                                        },
+                                        onOpenCommunityFeed = {
+                                            exploreFeedViewEnabled = true
+                                            exploreMapViewEnabled = false
                                             currentTab = LoopTab.EXPLORE
                                         },
                                         onNotificationsClick = {
@@ -154,11 +163,13 @@ fun LoopApp() {
                                         onSeeAllPopular = {
                                             selectedCategory = null
                                             exploreMapViewEnabled = false
+                                            exploreFeedViewEnabled = false
                                             currentTab = LoopTab.EXPLORE
                                         },
                                         onSeeAllCategories = {
                                             selectedCategory = null
                                             exploreMapViewEnabled = false
+                                            exploreFeedViewEnabled = false
                                             currentTab = LoopTab.EXPLORE
                                         }
                                     )
@@ -182,7 +193,8 @@ fun LoopApp() {
                                             selectedConversationId = matched?.id ?: "conv_rakesh"
                                             currentTab = LoopTab.MESSAGES
                                         },
-                                        initialMapView = exploreMapViewEnabled
+                                        initialMapView = exploreMapViewEnabled,
+                                        initialFeedView = exploreFeedViewEnabled
                                     )
                                 }
 

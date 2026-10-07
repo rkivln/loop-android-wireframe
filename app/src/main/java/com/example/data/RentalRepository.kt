@@ -692,6 +692,14 @@ object RentalRepository {
                 _userProfileFlow.value = cloudProfile
             }
         }
+
+        repositoryScope.launch {
+            firestoreService.listenToCommunityPosts().collectLatest { cloudPosts ->
+                if (cloudPosts.isNotEmpty()) {
+                    _userCommunityPostsFlow.value = cloudPosts
+                }
+            }
+        }
     }
 
     fun updateUserProfile(profile: UserProfile) {
@@ -865,20 +873,65 @@ object RentalRepository {
 
         _discoveryPinsFlow.value = listOf(newPin) + _discoveryPinsFlow.value
 
+        repositoryScope.launch {
+            firestoreService.createCommunityPost(newPost)
+        }
+
         return newPost
     }
 
     fun toggleCommunityPostStatus(postId: String) {
+        var updatedStatus = CommunityPostStatus.ACTIVE
         _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.map { post ->
             if (post.id == postId) {
                 val newStatus = if (post.status == CommunityPostStatus.ACTIVE) CommunityPostStatus.COMPLETED else CommunityPostStatus.ACTIVE
+                updatedStatus = newStatus
                 post.copy(status = newStatus)
             } else post
         }
+
+        repositoryScope.launch {
+            firestoreService.updateCommunityPostStatus(postId, updatedStatus)
+        }
+    }
+
+    fun rsvpToCommunityPost(postId: String): String {
+        var newAttendeesText = ""
+        _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.map { post ->
+            if (post.id == postId) {
+                val updatedText = when {
+                    post.attendeesOrResponses.contains("attending", ignoreCase = true) -> {
+                        val num = Regex("\\d+").find(post.attendeesOrResponses)?.value?.toIntOrNull() ?: 1
+                        "${num + 1} creators attending (You're in!)"
+                    }
+                    post.attendeesOrResponses.contains("response", ignoreCase = true) -> {
+                        val num = Regex("\\d+").find(post.attendeesOrResponses)?.value?.toIntOrNull() ?: 0
+                        "${num + 1} responses (You offered help!)"
+                    }
+                    post.attendeesOrResponses.contains("desk", ignoreCase = true) -> {
+                        val num = Regex("\\d+").find(post.attendeesOrResponses)?.value?.toIntOrNull() ?: 1
+                        "${num + 1} desks booked (Desk reserved!)"
+                    }
+                    else -> "Joined · Confirmed RSVP"
+                }
+                newAttendeesText = updatedText
+                post.copy(attendeesOrResponses = updatedText)
+            } else post
+        }
+
+        if (newAttendeesText.isNotEmpty()) {
+            repositoryScope.launch {
+                firestoreService.updateCommunityPostAttendees(postId, newAttendeesText)
+            }
+        }
+        return newAttendeesText
     }
 
     fun deleteCommunityPost(postId: String) {
         _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.filterNot { it.id == postId }
+        repositoryScope.launch {
+            firestoreService.deleteCommunityPost(postId)
+        }
     }
 
     fun toggleFavorite(itemId: String) {
