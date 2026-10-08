@@ -93,3 +93,17 @@ data class UserCommunityPost(
     val longitude: Double = 79.8350,
     val category: RentalCategory = RentalCategory.ELECTRONICS
 )
+
+data class UserRentalBooking(
+    val id: String,
+    val item: RentalItem,
+    val hostName: String,
+    val startDate: String,
+    val endDate: String,
+    val status: String = "Active · Due in 2 days",
+    val daysRemaining: Int = 2,
+    val deliveryType: String = "Smart Hub Pickup (#8492)",
+    val pickupCode: String = "#8492",
+    val totalPaid: Int = 1100,
+    val isCompleted: Boolean = false
+)

@@ -21,6 +21,7 @@ import com.example.data.models.UserActivityItem
 import com.example.data.models.UserActivityType
 import com.example.data.models.UserCommunityPost
 import com.example.data.models.UserProfile
+import com.example.data.models.UserRentalBooking
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -652,6 +653,35 @@ object RentalRepository {
         )
     )
 
+    val initialCurrentRentals: List<UserRentalBooking> = listOf(
+        UserRentalBooking(
+            id = "rent_active_1",
+            item = items[0], // Canon EOS 200D
+            hostName = "Rakesh Kumar",
+            startDate = "10 Oct 2026",
+            endDate = "12 Oct 2026",
+            status = "Active · Due in 2 days",
+            daysRemaining = 2,
+            deliveryType = "Smart Hub Pickup (#8492)",
+            pickupCode = "#8492",
+            totalPaid = 1100,
+            isCompleted = false
+        ),
+        UserRentalBooking(
+            id = "rent_active_2",
+            item = items[1], // Analogue Synth
+            hostName = "Priya Sharma",
+            startDate = "08 Oct 2026",
+            endDate = "11 Oct 2026",
+            status = "In Use · Return tomorrow",
+            daysRemaining = 1,
+            deliveryType = "Host Delivery (White Town)",
+            pickupCode = "#3120",
+            totalPaid = 1750,
+            isCompleted = false
+        )
+    )
+
     private val _itemsFlow = MutableStateFlow(items)
     val itemsFlow: StateFlow<List<RentalItem>> = _itemsFlow.asStateFlow()
 
@@ -669,6 +699,9 @@ object RentalRepository {
 
     private val _userCommunityPostsFlow = MutableStateFlow(initialCommunityPosts)
     val userCommunityPostsFlow: StateFlow<List<UserCommunityPost>> = _userCommunityPostsFlow.asStateFlow()
+
+    private val _userCurrentRentalsFlow = MutableStateFlow(initialCurrentRentals)
+    val userCurrentRentalsFlow: StateFlow<List<UserRentalBooking>> = _userCurrentRentalsFlow.asStateFlow()
 
     init {
         repositoryScope.launch {
@@ -937,6 +970,46 @@ object RentalRepository {
     fun toggleFavorite(itemId: String) {
         _itemsFlow.value = _itemsFlow.value.map { item ->
             if (item.id == itemId) item.copy(isFavorite = !item.isFavorite) else item
+        }
+    }
+
+    fun completeRentalReturn(rentalId: String) {
+        _userCurrentRentalsFlow.value = _userCurrentRentalsFlow.value.map { rental ->
+            if (rental.id == rentalId) {
+                rental.copy(
+                    status = "Returned & Verified",
+                    daysRemaining = 0,
+                    isCompleted = true
+                )
+            } else rental
+        }
+
+        val currentProfile = _userProfileFlow.value
+        updateUserProfile(currentProfile.copy(rentalsCompleted = currentProfile.rentalsCompleted + 1))
+
+        val returnActivity = UserActivityItem(
+            id = "act_${System.currentTimeMillis()}",
+            title = "Returned equipment gear",
+            subtitle = "Inspection complete & deposit hold released",
+            type = UserActivityType.RESERVATION,
+            timestamp = "Just now",
+            statusBadge = "Returned",
+            iconEmoji = "📦",
+            relatedId = rentalId
+        )
+        _userActivityFlow.value = listOf(returnActivity) + _userActivityFlow.value
+    }
+
+    fun extendRental(rentalId: String, additionalDays: Int = 1) {
+        _userCurrentRentalsFlow.value = _userCurrentRentalsFlow.value.map { rental ->
+            if (rental.id == rentalId) {
+                val newDays = rental.daysRemaining + additionalDays
+                rental.copy(
+                    daysRemaining = newDays,
+                    status = "Active · Due in $newDays days",
+                    totalPaid = rental.totalPaid + (rental.item.pricePerDay * additionalDays)
+                )
+            } else rental
         }
     }
 }
