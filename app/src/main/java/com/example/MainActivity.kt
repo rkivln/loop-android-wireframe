@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.example.data.RentalRepository
 import com.example.ui.LoopApp
 import com.example.ui.theme.BackgroundLight
 import com.example.ui.theme.LoopTheme
@@ -15,6 +16,7 @@ import com.example.ui.theme.LoopTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RentalRepository.initLocalDatabase(applicationContext)
         enableEdgeToEdge()
         setContent {
             LoopTheme {

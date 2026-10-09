@@ -1,7 +1,9 @@
 package com.example.data
 
+import android.content.Context
 import com.example.R
 import com.example.data.firebase.FirestoreService
+import com.example.data.repository.CommunityEventRepository
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
 import com.example.data.models.CommunityPostStatus
@@ -728,8 +730,28 @@ object RentalRepository {
 
         repositoryScope.launch {
             firestoreService.listenToCommunityPosts().collectLatest { cloudPosts ->
-                if (cloudPosts.isNotEmpty()) {
+                if (cloudPosts.isNotEmpty() && communityEventRepository == null) {
                     _userCommunityPostsFlow.value = cloudPosts
+                }
+            }
+        }
+    }
+
+    var communityEventRepository: CommunityEventRepository? = null
+        private set
+
+    /**
+     * Initializes the Room SQLite database and binds CommunityEventRepository.
+     */
+    fun initLocalDatabase(context: Context) {
+        if (communityEventRepository == null) {
+            val repo = CommunityEventRepository.getInstance(context)
+            communityEventRepository = repo
+            repositoryScope.launch {
+                repo.allEvents.collectLatest { roomEvents ->
+                    if (roomEvents.isNotEmpty()) {
+                        _userCommunityPostsFlow.value = roomEvents
+                    }
                 }
             }
         }
@@ -907,7 +929,12 @@ object RentalRepository {
         _discoveryPinsFlow.value = listOf(newPin) + _discoveryPinsFlow.value
 
         repositoryScope.launch {
-            firestoreService.createCommunityPost(newPost)
+            val repo = communityEventRepository
+            if (repo != null) {
+                repo.createEvent(newPost)
+            } else {
+                firestoreService.createCommunityPost(newPost)
+            }
         }
 
         return newPost
@@ -924,7 +951,12 @@ object RentalRepository {
         }
 
         repositoryScope.launch {
-            firestoreService.updateCommunityPostStatus(postId, updatedStatus)
+            val repo = communityEventRepository
+            if (repo != null) {
+                repo.updateEventStatus(postId, updatedStatus)
+            } else {
+                firestoreService.updateCommunityPostStatus(postId, updatedStatus)
+            }
         }
     }
 
@@ -954,7 +986,12 @@ object RentalRepository {
 
         if (newAttendeesText.isNotEmpty()) {
             repositoryScope.launch {
-                firestoreService.updateCommunityPostAttendees(postId, newAttendeesText)
+                val repo = communityEventRepository
+                if (repo != null) {
+                    repo.rsvpToEvent(postId)
+                } else {
+                    firestoreService.updateCommunityPostAttendees(postId, newAttendeesText)
+                }
             }
         }
         return newAttendeesText
@@ -963,7 +1000,12 @@ object RentalRepository {
     fun deleteCommunityPost(postId: String) {
         _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.filterNot { it.id == postId }
         repositoryScope.launch {
-            firestoreService.deleteCommunityPost(postId)
+            val repo = communityEventRepository
+            if (repo != null) {
+                repo.deleteEvent(postId)
+            } else {
+                firestoreService.deleteCommunityPost(postId)
+            }
         }
     }
 

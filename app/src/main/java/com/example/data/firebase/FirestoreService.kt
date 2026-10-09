@@ -35,21 +35,33 @@ class FirestoreService private constructor() {
 
     private val firestore: FirebaseFirestore? by lazy {
         try {
-            if (FirebaseApp.getApps(com.google.firebase.FirebaseApp.getInstance().applicationContext).isNotEmpty()) {
-                val db = FirebaseFirestore.getInstance()
-                // Enable modern persistent cache settings for fast offline-first responsiveness
-                val settings = FirebaseFirestoreSettings.Builder()
-                    .setLocalCacheSettings(
-                        PersistentCacheSettings.newBuilder()
-                            .setSizeBytes(100 * 1024 * 1024) // 100 MB cache
-                            .build()
-                    )
-                    .build()
-                db.firestoreSettings = settings
-                db
-            } else {
+            val app = FirebaseApp.getInstance()
+            val context = app.applicationContext
+            val dbId = try {
+                context.getString(R.string.firestore_database_id)
+            } catch (e: Exception) {
                 null
             }
+            val db = if (!dbId.isNullOrBlank()) {
+                try {
+                    FirebaseFirestore.getInstance(app, dbId)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Named Firestore instance fallback to default: ${e.message}")
+                    FirebaseFirestore.getInstance(app)
+                }
+            } else {
+                FirebaseFirestore.getInstance(app)
+            }
+            // Enable modern persistent cache settings for fast offline-first responsiveness
+            val settings = FirebaseFirestoreSettings.Builder()
+                .setLocalCacheSettings(
+                    PersistentCacheSettings.newBuilder()
+                        .setSizeBytes(100 * 1024 * 1024) // 100 MB cache
+                        .build()
+                )
+                .build()
+            db.firestoreSettings = settings
+            db
         } catch (e: Exception) {
             Log.w(TAG, "Firebase not initialized, defaulting to in-memory reactive layer: ${e.message}")
             null
