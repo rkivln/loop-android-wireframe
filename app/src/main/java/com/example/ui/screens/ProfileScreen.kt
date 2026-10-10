@@ -25,31 +25,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Handshake
-import androidx.compose.material.icons.filled.HelpOutline
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.ShoppingBag
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -66,35 +50,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
 import com.example.data.models.AVATAR_PRESETS
-import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
-import com.example.data.models.UserActivityItem
-import com.example.data.models.UserActivityType
-import com.example.data.models.UserCommunityPost
+import com.example.data.models.RentalCategory
 import com.example.data.models.UserProfile
-import com.example.ui.components.CommunityFormData
 import com.example.ui.components.CommunityInitiativeForm
 import com.example.ui.components.PrimaryCTA
-import com.example.ui.components.SecondaryCTA
 import com.example.ui.components.UserProfileComponent
-import com.example.ui.components.SectionLabel
-import com.example.ui.theme.AccentBeigeOat
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
-import com.example.ui.theme.AccentPeach
-import com.example.ui.theme.AccentPowderBlue
-import com.example.ui.theme.AccentWarmYellow
-import com.example.ui.theme.AccentYellowSoft
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
@@ -108,6 +79,9 @@ import com.example.ui.theme.PaperWarm
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * Clean, simple, and intuitive Profile Screen.
+ */
 @Composable
 fun ProfileScreen(
     onNavigateBookings: () -> Unit = {},
@@ -127,7 +101,7 @@ fun ProfileScreen(
     val showFeedback: (String) -> Unit = { msg ->
         saveSuccessMessage = msg
         coroutineScope.launch {
-            delay(2600)
+            delay(2400)
             saveSuccessMessage = null
         }
     }
@@ -141,73 +115,47 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header
+            // Simple Header: "Profile" title + Edit Profile icon button
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 22.dp, vertical = 14.dp),
+                        .padding(top = 4.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "Studio Shelf",
-                            style = LoopType.HeroDisplayLarge.copy(fontSize = 28.sp),
-                            color = InkCharcoal
-                        )
-                        Text(
-                            text = "Creator identity, posted requests & activity ledger",
-                            style = LoopType.Metadata,
-                            color = InkSecondary
-                        )
-                    }
+                    Text(
+                        text = "Profile",
+                        style = LoopType.HeroDisplayLarge.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold),
+                        color = InkCharcoal
+                    )
 
-                    // Edit Profile CTA Pill
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(PaperPureWhite)
-                            .border(1.dp, PaperBorder, RoundedCornerShape(20.dp))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(bounded = true),
-                                onClick = { isEditingProfile = true }
-                            )
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                            .testTag("profile_edit_btn"),
-                        contentAlignment = Alignment.Center
+                    IconButton(
+                        onClick = { isEditingProfile = true },
+                        modifier = Modifier.testTag("profile_settings_icon")
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = null,
-                                tint = InkCharcoal,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Edit Bio",
-                                style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
-                                color = InkCharcoal
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Profile",
+                            tint = InkCharcoal,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
 
-            // Success feedback banner
+            // Success feedback toast banner
             if (saveSuccessMessage != null) {
                 item {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 22.dp, vertical = 4.dp)
-                            .clip(RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(AccentMint)
-                            .border(1.dp, AccentForestGreen.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                            .border(1.dp, AccentForestGreen.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                             .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -230,7 +178,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Reusable User Profile UI Component (Personal Information + Community Interactions History + Current Rentals + Activity Ledger)
+            // Reusable Clean User Profile UI Component
             item {
                 UserProfileComponent(
                     userProfile = userProfile,
@@ -240,19 +188,19 @@ fun ProfileScreen(
                     onEditBioClick = { isEditingProfile = true },
                     onTogglePostStatus = { postId ->
                         RentalRepository.toggleCommunityPostStatus(postId)
-                        showFeedback("Community initiative status updated.")
+                        showFeedback("Initiative status updated")
                     },
                     onDeletePost = { postId ->
                         RentalRepository.deleteCommunityPost(postId)
-                        showFeedback("Post removed.")
+                        showFeedback("Initiative removed")
                     },
                     onReturnRental = { rentalId ->
                         RentalRepository.completeRentalReturn(rentalId)
-                        showFeedback("Equipment return recorded & deposit hold released.")
+                        showFeedback("Equipment return completed")
                     },
                     onExtendRental = { rentalId ->
                         RentalRepository.extendRental(rentalId, 1)
-                        showFeedback("Rental extended by 1 day.")
+                        showFeedback("Rental extended by 1 day")
                     },
                     onContactHost = { _ -> onNavigateBookings() },
                     onCreateNewPost = { isCreatingPost = true }
@@ -260,7 +208,7 @@ fun ProfileScreen(
             }
         }
 
-        // Edit Profile & Bio Modal Sheet
+        // Edit Profile Sheet
         AnimatedVisibility(
             visible = isEditingProfile,
             enter = slideInVertically { it } + fadeIn(),
@@ -271,13 +219,13 @@ fun ProfileScreen(
                 onSave = { updatedProfile ->
                     RentalRepository.updateUserProfile(updatedProfile)
                     isEditingProfile = false
-                    showFeedback("Bio & profile updated successfully.")
+                    showFeedback("Profile saved successfully")
                 },
                 onDismiss = { isEditingProfile = false }
             )
         }
 
-        // Create Community Event / Help Request Modal Sheet using Reusable CommunityInitiativeForm
+        // Create Community Event Modal Sheet
         AnimatedVisibility(
             visible = isCreatingPost,
             enter = slideInVertically { it } + fadeIn(),
@@ -322,7 +270,6 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Embedding Reusable CommunityInitiativeForm Component
                         CommunityInitiativeForm(
                             onSubmit = { formData ->
                                 RentalRepository.createCommunityPost(
@@ -336,10 +283,10 @@ fun ProfileScreen(
                                     category = formData.category
                                 )
                                 isCreatingPost = false
-                                showFeedback("Community ${formData.type.title} published and mapped!")
+                                showFeedback("Event created and saved!")
                             },
                             onCancel = { isCreatingPost = false },
-                            submitButtonLabel = "Publish to Neighborhood"
+                            submitButtonLabel = "Publish Event"
                         )
                     }
                 }
@@ -348,6 +295,9 @@ fun ProfileScreen(
     }
 }
 
+/**
+ * Clean & Simple Edit Profile Sheet.
+ */
 @Composable
 fun EditProfileModalSheet(
     currentProfile: UserProfile,
@@ -357,6 +307,7 @@ fun EditProfileModalSheet(
     var displayName by remember { mutableStateOf(currentProfile.displayName) }
     var bio by remember { mutableStateOf(currentProfile.bio) }
     var location by remember { mutableStateOf(currentProfile.location) }
+    var phone by remember { mutableStateOf(currentProfile.phone) }
     var selectedAvatarIndex by remember { mutableIntStateOf(currentProfile.avatarPresetIndex) }
 
     Box(
@@ -372,7 +323,7 @@ fun EditProfileModalSheet(
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .background(PaperPureWhite)
                 .clickable(enabled = false) {}
-                .padding(horizontal = 22.dp, vertical = 22.dp)
+                .padding(horizontal = 22.dp, vertical = 20.dp)
                 .navigationBarsPadding()
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -382,8 +333,8 @@ fun EditProfileModalSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Edit Profile & Bio",
-                        style = LoopType.HeadlineMedium,
+                        text = "Edit Profile",
+                        style = LoopType.HeadlineMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
                         color = InkCharcoal
                     )
 
@@ -396,10 +347,10 @@ fun EditProfileModalSheet(
                     }
                 }
 
-                // Avatar Presets Picker
+                // Avatar color preset selector
                 Column {
                     Text(
-                        text = "STUDIO AVATAR THEME",
+                        text = "AVATAR THEME",
                         style = LoopType.EditorialTag,
                         color = InkSecondary
                     )
@@ -414,7 +365,7 @@ fun EditProfileModalSheet(
                             val isSelected = selectedAvatarIndex == preset.id
                             Box(
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(42.dp)
                                     .clip(CircleShape)
                                     .background(Color(preset.bgHex1))
                                     .border(
@@ -427,25 +378,26 @@ fun EditProfileModalSheet(
                             ) {
                                 Text(
                                     text = preset.emoji,
-                                    fontSize = 18.sp
+                                    fontSize = 16.sp
                                 )
                             }
                         }
                     }
                 }
 
+                // Name Field
                 Column {
                     Text(
-                        text = "DISPLAY NAME",
+                        text = "NAME",
                         style = LoopType.EditorialTag,
                         color = InkSecondary
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(14.dp))
+                            .height(46.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(PaperIvory)
                             .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.CenterStart
@@ -460,18 +412,19 @@ fun EditProfileModalSheet(
                     }
                 }
 
+                // Location Field
                 Column {
                     Text(
-                        text = "LOCATION / QUARTER",
+                        text = "LOCATION",
                         style = LoopType.EditorialTag,
                         color = InkSecondary
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(14.dp))
+                            .height(46.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(PaperIvory)
                             .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.CenterStart
@@ -486,50 +439,51 @@ fun EditProfileModalSheet(
                     }
                 }
 
+                // Bio Field
                 Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "CREATOR BIO & TASTE",
+                            text = "BIO",
                             style = LoopType.EditorialTag,
                             color = InkSecondary
                         )
                         Text(
-                            text = "${bio.length}/250",
+                            text = "${bio.length}/200",
                             style = LoopType.Metadata.copy(fontSize = 10.sp),
                             color = InkMuted
                         )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(96.dp)
-                            .clip(RoundedCornerShape(14.dp))
+                            .height(84.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(PaperIvory)
-                            .padding(14.dp),
+                            .padding(12.dp),
                         contentAlignment = Alignment.TopStart
                     ) {
                         BasicTextField(
                             value = bio,
-                            onValueChange = { if (it.length <= 250) bio = it },
-                            textStyle = TextStyle(fontSize = 13.5.sp, color = InkCharcoal, lineHeight = 19.sp),
+                            onValueChange = { if (it.length <= 200) bio = it },
+                            textStyle = TextStyle(fontSize = 13.sp, color = InkCharcoal, lineHeight = 18.sp),
                             cursorBrush = SolidColor(InkCharcoal),
                             modifier = Modifier.fillMaxSize()
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 PrimaryCTA(
-                    text = "Save Bio & Profile",
+                    text = "Save Profile",
                     onClick = {
-                        val sanitizedName = displayName.trim().take(60).ifBlank { "Gokulan R" }
-                        val sanitizedBio = bio.trim().take(250)
-                        val sanitizedLocation = location.trim().take(80).ifBlank { "White Town, Puducherry" }
+                        val sanitizedName = displayName.trim().take(50).ifBlank { "Gokulan R" }
+                        val sanitizedBio = bio.trim().take(200)
+                        val sanitizedLocation = location.trim().take(60).ifBlank { "White Town, Puducherry" }
                         val updated = currentProfile.copy(
                             displayName = sanitizedName,
                             bio = sanitizedBio,
