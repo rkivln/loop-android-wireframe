@@ -231,12 +231,14 @@ class FirestoreService private constructor() {
                                 else -> R.drawable.canon_eos_camera_1790477967758
                             }
 
-                            val featuresList = (doc.get("features") as? List<Map<String, Any>>)?.map { f ->
+                            val rawFeatures = doc.get("features") as? List<*>
+                            val featuresList = rawFeatures?.mapNotNull { f ->
+                                val map = f as? Map<*, *> ?: return@mapNotNull null
                                 SpecFeature(
-                                    iconType = f["iconType"] as? String ?: "CAMERA",
-                                    label = f["label"] as? String ?: ""
+                                    iconType = map["iconType"] as? String ?: "CAMERA",
+                                    label = map["label"] as? String ?: ""
                                 )
-                            } ?: listOf(SpecFeature("CAMERA", "Verified Item"))
+                            }?.ifEmpty { null } ?: listOf(SpecFeature("CAMERA", "Verified Item"))
 
                             RentalItem(
                                 id = doc.id,

@@ -5,6 +5,10 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -89,6 +93,7 @@ import com.example.data.models.MapCategoryFilter
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
+import com.example.ui.components.EventMapMarkerCallout
 import com.example.ui.components.ProfileMarker
 import com.example.ui.theme.AccentBeigeOat
 import com.example.ui.theme.AccentForestGreen
@@ -701,226 +706,116 @@ fun DiscoveryMapScreen(
             }
         }
 
-        // Bottom Discovery Carousel & Direct Actions Drawer (Light Theme, Safe-Area aware)
+        // Bottom Discovery Marker Callout & Carousel Drawer (Light Theme, Safe-Area aware)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = 14.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 10.dp)
         ) {
-            LazyRow(
-                state = carouselState,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // Reusable UI Component that appears when a user clicks a map marker
+            AnimatedVisibility(
+                visible = selectedPin != null,
+                enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut()
             ) {
-                items(filteredPins) { pin ->
-                    val isSelected = selectedPin?.id == pin.id
-
-                    Box(
-                        modifier = Modifier
-                            .width(320.dp)
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(PaperPureWhite)
-                            .border(
-                                1.5.dp,
-                                if (isSelected) InkCharcoal else PaperBorderSubtle,
-                                RoundedCornerShape(22.dp)
+                selectedPin?.let { pin ->
+                    EventMapMarkerCallout(
+                        pin = pin,
+                        onDirectionsClick = {
+                            LocationHelper.openNavigationIntent(
+                                context = context,
+                                latitude = pin.latitude,
+                                longitude = pin.longitude,
+                                label = pin.title
                             )
-                            .clickable { selectedPin = pin }
-                            .padding(14.dp)
-                            .testTag("map_carousel_card_${pin.id}")
-                    ) {
-                        Column {
+                        },
+                        onRsvpClick = {
+                            RentalRepository.rsvpToCommunityPost(pin.id)
+                        },
+                        onViewDetailsClick = {
+                            if (pin.rentalItem != null) {
+                                onItemClick(pin.rentalItem)
+                            } else if (pin.owner != null) {
+                                onContactOwner(pin.owner)
+                            }
+                        },
+                        onDismiss = {
+                            selectedPin = null
+                        }
+                    )
+                }
+            }
+
+            // Compact Neighborhood Marker Carousel when callout is dismissed or to quickly switch markers
+            AnimatedVisibility(visible = selectedPin == null) {
+                LazyRow(
+                    state = carouselState,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(filteredPins) { pin ->
+                        Box(
+                            modifier = Modifier
+                                .width(300.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(PaperPureWhite)
+                                .border(1.5.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
+                                .clickable { selectedPin = pin }
+                                .padding(12.dp)
+                                .testTag("map_carousel_card_${pin.id}")
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Photo / Type Icon
-                                if (pin.imageRes != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(68.dp)
-                                            .clip(RoundedCornerShape(14.dp))
-                                    ) {
-                                        Image(
-                                            painter = painterResource(id = pin.imageRes),
-                                            contentDescription = pin.title,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    }
-                                } else {
-                                    val iconBg = when (pin.type) {
-                                        DiscoveryPinType.PICKUP_HUB -> AccentForestGreen
-                                        DiscoveryPinType.STUDY_GROUP -> AccentPowderBlue
-                                        DiscoveryPinType.HELP_REQUEST -> AccentPeach
-                                        DiscoveryPinType.COMMUNITY_EVENT -> AccentMint
-                                        else -> PaperIvory
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .size(68.dp)
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(iconBg),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = when (pin.type) {
-                                                DiscoveryPinType.PICKUP_HUB -> Icons.Outlined.Lock
-                                                DiscoveryPinType.STUDY_GROUP -> Icons.Default.MenuBook
-                                                DiscoveryPinType.HELP_REQUEST -> Icons.Default.Handshake
-                                                DiscoveryPinType.COMMUNITY_EVENT -> Icons.Default.PhotoCamera
-                                                else -> Icons.Default.NearMe
-                                            },
-                                            contentDescription = null,
-                                            tint = if (pin.type == DiscoveryPinType.PICKUP_HUB) InkWhite else InkCharcoal,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
+                                val iconBg = when (pin.type) {
+                                    DiscoveryPinType.PICKUP_HUB -> AccentForestGreen
+                                    DiscoveryPinType.STUDY_GROUP -> AccentPowderBlue
+                                    DiscoveryPinType.HELP_REQUEST -> AccentPeach
+                                    DiscoveryPinType.COMMUNITY_EVENT -> AccentMint
+                                    else -> PaperIvory
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(iconBg),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = when (pin.type) {
+                                            DiscoveryPinType.PICKUP_HUB -> Icons.Outlined.Lock
+                                            DiscoveryPinType.STUDY_GROUP -> Icons.Default.MenuBook
+                                            DiscoveryPinType.HELP_REQUEST -> Icons.Default.Handshake
+                                            DiscoveryPinType.COMMUNITY_EVENT -> Icons.Default.PhotoCamera
+                                            else -> Icons.Default.NearMe
+                                        },
+                                        contentDescription = null,
+                                        tint = if (pin.type == DiscoveryPinType.PICKUP_HUB) InkWhite else InkCharcoal,
+                                        modifier = Modifier.size(22.dp)
+                                    )
                                 }
 
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
 
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = pin.title,
-                                            style = LoopType.HeadlineMedium.copy(fontSize = 15.sp),
-                                            color = InkCharcoal,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-
-                                        Spacer(modifier = Modifier.width(6.dp))
-
-                                        Text(
-                                            text = pin.priceOrAttendees,
-                                            style = LoopType.PriceSmall.copy(fontSize = 12.5.sp),
-                                            color = InkCharcoal
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(2.dp))
-
                                     Text(
-                                        text = pin.locationName,
-                                        style = LoopType.Metadata.copy(fontSize = 11.5.sp),
-                                        color = InkSecondary,
+                                        text = pin.title,
+                                        style = LoopType.HeadlineMedium.copy(fontSize = 14.sp),
+                                        color = InkCharcoal,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    // Walking & Cycling Estimates
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.DirectionsWalk,
-                                                contentDescription = null,
-                                                tint = InkSecondary,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(2.dp))
-                                            Text(
-                                                text = pin.walkingTime,
-                                                style = LoopType.Metadata.copy(fontSize = 10.5.sp),
-                                                color = InkSecondary
-                                            )
-                                        }
-
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.DirectionsBike,
-                                                contentDescription = null,
-                                                tint = InkSecondary,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(2.dp))
-                                            Text(
-                                                text = pin.cyclingTime,
-                                                style = LoopType.Metadata.copy(fontSize = 10.5.sp),
-                                                color = InkSecondary
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Action Row: Directions & Details
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // Directions Action
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(38.dp)
-                                        .clip(RoundedCornerShape(19.dp))
-                                        .background(PaperIvory)
-                                        .border(1.dp, PaperBorder, RoundedCornerShape(19.dp))
-                                        .clickable {
-                                            LocationHelper.openNavigationIntent(
-                                                context = context,
-                                                latitude = pin.latitude,
-                                                longitude = pin.longitude,
-                                                label = pin.title
-                                            )
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.NearMe,
-                                            contentDescription = null,
-                                            tint = InkCharcoal,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(5.dp))
-                                        Text(
-                                            text = "Directions",
-                                            style = LoopType.ButtonSecondaryLabel.copy(fontSize = 12.sp),
-                                            color = InkCharcoal
-                                        )
-                                    }
-                                }
-
-                                // View Piece / Connect Action
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1.3f)
-                                        .height(38.dp)
-                                        .clip(RoundedCornerShape(19.dp))
-                                        .background(InkCharcoal)
-                                        .clickable {
-                                            if (pin.rentalItem != null) {
-                                                onItemClick(pin.rentalItem)
-                                            } else if (pin.owner != null) {
-                                                onContactOwner(pin.owner)
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = if (pin.rentalItem != null) "Reserve Piece"
-                                               else if (pin.type == DiscoveryPinType.PICKUP_HUB) "Hub Info"
-                                               else if (pin.type == DiscoveryPinType.STUDY_GROUP) "Join Table"
-                                               else if (pin.type == DiscoveryPinType.HELP_REQUEST) "Offer Help"
-                                               else "Connect",
-                                        style = LoopType.ButtonLabel.copy(fontSize = 12.5.sp),
-                                        color = InkWhite
+                                        text = "${pin.tag} · ${pin.distance}",
+                                        style = LoopType.Metadata.copy(fontSize = 11.sp),
+                                        color = InkSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
