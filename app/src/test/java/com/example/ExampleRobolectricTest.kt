@@ -6,6 +6,11 @@ import com.example.data.RentalRepository
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
 import com.example.data.models.RentalCategory
+import com.example.data.local.AppDatabase
+import com.example.data.local.UserProfileEntity
+import com.example.data.local.toDomain
+import com.example.data.local.toEntity
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -81,5 +86,45 @@ class ExampleRobolectricTest {
         RentalRepository.completeRentalReturn(targetRental.id)
         val returnedRental = RentalRepository.userCurrentRentalsFlow.value.first { it.id == targetRental.id }
         assertTrue(returnedRental.isCompleted)
+    }
+
+    @Test
+    fun `user profile room entity and dao persistence work as expected`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = AppDatabase.getInstance(context)
+        val dao = db.userProfileDao()
+
+        val testEntity = UserProfileEntity(
+            uid = "user_test_123",
+            displayName = "Alex Rivers",
+            bio = "Analog photographer and print maker",
+            location = "Heritage Quarter",
+            avatarPresetIndex = 2
+        )
+
+        dao.insertOrUpdateProfile(testEntity)
+
+        val retrieved = dao.getUserProfileOnce("user_test_123")
+        assertNotNull(retrieved)
+        assertEquals("Alex Rivers", retrieved?.displayName)
+        assertEquals("Analog photographer and print maker", retrieved?.bio)
+        assertEquals(2, retrieved?.avatarPresetIndex)
+
+        // Test updating basic profile (avatar, display name, bio, location)
+        dao.updateBasicProfile(
+            uid = "user_test_123",
+            displayName = "Alex Rivers Updated",
+            bio = "Updated bio for test suite",
+            avatarPresetIndex = 4,
+            location = "White Town Promenade",
+            phone = "+91 99999 88888"
+        )
+
+        val updated = dao.getUserProfileOnce("user_test_123")
+        assertNotNull(updated)
+        assertEquals("Alex Rivers Updated", updated?.displayName)
+        assertEquals("Updated bio for test suite", updated?.bio)
+        assertEquals(4, updated?.avatarPresetIndex)
+        assertEquals("White Town Promenade", updated?.location)
     }
 }

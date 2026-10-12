@@ -85,6 +85,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ProfileScreen(
     onNavigateBookings: () -> Unit = {},
+    onEditProfile: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val userProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
@@ -95,6 +96,10 @@ fun ProfileScreen(
     var isEditingProfile by remember { mutableStateOf(false) }
     var isCreatingPost by remember { mutableStateOf(false) }
     var saveSuccessMessage by remember { mutableStateOf<String?>(null) }
+
+    val handleEditClick: () -> Unit = {
+        onEditProfile()
+    }
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -134,7 +139,7 @@ fun ProfileScreen(
                     )
 
                     IconButton(
-                        onClick = { isEditingProfile = true },
+                        onClick = handleEditClick,
                         modifier = Modifier.testTag("profile_settings_icon")
                     ) {
                         Icon(
@@ -185,7 +190,7 @@ fun ProfileScreen(
                     communityPosts = userPosts,
                     currentRentals = userRentals,
                     userActivities = userActivities,
-                    onEditBioClick = { isEditingProfile = true },
+                    onEditBioClick = handleEditClick,
                     onTogglePostStatus = { postId ->
                         RentalRepository.toggleCommunityPostStatus(postId)
                         showFeedback("Initiative status updated")

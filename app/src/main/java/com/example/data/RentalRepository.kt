@@ -3,6 +3,10 @@ package com.example.data
 import android.content.Context
 import com.example.R
 import com.example.data.firebase.FirestoreService
+import com.example.data.local.AppDatabase
+import com.example.data.local.UserProfileDao
+import com.example.data.local.toDomain
+import com.example.data.local.toEntity
 import com.example.data.repository.CommunityEventRepository
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
@@ -725,6 +729,7 @@ object RentalRepository {
         repositoryScope.launch {
             firestoreService.listenToUserProfile("user_me").collectLatest { cloudProfile ->
                 _userProfileFlow.value = cloudProfile
+                userProfileDao?.insertOrUpdateProfile(cloudProfile.toEntity())
             }
         }
 
@@ -740,10 +745,31 @@ object RentalRepository {
     var communityEventRepository: CommunityEventRepository? = null
         private set
 
+    var userProfileDao: UserProfileDao? = null
+        private set
+
     /**
-     * Initializes the Room SQLite database and binds CommunityEventRepository.
+     * Initializes the Room SQLite database and binds CommunityEventRepository and UserProfileDao.
      */
     fun initLocalDatabase(context: Context) {
+        val db = AppDatabase.getInstance(context)
+
+        if (userProfileDao == null) {
+            val profileDao = db.userProfileDao()
+            userProfileDao = profileDao
+            repositoryScope.launch {
+                val existing = profileDao.getUserProfileOnce("user_me")
+                if (existing == null) {
+                    profileDao.insertOrUpdateProfile(initialUserProfile.toEntity())
+                }
+                profileDao.getUserProfile("user_me").collectLatest { localProfileEntity ->
+                    if (localProfileEntity != null) {
+                        _userProfileFlow.value = localProfileEntity.toDomain()
+                    }
+                }
+            }
+        }
+
         if (communityEventRepository == null) {
             val repo = CommunityEventRepository.getInstance(context)
             communityEventRepository = repo
@@ -760,6 +786,7 @@ object RentalRepository {
     fun updateUserProfile(profile: UserProfile) {
         _userProfileFlow.value = profile
         repositoryScope.launch {
+            userProfileDao?.insertOrUpdateProfile(profile.toEntity())
             firestoreService.updateUserProfile(profile)
         }
     }

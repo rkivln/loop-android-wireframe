@@ -33,6 +33,7 @@ import com.example.ui.components.LoopBottomNavigation
 import com.example.ui.components.LoopTab
 import com.example.ui.screens.BookingScreen
 import com.example.ui.screens.CreateListingScreen
+import com.example.ui.screens.EditProfileScreen
 import com.example.ui.screens.ExploreScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.ItemDetailsScreen
@@ -49,6 +50,7 @@ sealed class ScreenState {
     data class ItemDetails(val item: RentalItem) : ScreenState()
     data class Booking(val item: RentalItem) : ScreenState()
     object CreateListing : ScreenState()
+    object EditProfile : ScreenState()
 }
 
 @Composable
@@ -217,10 +219,21 @@ fun LoopApp() {
                                         onNavigateBookings = {
                                             selectedConversationId = "conv_rakesh"
                                             currentTab = LoopTab.MESSAGES
+                                        },
+                                        onEditProfile = {
+                                            currentScreenState = ScreenState.EditProfile
                                         }
                                     )
                                 }
                             }
+                        }
+
+                        is ScreenState.EditProfile -> {
+                            EditProfileScreen(
+                                onBack = {
+                                    currentScreenState = ScreenState.Main
+                                }
+                            )
                         }
 
                         is ScreenState.ItemDetails -> {

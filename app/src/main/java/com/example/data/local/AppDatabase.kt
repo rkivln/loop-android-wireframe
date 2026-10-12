@@ -9,13 +9,17 @@ import androidx.room.RoomDatabase
  * Main Room Database for Loop offline storage and local caching.
  */
 @Database(
-    entities = [CommunityEventEntity::class],
-    version = 1,
+    entities = [
+        CommunityEventEntity::class,
+        UserProfileEntity::class
+    ],
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun communityEventDao(): CommunityEventDao
+    abstract fun userProfileDao(): UserProfileDao
 
     companion object {
         @Volatile
