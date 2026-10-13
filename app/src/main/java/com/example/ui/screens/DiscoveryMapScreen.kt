@@ -93,6 +93,7 @@ import com.example.data.models.MapCategoryFilter
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
+import com.example.ui.components.CommunityActivityMap
 import com.example.ui.components.EventMapMarkerCallout
 import com.example.ui.components.ProfileMarker
 import com.example.ui.theme.AccentBeigeOat
@@ -238,17 +239,40 @@ fun DiscoveryMapScreen(
     }
 
     val carouselState = rememberLazyListState()
+    var useGoogleMap by remember { mutableStateOf(true) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MapGroundPaper)
     ) {
-        // Light Themed Architectural Map Canvas
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
+        if (useGoogleMap) {
+            CommunityActivityMap(
+                modifier = Modifier.fillMaxSize(),
+                activityPoints = filteredPins,
+                onPointSelected = { pin ->
+                    selectedPin = pin
+                    val pinIndex = filteredPins.indexOf(pin)
+                    if (pinIndex >= 0) {
+                        coroutineScope.launch {
+                            carouselState.animateScrollToItem(pinIndex)
+                        }
+                    }
+                },
+                onDirectionsClick = { pin ->
+                    selectedPin = pin
+                },
+                onRsvpClick = { pin ->
+                    selectedPin = pin
+                },
+                showFilterRow = false
+            )
+        } else {
+            // Light Themed Architectural Map Canvas
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
                         zoomScale = (zoomScale * zoom).coerceIn(0.8f, 2.2f)
                         panOffsetX = (panOffsetX + pan.x).coerceIn(-400f, 400f)
@@ -534,8 +558,9 @@ fun DiscoveryMapScreen(
                 }
             }
         }
+    }
 
-        // Top Navigation & Filter Bar (Light Themed)
+    // Top Navigation & Filter Bar (Light Themed)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -596,28 +621,55 @@ fun DiscoveryMapScreen(
                     }
                 }
 
-                // Locate Me GPS Action Button
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(if (isGpsActive) AccentMint else PaperPureWhite)
-                        .border(1.dp, if (isGpsActive) AccentForestGreen else PaperBorder, CircleShape)
-                        .clickable {
-                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                            panOffsetX = 0f
-                            panOffsetY = 0f
-                            zoomScale = 1.1f
-                        }
-                        .testTag("map_locate_me_btn"),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.MyLocation,
-                        contentDescription = "Locate Me",
-                        tint = if (isGpsActive) AccentForestGreen else InkCharcoal,
-                        modifier = Modifier.size(19.dp)
-                    )
+                    // Map Mode Toggle (Google Map vs Canvas)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(if (useGoogleMap) InkCharcoal else PaperPureWhite)
+                            .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true),
+                                onClick = { useGoogleMap = !useGoogleMap }
+                            )
+                            .padding(horizontal = 10.dp, vertical = 7.dp)
+                            .testTag("map_mode_toggle_btn"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (useGoogleMap) "🗺️ Google Map" else "🏛️ Canvas",
+                            style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                            color = if (useGoogleMap) InkWhite else InkCharcoal
+                        )
+                    }
+
+                    // Locate Me GPS Action Button
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(if (isGpsActive) AccentMint else PaperPureWhite)
+                            .border(1.dp, if (isGpsActive) AccentForestGreen else PaperBorder, CircleShape)
+                            .clickable {
+                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                panOffsetX = 0f
+                                panOffsetY = 0f
+                                zoomScale = 1.1f
+                            }
+                            .testTag("map_locate_me_btn"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MyLocation,
+                            contentDescription = "Locate Me",
+                            tint = if (isGpsActive) AccentForestGreen else InkCharcoal,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
                 }
             }
 
@@ -706,14 +758,15 @@ fun DiscoveryMapScreen(
             }
         }
 
-        // Bottom Discovery Marker Callout & Carousel Drawer (Light Theme, Safe-Area aware)
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(bottom = 10.dp)
-        ) {
+        // Bottom Discovery Marker Callout & Carousel Drawer for Canvas mode
+        if (!useGoogleMap) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 10.dp)
+            ) {
             // Reusable UI Component that appears when a user clicks a map marker
             AnimatedVisibility(
                 visible = selectedPin != null,
@@ -825,4 +878,5 @@ fun DiscoveryMapScreen(
             }
         }
     }
+}
 }
