@@ -21,29 +21,40 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -82,6 +93,23 @@ fun HomeScreen(
     onSeeAllCategories: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    var activeCategoryFilter by remember { mutableStateOf<RentalCategory?>(null) }
+
+    val isFiltered = searchQuery.isNotBlank() || activeCategoryFilter != null
+
+    val filteredItems = remember(items, searchQuery, activeCategoryFilter) {
+        items.filter { item ->
+            val matchesCategory = activeCategoryFilter == null || item.category == activeCategoryFilter
+            val matchesKeyword = searchQuery.isBlank() ||
+                    item.title.contains(searchQuery, ignoreCase = true) ||
+                    item.description.contains(searchQuery, ignoreCase = true) ||
+                    item.location.contains(searchQuery, ignoreCase = true) ||
+                    item.owner.name.contains(searchQuery, ignoreCase = true)
+            matchesCategory && matchesKeyword
+        }
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -192,12 +220,254 @@ fun HomeScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Search Bar at Top of Main Screen
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(PaperPureWhite)
+                        .border(1.5.dp, PaperBorderSubtle, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                        .testTag("home_search_bar")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search icon",
+                            tint = InkCharcoal,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Search by item, camera, cycle, studio...",
+                                    style = LoopType.BodyMedium,
+                                    color = InkMuted
+                                )
+                            }
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                textStyle = TextStyle(
+                                    fontSize = 15.sp,
+                                    color = InkCharcoal,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                cursorBrush = SolidColor(InkCharcoal),
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("main_search_input")
+                            )
+                        }
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .testTag("home_clear_search_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear search",
+                                    tint = InkMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Category Filter Pills directly under Search Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val isAllSelected = activeCategoryFilter == null
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(if (isAllSelected) InkCharcoal else PaperPureWhite)
+                            .border(1.dp, if (isAllSelected) InkCharcoal else PaperBorder, RoundedCornerShape(100.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true),
+                                onClick = { activeCategoryFilter = null }
+                            )
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                            .testTag("home_category_filter_all"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "All Items",
+                            style = LoopType.Metadata.copy(
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Medium
+                            ),
+                            color = if (isAllSelected) InkWhite else InkCharcoal
+                        )
+                    }
+
+                    RentalCategory.values().forEach { cat ->
+                        val isSelected = activeCategoryFilter == cat
+                        val (label, emoji) = when (cat) {
+                            RentalCategory.ELECTRONICS -> "Electronics" to "📸"
+                            RentalCategory.STUDY_OFFICE -> "Study & Office" to "📚"
+                            RentalCategory.VEHICLES -> "Vehicles" to "🚲"
+                            RentalCategory.FURNITURE -> "Furniture" to "🛋️"
+                            RentalCategory.EVENTS -> "Events" to "✨"
+                            else -> "Gear" to "📦"
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(if (isSelected) InkCharcoal else PaperPureWhite)
+                                .border(1.dp, if (isSelected) InkCharcoal else PaperBorder, RoundedCornerShape(100.dp))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(bounded = true),
+                                    onClick = {
+                                        activeCategoryFilter = if (activeCategoryFilter == cat) null else cat
+                                    }
+                                )
+                                .padding(horizontal = 12.dp, vertical = 7.dp)
+                                .testTag("home_category_filter_${cat.name.lowercase()}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = emoji, fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = label,
+                                    style = LoopType.Metadata.copy(
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (isSelected) InkWhite else InkCharcoal
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // Hero Editorial Story (The Analog Renaissance)
-        item {
-            val heroItem = items.firstOrNull()
+        if (isFiltered) {
+            // Filter Results Header
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "FILTERED RESULTS · ${filteredItems.size} ITEMS",
+                        style = LoopType.EditorialTag.copy(fontSize = 11.sp),
+                        color = InkSecondary
+                    )
+
+                    Text(
+                        text = "Clear all",
+                        style = LoopType.Metadata.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = InkCharcoal
+                        ),
+                        modifier = Modifier
+                            .clickable {
+                                searchQuery = ""
+                                activeCategoryFilter = null
+                            }
+                            .testTag("home_clear_all_filters_btn")
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            if (filteredItems.isNotEmpty()) {
+                items(filteredItems) { item ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 22.dp, vertical = 8.dp)
+                    ) {
+                        EditorialPhotoCard(
+                            item = item,
+                            onClick = { onItemClick(item) },
+                            onToggleFavorite = { onToggleFavorite(item.id) },
+                            isLarge = false
+                        )
+                    }
+                }
+            } else {
+                // Empty search result card
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 22.dp, vertical = 30.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
+                            .padding(28.dp)
+                            .testTag("empty_search_results_card"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "🔍", fontSize = 36.sp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "No matching rental items",
+                                style = LoopType.HeadlineMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.Bold),
+                                color = InkCharcoal
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Try searching with a different keyword or resetting your category filter.",
+                                style = LoopType.BodySmall,
+                                color = InkSecondary
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(100.dp))
+                                    .background(InkCharcoal)
+                                    .clickable {
+                                        searchQuery = ""
+                                        activeCategoryFilter = null
+                                    }
+                                    .padding(horizontal = 18.dp, vertical = 10.dp)
+                                    .testTag("reset_search_filters_btn"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Reset Search & Filters",
+                                    style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold),
+                                    color = InkWhite
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Hero Editorial Story (The Analog Renaissance)
+            item {
+                val heroItem = items.firstOrNull()
             if (heroItem != null) {
                 Column(
                     modifier = Modifier
@@ -386,7 +656,7 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
                             tint = InkWhite,
                             modifier = Modifier.size(20.dp)
@@ -394,6 +664,7 @@ fun HomeScreen(
                     }
                 }
             }
+        }
         }
     }
 }

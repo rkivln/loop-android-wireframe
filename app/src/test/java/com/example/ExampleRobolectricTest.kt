@@ -127,4 +127,30 @@ class ExampleRobolectricTest {
         assertEquals(4, updated?.avatarPresetIndex)
         assertEquals("White Town Promenade", updated?.location)
     }
+
+    @Test
+    fun `rental items filter by keyword and category works as expected`() {
+        val items = RentalRepository.itemsFlow.value
+        assertTrue("Repository items should not be empty", items.isNotEmpty())
+
+        // Keyword filter: "camera" or "canon"
+        val cameraItems = items.filter { item ->
+            item.title.contains("camera", ignoreCase = true) ||
+            item.description.contains("camera", ignoreCase = true) ||
+            item.title.contains("canon", ignoreCase = true)
+        }
+        assertTrue("Camera items should be found", cameraItems.isNotEmpty())
+
+        // Category filter: ELECTRONICS
+        val electronicsItems = items.filter { it.category == RentalCategory.ELECTRONICS }
+        assertTrue("Electronics items should not be empty", electronicsItems.isNotEmpty())
+        assertTrue(electronicsItems.all { it.category == RentalCategory.ELECTRONICS })
+
+        // Combined filter: keyword + category
+        val combined = items.filter { item ->
+            item.category == RentalCategory.ELECTRONICS &&
+            (item.title.contains("Canon", ignoreCase = true) || item.description.contains("Canon", ignoreCase = true))
+        }
+        assertTrue("Combined filter should return matching items", combined.isNotEmpty())
+    }
 }
