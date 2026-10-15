@@ -1,281 +1,122 @@
 package com.example.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.R
-import com.example.data.RentalRepository
-import com.example.data.models.ChatConversation
-import com.example.data.models.RentalCategory
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import com.example.data.models.RentalItem
-import com.example.data.models.RentalMessage
-import com.example.data.models.RentalOwner
-import com.example.data.models.SpecFeature
-import com.example.ui.components.LoopBottomNavigation
-import com.example.ui.components.LoopTab
-import com.example.ui.screens.BookingScreen
-import com.example.ui.screens.CreateListingScreen
 import com.example.ui.screens.EditProfileScreen
 import com.example.ui.screens.ExploreScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.ItemDetailsScreen
 import com.example.ui.screens.MessagesScreen
 import com.example.ui.screens.ProfileScreen
-import com.example.ui.screens.WelcomeScreen
 import com.example.ui.theme.LoopTheme
-import com.example.ui.theme.ParchmentBg
-import kotlinx.coroutines.launch
 
 sealed class ScreenState {
-    object Welcome : ScreenState()
     object Main : ScreenState()
     data class ItemDetails(val item: RentalItem) : ScreenState()
-    data class Booking(val item: RentalItem) : ScreenState()
-    object CreateListing : ScreenState()
     object EditProfile : ScreenState()
+}
+
+enum class LoopTab(val title: String, val icon: ImageVector, val testTag: String) {
+    HOME("Home", Icons.Default.Home, "nav_home"),
+    EXPLORE("Activity Map", Icons.Default.Map, "nav_explore"),
+    MESSAGES("Messages", Icons.AutoMirrored.Filled.Chat, "nav_messages"),
+    PROFILE("Profile", Icons.Default.Person, "nav_profile")
 }
 
 @Composable
 fun LoopApp() {
     LoopTheme {
-        var currentScreenState by remember { mutableStateOf<ScreenState>(ScreenState.Welcome) }
+        var currentScreen by remember { mutableStateOf<ScreenState>(ScreenState.Main) }
         var currentTab by remember { mutableStateOf(LoopTab.HOME) }
-        var selectedCategory by remember { mutableStateOf<RentalCategory?>(null) }
-        var selectedConversationId by remember { mutableStateOf<String?>(null) }
-        var exploreMapViewEnabled by remember { mutableStateOf(false) }
-        var exploreFeedViewEnabled by remember { mutableStateOf(false) }
 
-        // Observe real-time flows from Firestore backend
-        val itemsList by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
-        val conversationsList by RentalRepository.conversationsFlow.collectAsStateWithLifecycle()
-
-        val snackbarHostState = remember { SnackbarHostState() }
-        val coroutineScope = rememberCoroutineScope()
-
-        val onToggleFavorite: (String) -> Unit = { itemId ->
-            RentalRepository.toggleFavorite(itemId)
-        }
-
-        val onListingCreated: (String, Int, RentalCategory, String) -> Unit = { title, price, category, desc ->
-            val newItem = RentalRepository.createListing(
-                title = title,
-                price = price,
-                category = category,
-                desc = desc
-            )
-            currentScreenState = ScreenState.Main
-            currentTab = LoopTab.HOME
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar("Listing '${newItem.title}' synced with Firestore cloud backend!")
+        when (val screen = currentScreen) {
+            is ScreenState.ItemDetails -> {
+                ItemDetailsScreen(
+                    item = screen.item,
+                    onNavigateBack = { currentScreen = ScreenState.Main },
+                    onContactOwner = {
+                        currentTab = LoopTab.MESSAGES
+                        currentScreen = ScreenState.Main
+                    }
+                )
             }
-        }
-
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            bottomBar = {
-                if (currentScreenState is ScreenState.Main) {
-                    LoopBottomNavigation(
-                        selectedTab = currentTab,
-                        onTabSelected = { tab ->
-                            if (tab == LoopTab.LIST) {
-                                currentScreenState = ScreenState.CreateListing
-                            } else {
-                                if (tab == LoopTab.MESSAGES) {
-                                    selectedConversationId = null
-                                }
-                                currentTab = tab
+            is ScreenState.EditProfile -> {
+                EditProfileScreen(
+                    onNavigateBack = { currentScreen = ScreenState.Main }
+                )
+            }
+            is ScreenState.Main -> {
+                Scaffold(
+                    bottomBar = {
+                        NavigationBar(
+                            modifier = Modifier.testTag("bottom_nav_bar")
+                        ) {
+                            LoopTab.values().forEach { tab ->
+                                NavigationBarItem(
+                                    selected = currentTab == tab,
+                                    onClick = { currentTab = tab },
+                                    icon = {
+                                        Icon(
+                                            imageVector = tab.icon,
+                                            contentDescription = tab.title
+                                        )
+                                    },
+                                    label = { Text(tab.title) },
+                                    modifier = Modifier.testTag(tab.testTag)
+                                )
                             }
                         }
-                    )
-                }
-            }
-        ) { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .background(ParchmentBg)
-            ) {
-                AnimatedContent(
-                    targetState = currentScreenState,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
-                    label = "screen_transition"
-                ) { state ->
-                    when (state) {
-                        is ScreenState.Welcome -> {
-                            WelcomeScreen(
-                                onGetStarted = { currentScreenState = ScreenState.Main },
-                                onLogin = { currentScreenState = ScreenState.Main }
-                            )
-                        }
-
-                        is ScreenState.Main -> {
-                            when (currentTab) {
-                                LoopTab.HOME -> {
-                                    HomeScreen(
-                                        items = itemsList,
-                                        onItemClick = { item ->
-                                            currentScreenState = ScreenState.ItemDetails(item)
-                                        },
-                                        onToggleFavorite = onToggleFavorite,
-                                        onSelectCategory = { cat ->
-                                            selectedCategory = cat
-                                            exploreMapViewEnabled = false
-                                            exploreFeedViewEnabled = false
-                                            currentTab = LoopTab.EXPLORE
-                                        },
-                                        onSearchClick = {
-                                            exploreMapViewEnabled = false
-                                            exploreFeedViewEnabled = false
-                                            currentTab = LoopTab.EXPLORE
-                                        },
-                                        onOpenMapDiscovery = {
-                                            exploreMapViewEnabled = true
-                                            exploreFeedViewEnabled = false
-                                            currentTab = LoopTab.EXPLORE
-                                        },
-                                        onOpenCommunityFeed = {
-                                            exploreFeedViewEnabled = true
-                                            exploreMapViewEnabled = false
-                                            currentTab = LoopTab.EXPLORE
-                                        },
-                                        onNotificationsClick = {
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar("Realtime sync active")
-                                            }
-                                        },
-                                        onSeeAllPopular = {
-                                            selectedCategory = null
-                                            exploreMapViewEnabled = false
-                                            exploreFeedViewEnabled = false
-                                            currentTab = LoopTab.EXPLORE
-                                        },
-                                        onSeeAllCategories = {
-                                            selectedCategory = null
-                                            exploreMapViewEnabled = false
-                                            exploreFeedViewEnabled = false
-                                            currentTab = LoopTab.EXPLORE
-                                        }
-                                    )
-                                }
-
-                                LoopTab.EXPLORE -> {
-                                    ExploreScreen(
-                                        items = itemsList,
-                                        selectedCategory = selectedCategory,
-                                        onSelectCategory = { cat ->
-                                            selectedCategory = if (selectedCategory == cat) null else cat
-                                        },
-                                        onItemClick = { item ->
-                                            currentScreenState = ScreenState.ItemDetails(item)
-                                        },
-                                        onToggleFavorite = onToggleFavorite,
-                                        onContactOwnerFromMap = { owner ->
-                                            val matched = conversationsList.find { c ->
-                                                c.owner.id == owner.id || c.owner.name.equals(owner.name, ignoreCase = true)
-                                            }
-                                            selectedConversationId = matched?.id ?: "conv_rakesh"
-                                            currentTab = LoopTab.MESSAGES
-                                        },
-                                        initialMapView = exploreMapViewEnabled,
-                                        initialFeedView = exploreFeedViewEnabled
-                                    )
-                                }
-
-                                LoopTab.LIST -> {
-                                    // Managed via ScreenState.CreateListing
-                                }
-
-                                LoopTab.MESSAGES -> {
-                                    MessagesScreen(
-                                        conversations = conversationsList,
-                                        selectedConversationId = selectedConversationId,
-                                        onViewItemDetails = { item ->
-                                            currentScreenState = ScreenState.ItemDetails(item)
-                                        }
-                                    )
-                                }
-
-                                LoopTab.PROFILE -> {
-                                    ProfileScreen(
-                                        onNavigateBookings = {
-                                            selectedConversationId = "conv_rakesh"
-                                            currentTab = LoopTab.MESSAGES
-                                        },
-                                        onEditProfile = {
-                                            currentScreenState = ScreenState.EditProfile
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        is ScreenState.EditProfile -> {
-                            EditProfileScreen(
-                                onBack = {
-                                    currentScreenState = ScreenState.Main
-                                }
-                            )
-                        }
-
-                        is ScreenState.ItemDetails -> {
-                            ItemDetailsScreen(
-                                item = state.item,
-                                onRentNow = {
-                                    currentScreenState = ScreenState.Booking(state.item)
+                    },
+                    modifier = Modifier.fillMaxSize()
+                ) { innerPadding ->
+                    when (currentTab) {
+                        LoopTab.HOME -> {
+                            HomeScreen(
+                                onItemClick = { item ->
+                                    currentScreen = ScreenState.ItemDetails(item)
                                 },
-                                onToggleFavorite = onToggleFavorite,
-                                onContactOwner = {
-                                    val matchedConv = conversationsList.find { it.owner.id == state.item.owner.id || it.itemContext?.id == state.item.id }
-                                    selectedConversationId = matchedConv?.id ?: "conv_rakesh"
-                                    currentScreenState = ScreenState.Main
-                                    currentTab = LoopTab.MESSAGES
+                                onExploreMapClick = {
+                                    currentTab = LoopTab.EXPLORE
                                 },
-                                onBack = {
-                                    currentScreenState = ScreenState.Main
-                                }
+                                modifier = Modifier.padding(innerPadding)
                             )
                         }
-
-                        is ScreenState.Booking -> {
-                            BookingScreen(
-                                item = state.item,
-                                onBookingConfirmed = {
-                                    val matchedConv = conversationsList.find { it.owner.id == state.item.owner.id || it.itemContext?.id == state.item.id }
-                                    selectedConversationId = matchedConv?.id ?: "conv_rakesh"
-                                    currentScreenState = ScreenState.Main
-                                    currentTab = LoopTab.MESSAGES
-                                },
-                                onBack = {
-                                    currentScreenState = ScreenState.ItemDetails(state.item)
-                                }
+                        LoopTab.EXPLORE -> {
+                            ExploreScreen(
+                                modifier = Modifier.padding(innerPadding)
                             )
                         }
-
-                        is ScreenState.CreateListing -> {
-                            CreateListingScreen(
-                                onListingCreated = onListingCreated,
-                                onClose = {
-                                    currentScreenState = ScreenState.Main
-                                }
+                        LoopTab.MESSAGES -> {
+                            MessagesScreen(
+                                modifier = Modifier.padding(innerPadding)
+                            )
+                        }
+                        LoopTab.PROFILE -> {
+                            ProfileScreen(
+                                onEditProfile = {
+                                    currentScreen = ScreenState.EditProfile
+                                },
+                                modifier = Modifier.padding(innerPadding)
                             )
                         }
                     }

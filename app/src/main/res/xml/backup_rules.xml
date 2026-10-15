@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
+<backup-rules>
     <exclude domain="root" />
-    <exclude domain="file" />
-    <exclude domain="database" />
-    <exclude domain="sharedpref" />
-</full-backup-content>
+</backup-rules>

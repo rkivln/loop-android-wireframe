@@ -1,6 +1,6 @@
 {
-  "name": "loop",
-  "description": "A smarter way to rent from people around you — peer-to-peer rentals for electronics, furniture, vehicles, tools, and event gear.",
+  "name": "Loop",
+  "description": "A community-focused gear rental, creative skill sharing, and activity discovery applet in Puducherry.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

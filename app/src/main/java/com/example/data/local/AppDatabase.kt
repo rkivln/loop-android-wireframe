@@ -5,9 +5,6 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-/**
- * Main Room Database for Loop offline storage and local caching.
- */
 @Database(
     entities = [
         CommunityEventEntity::class,
@@ -27,14 +24,15 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
+                val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "loop_community.db"
                 )
-                .fallbackToDestructiveMigration(dropAllTables = true)
-                .build()
-                .also { INSTANCE = it }
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .build()
+                INSTANCE = instance
+                instance
             }
         }
     }
