@@ -2,7 +2,6 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Loop Brand Color Palette (Warm coastal Puducherry hues - French vanilla, terracotta, ocean teal)
 val PrimaryTeal = Color(0xFF006874)
 val OnPrimaryTeal = Color(0xFFFFFFFF)
 val PrimaryContainerTeal = Color(0xFF97F0FF)
@@ -24,7 +23,6 @@ val SurfaceVariantLight = Color(0xFFDBE4E6)
 val OnSurfaceVariantLight = Color(0xFF3F484A)
 val OutlineWarmLight = Color(0xFF6F797A)
 
-// Dark Palette
 val PrimaryTealDark = Color(0xFF4FD8EB)
 val OnPrimaryTealDark = Color(0xFF00363D)
 val PrimaryContainerTealDark = Color(0xFF004F58)

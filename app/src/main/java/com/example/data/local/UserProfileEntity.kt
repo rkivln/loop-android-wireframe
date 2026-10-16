@@ -4,10 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.data.models.UserProfile
 
-/**
- * Room Entity representing a persistent local user profile in SQLite.
- * Provides instant local offline access and reliable synchronization.
- */
 @Entity(tableName = "user_profiles")
 data class UserProfileEntity(
     @PrimaryKey

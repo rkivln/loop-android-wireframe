@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,7 +47,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
 
@@ -103,7 +101,6 @@ fun EditProfileScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp)
         ) {
-            // Section 1: Avatar Selection
             Text(
                 text = "Choose Avatar",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -111,7 +108,6 @@ fun EditProfileScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Current Avatar Preview
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -131,7 +127,6 @@ fun EditProfileScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Avatar Options Row
             Row(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()
@@ -169,7 +164,6 @@ fun EditProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Section 2: Display Name
             Text(
                 text = "Display Name",
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
@@ -192,7 +186,6 @@ fun EditProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Section 3: Bio
             Text(
                 text = "Bio",
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
@@ -216,7 +209,6 @@ fun EditProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Section 4: Location
             Text(
                 text = "Location / Neighborhood",
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
@@ -239,7 +231,6 @@ fun EditProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Section 5: Phone
             Text(
                 text = "Phone Number",
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
@@ -262,7 +253,6 @@ fun EditProfileScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Action Buttons: Save & Cancel
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)

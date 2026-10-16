@@ -1,6 +1,5 @@
 package com.example.data.firebase
 
-import com.example.data.models.CommunityEvent
 import com.example.data.models.UserProfile
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose

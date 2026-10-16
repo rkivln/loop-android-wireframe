@@ -100,7 +100,6 @@ fun ItemDetailsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp)
         ) {
-            // Hero Icon / Banner Box
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -127,7 +126,6 @@ fun ItemDetailsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Title & Price Header
             Row(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -156,7 +154,6 @@ fun ItemDetailsScreen(
                     }
                 }
 
-                // Price
                 Card(
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
@@ -183,7 +180,6 @@ fun ItemDetailsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Owner Card
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
@@ -253,7 +249,6 @@ fun ItemDetailsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Description
             Text(
                 text = "About this gear",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -269,7 +264,6 @@ fun ItemDetailsScreen(
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            // Book Now CTA Button
             Button(
                 onClick = {
                     scope.launch {

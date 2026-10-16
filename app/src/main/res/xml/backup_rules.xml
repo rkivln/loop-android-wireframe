@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<backup-rules>
-    <exclude domain="root" />
-</backup-rules>
+<full-backup-content>
+    <exclude domain="database" />
+</full-backup-content>

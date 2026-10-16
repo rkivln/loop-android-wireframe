@@ -6,9 +6,6 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Data Access Object for local persistence of User Profiles.
- */
 @Dao
 interface UserProfileDao {
 

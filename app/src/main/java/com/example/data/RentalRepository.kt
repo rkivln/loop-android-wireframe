@@ -267,7 +267,6 @@ object RentalRepository {
                 _userProfileFlow.value = existing.toDomain()
             }
 
-            // Sync from Room database updates
             dao.getProfileFlow("user_me").collectLatest { entity ->
                 if (entity != null) {
                     _userProfileFlow.value = entity.toDomain()
@@ -275,7 +274,6 @@ object RentalRepository {
             }
         }
 
-        // Also connect Firestore listener if available
         repositoryScope.launch {
             firestoreService.listenToUserProfile("user_me").collectLatest { cloudProfile ->
                 _userProfileFlow.value = cloudProfile

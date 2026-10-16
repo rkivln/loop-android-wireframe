@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
@@ -34,7 +33,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,7 +64,6 @@ fun HomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // App Header
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -88,7 +85,6 @@ fun HomeScreen(
             }
         }
 
-        // Top Search Bar (Requirement: Filter rental items by category or keyword)
         SearchBarComponent(
             query = searchQuery,
             onQueryChange = { RentalRepository.setSearchQuery(it) },
@@ -96,7 +92,6 @@ fun HomeScreen(
             onCategorySelect = { RentalRepository.setSelectedCategory(it) }
         )
 
-        // Item List or Empty State
         if (filteredItems.isEmpty()) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -134,7 +129,6 @@ fun HomeScreen(
                     .fillMaxSize()
                     .testTag("rental_items_list")
             ) {
-                // Header Count
                 item {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -183,7 +177,6 @@ fun RentalItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Category Chip & Icon
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -205,7 +198,6 @@ fun RentalItemCard(
                     )
                 }
 
-                // Available Tag
                 if (item.isAvailable) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -226,7 +218,6 @@ fun RentalItemCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Title
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -236,7 +227,6 @@ fun RentalItemCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Description
             Text(
                 text = item.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -246,7 +236,6 @@ fun RentalItemCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Footer Row: Location & Price
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -267,7 +256,6 @@ fun RentalItemCard(
                     )
                 }
 
-                // Price per day
                 Text(
                     text = "₹${item.pricePerDay.toInt()} / day",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),

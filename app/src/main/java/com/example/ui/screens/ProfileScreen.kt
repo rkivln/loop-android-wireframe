@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
@@ -32,7 +31,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,16 +41,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
 
 val avatarPresetColors = listOf(
-    Color(0xFF006874), // Ocean Teal
-    Color(0xFF984715), // Terracotta
-    Color(0xFF4A6572), // Slate Blue
-    Color(0xFF2E7D32), // Forest Green
-    Color(0xFF6A1B9A)  // Auroville Violet
+    Color(0xFF006874),
+    Color(0xFF984715),
+    Color(0xFF4A6572),
+    Color(0xFF2E7D32),
+    Color(0xFF6A1B9A)
 )
 
 val avatarPresetInitials = listOf("AC", "LP", "SK", "PT", "MR")
@@ -72,7 +69,6 @@ fun ProfileScreen(
             .padding(20.dp)
             .testTag("profile_screen")
     ) {
-        // Screen Header with Title and Edit Action
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -98,7 +94,6 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Avatar & Identity Card
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
@@ -115,7 +110,6 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .padding(24.dp)
             ) {
-                // User Avatar
                 val avatarColor = avatarPresetColors.getOrElse(userProfile.avatarPresetIndex) { avatarPresetColors[0] }
                 val initials = avatarPresetInitials.getOrElse(userProfile.avatarPresetIndex) { "U" }
 
@@ -138,7 +132,6 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Display Name
                 Text(
                     text = userProfile.displayName,
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
@@ -148,7 +141,6 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Location Pill
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -173,7 +165,6 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Bio
                 Text(
                     text = userProfile.bio,
                     style = MaterialTheme.typography.bodyMedium,
@@ -183,7 +174,6 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Edit Profile Button CTA
                 Button(
                     onClick = onEditProfile,
                     colors = ButtonDefaults.buttonColors(
@@ -211,7 +201,6 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Community Stats Card
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
@@ -226,7 +215,6 @@ fun ProfileScreen(
                     .padding(20.dp),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                // Items Lent
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         imageVector = Icons.Default.Handshake,
@@ -247,7 +235,6 @@ fun ProfileScreen(
                     )
                 }
 
-                // Items Rented
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         imageVector = Icons.Default.ShoppingBag,
@@ -268,7 +255,6 @@ fun ProfileScreen(
                     )
                 }
 
-                // Rating
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         imageVector = Icons.Default.Star,
@@ -293,7 +279,6 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Contact Info Card
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(

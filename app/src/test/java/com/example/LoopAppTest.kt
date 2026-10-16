@@ -6,7 +6,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.data.local.AppDatabase
 import com.example.data.local.UserProfileDao
-import com.example.data.local.UserProfileEntity
 import com.example.data.local.toDomain
 import com.example.data.local.toEntity
 import com.example.data.models.UserProfile

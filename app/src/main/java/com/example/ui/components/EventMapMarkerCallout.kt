@@ -28,7 +28,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -56,13 +55,11 @@ fun EventMapMarkerCallout(
         Column(
             modifier = Modifier.padding(18.dp)
         ) {
-            // Category & Badge Row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Category Pill Chip with merged descendants for semantic testing
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -105,7 +102,6 @@ fun EventMapMarkerCallout(
                     )
                 }
 
-                // Participant count
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -126,7 +122,6 @@ fun EventMapMarkerCallout(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Event Title
             Text(
                 text = event.title,
                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp),
@@ -136,7 +131,6 @@ fun EventMapMarkerCallout(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Event Description
             Text(
                 text = event.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -146,9 +140,7 @@ fun EventMapMarkerCallout(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Time & Location Details
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Time Row with merged descendants for semantic testing
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -169,7 +161,6 @@ fun EventMapMarkerCallout(
                     )
                 }
 
-                // Location Row
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -193,7 +184,6 @@ fun EventMapMarkerCallout(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Action Button
             Button(
                 onClick = { onJoinClick(event) },
                 colors = ButtonDefaults.buttonColors(
