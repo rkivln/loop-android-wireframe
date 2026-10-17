@@ -44,7 +44,7 @@ fun MessagesScreen(
         MessageThread(
             id = "t1",
             senderName = "Siddharth",
-            lastMessage = "Hey! Yes, the Sony A7 IV is ready for pickup today at White Town.",
+            lastMessage = "Hey Jaya! Yes, the Sony A7 IV is ready for pickup today at White Town.",
             timeAgo = "10m ago",
             gearTitle = "Sony Alpha A7 IV"
         ),

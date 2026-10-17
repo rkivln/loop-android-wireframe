@@ -44,20 +44,20 @@ class LoopAppTest {
     fun testInsertAndRetrieveUserProfileInRoom() = runBlocking {
         val profile = UserProfile(
             uid = "test_user_1",
-            displayName = "Pondy Potter",
-            email = "potter@loop.in",
+            displayName = "Jaya Nandhini G",
+            email = "jayanandhini@loop.in",
             phone = "+91 9988776655",
             bio = "Crafting ceramics & sharing wheel tools.",
             location = "Auroville, Puducherry",
-            avatarPresetIndex = 2
+            avatarPresetIndex = 0
         )
 
         userProfileDao.insertOrUpdateProfile(profile.toEntity())
 
         val retrievedEntity = userProfileDao.getProfile("test_user_1")
         assertNotNull(retrievedEntity)
-        assertEquals("Pondy Potter", retrievedEntity?.displayName)
-        assertEquals("potter@loop.in", retrievedEntity?.email)
+        assertEquals("Jaya Nandhini G", retrievedEntity?.displayName)
+        assertEquals("jayanandhini@loop.in", retrievedEntity?.email)
         assertEquals("Auroville, Puducherry", retrievedEntity?.location)
 
         val domain = retrievedEntity?.toDomain()
@@ -69,19 +69,19 @@ class LoopAppTest {
     fun testUpdateUserProfileInRoom() = runBlocking {
         val initial = UserProfile(
             uid = "test_user_update",
-            displayName = "Original Name",
+            displayName = "Jaya Nandhini G",
             bio = "Original Bio"
         )
         userProfileDao.insertOrUpdateProfile(initial.toEntity())
 
         val updated = initial.copy(
-            displayName = "Updated Name",
+            displayName = "Jaya Nandhini G (Updated)",
             bio = "Updated Bio"
         )
         userProfileDao.insertOrUpdateProfile(updated.toEntity())
 
         val result = userProfileDao.getProfile("test_user_update")
-        assertEquals("Updated Name", result?.displayName)
+        assertEquals("Jaya Nandhini G (Updated)", result?.displayName)
         assertEquals("Updated Bio", result?.bio)
     }
 
@@ -89,13 +89,13 @@ class LoopAppTest {
     fun testUserProfileFlowEmitsUpdates() = runBlocking {
         val profile = UserProfile(
             uid = "flow_user",
-            displayName = "Flow Master",
+            displayName = "Jaya Nandhini G",
             bio = "Testing Reactive Flow"
         )
         userProfileDao.insertOrUpdateProfile(profile.toEntity())
 
         val flowResult = userProfileDao.getProfileFlow("flow_user").first()
         assertNotNull(flowResult)
-        assertEquals("Flow Master", flowResult?.displayName)
+        assertEquals("Jaya Nandhini G", flowResult?.displayName)
     }
 }

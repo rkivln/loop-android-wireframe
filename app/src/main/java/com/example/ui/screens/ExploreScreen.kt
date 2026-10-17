@@ -7,7 +7,5 @@ import androidx.compose.ui.Modifier
 fun ExploreScreen(
     modifier: Modifier = Modifier
 ) {
-    // Delegates to UserLocationMapScreen which displays Google Maps using maps-compose
-    // and centers on user's current coordinates with GPS integration and permissions.
     UserLocationMapScreen(modifier = modifier)
 }

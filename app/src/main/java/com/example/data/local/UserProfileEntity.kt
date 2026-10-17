@@ -17,7 +17,8 @@ data class UserProfileEntity(
     val customAvatarUrl: String,
     val itemsLentCount: Int,
     val itemsRentedCount: Int,
-    val rating: Double
+    val rating: Double,
+    val isVerified: Boolean = true
 )
 
 fun UserProfileEntity.toDomain(): UserProfile {
@@ -32,7 +33,8 @@ fun UserProfileEntity.toDomain(): UserProfile {
         customAvatarUrl = customAvatarUrl,
         itemsLentCount = itemsLentCount,
         itemsRentedCount = itemsRentedCount,
-        rating = rating
+        rating = rating,
+        isVerified = isVerified
     )
 }
 
@@ -48,6 +50,7 @@ fun UserProfile.toEntity(): UserProfileEntity {
         customAvatarUrl = customAvatarUrl,
         itemsLentCount = itemsLentCount,
         itemsRentedCount = itemsRentedCount,
-        rating = rating
+        rating = rating,
+        isVerified = isVerified
     )
 }

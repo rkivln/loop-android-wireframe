@@ -7,12 +7,9 @@ import android.location.Location
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,12 +49,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
@@ -77,10 +72,6 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 
-/**
- * Composable screen that displays a Google Map using maps-compose
- * and centers it on the user's current coordinates.
- */
 @Composable
 fun UserLocationMapScreen(
     modifier: Modifier = Modifier
@@ -89,7 +80,6 @@ fun UserLocationMapScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Default Puducherry town center coordinates (11.9338° N, 79.8354° E)
     val defaultCenter = remember { LatLng(11.9338, 79.8354) }
 
     var userCoordinates by remember { mutableStateOf<LatLng?>(null) }
@@ -143,7 +133,6 @@ fun UserLocationMapScreen(
                         )
                     }
                 } else {
-                    // Fallback to last known location
                     fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc: Location? ->
                         if (lastLoc != null) {
                             val latLng = LatLng(lastLoc.latitude, lastLoc.longitude)
@@ -154,7 +143,7 @@ fun UserLocationMapScreen(
                                 )
                             }
                         } else {
-                            locationError = "Unable to get current GPS fix. Defaulting to Puducherry center."
+                            locationError = "Unable to get current GPS fix."
                         }
                     }
                 }
@@ -184,7 +173,6 @@ fun UserLocationMapScreen(
         }
     }
 
-    // Attempt to acquire location on initial load if permission is already granted
     LaunchedEffect(hasLocationPermission) {
         if (hasLocationPermission) {
             fetchAndCenterLocation()
@@ -196,7 +184,6 @@ fun UserLocationMapScreen(
             .fillMaxSize()
             .testTag("user_location_map_screen")
     ) {
-        // Google Map Composable
         GoogleMap(
             modifier = Modifier
                 .fillMaxSize()
@@ -218,7 +205,6 @@ fun UserLocationMapScreen(
                 selectedEvent = null
             }
         ) {
-            // User coordinates custom marker (if acquired)
             userCoordinates?.let { userPos ->
                 Marker(
                     state = MarkerState(position = userPos),
@@ -227,7 +213,6 @@ fun UserLocationMapScreen(
                 )
             }
 
-            // Nearby community activity points
             events.forEach { event ->
                 val pos = LatLng(event.latitude, event.longitude)
                 Marker(
@@ -242,7 +227,6 @@ fun UserLocationMapScreen(
             }
         }
 
-        // Top Status & Coordinates Pill
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
@@ -301,7 +285,6 @@ fun UserLocationMapScreen(
             }
         }
 
-        // Permission Request Banner (if permission not yet granted)
         if (!hasLocationPermission) {
             Card(
                 shape = RoundedCornerShape(18.dp),
@@ -374,7 +357,6 @@ fun UserLocationMapScreen(
             }
         }
 
-        // Floating Action Button: Center Map on Current Coordinates
         FloatingActionButton(
             onClick = {
                 if (hasLocationPermission) {
@@ -402,7 +384,6 @@ fun UserLocationMapScreen(
             )
         }
 
-        // Selected Community Event Marker Callout
         AnimatedVisibility(
             visible = selectedEvent != null,
             enter = slideInVertically(initialOffsetY = { it }),
