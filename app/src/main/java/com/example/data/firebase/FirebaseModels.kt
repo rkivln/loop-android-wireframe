@@ -114,7 +114,7 @@ data class FirestoreBooking(
     val id: String = "",
     val itemId: String = "",
     val itemTitle: String = "",
-    val renterName: String = "Gokulan R",
+    val renterName: String = "Jaya Nandhini G",
     val hostName: String = "Rakesh Kumar",
     val startDate: String = "10 Oct 2026",
     val endDate: String = "12 Oct 2026",
@@ -140,8 +140,8 @@ data class FirestoreCommunityPost(
     val attendeesOrResponses: String = "18 creators attending",
     val statusStr: String = "ACTIVE",
     val createdAtEpoch: Long = System.currentTimeMillis(),
-    val authorName: String = "Gokulan R",
+    val authorName: String = "Jaya Nandhini G",
     val authorId: String = "user_me",
-    val authorInitials: String = "GR"
+    val authorInitials: String = "JG"
 )
 

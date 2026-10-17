@@ -34,7 +34,7 @@ class ExampleRobolectricTest {
     @Test
     fun `user profile operations work as expected`() {
         val initialProfile = RentalRepository.userProfileFlow.value
-        assertEquals("Gokulan R", initialProfile.displayName)
+        assertEquals("Jaya Nandhini G", initialProfile.displayName)
         assertTrue(initialProfile.isVerified)
 
         val updatedBio = "Updated bio for community testing"

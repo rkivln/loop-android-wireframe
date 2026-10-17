@@ -29,7 +29,7 @@ object RentalRepository {
 
     private val initialUserProfile = UserProfile(
         uid = "user_me",
-        displayName = "Auroville Creator",
+        displayName = "Jaya Nandhini G",
         email = "creator@loop.community",
         phone = "+91 98765 43210",
         bio = "Passionate photographer, ocean diver & DIY maker based in White Town, Puducherry. Happy to share gear & co-create!",

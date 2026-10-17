@@ -2,7 +2,7 @@ package com.example.data.models
 
 data class UserProfile(
     val uid: String = "user_me",
-    val displayName: String = "Auroville Creator",
+    val displayName: String = "Jaya Nandhini G",
     val email: String = "creator@loop.community",
     val phone: String = "+91 98765 43210",
     val bio: String = "Passionate photographer, ocean diver & DIY maker based in White Town, Puducherry. Happy to share gear & co-create!",

@@ -32,7 +32,7 @@ class FirestoreService {
 
                 val profile = UserProfile(
                     uid = snapshot.getString("uid") ?: uid,
-                    displayName = snapshot.getString("displayName") ?: "Auroville Creator",
+                    displayName = snapshot.getString("displayName") ?: "Jaya Nandhini G",
                     email = snapshot.getString("email") ?: "creator@loop.community",
                     phone = snapshot.getString("phone") ?: "+91 98765 43210",
                     bio = snapshot.getString("bio") ?: "Passionate photographer, ocean diver & DIY maker based in White Town, Puducherry.",
