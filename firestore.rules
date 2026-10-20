@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidCommunityEvent(data) {
+      return data.id is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 120 &&
+             data.typeStr is string &&
+             data.statusStr is string;
+    }
+
+    match /community_posts/{postId} {
+      allow read: if true;
+      allow create: if isValidCommunityEvent(request.resource.data);
+      allow update: if request.resource.data.title is string;
+      allow delete: if true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /items/{itemId} {
+      allow read, write: if true;
+    }
+
+    match /conversations/{convId} {
+      allow read, write: if true;
+    }
+  }
+}

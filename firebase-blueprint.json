@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "CommunityEvent": {
+      "title": "CommunityEvent",
+      "description": "A community event, help request, or study group created by community members",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the community event or post"
+        },
+        "title": {
+          "type": "string",
+          "description": "Headline of the community event or initiative"
+        },
+        "typeStr": {
+          "type": "string",
+          "description": "Type of event (EVENT, HELP_REQUEST, STUDY_GROUP)"
+        },
+        "categoryName": {
+          "type": "string",
+          "description": "Category associated with the event"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the event"
+        },
+        "location": {
+          "type": "string",
+          "description": "Neighborhood or street address of the event"
+        },
+        "dateTime": {
+          "type": "string",
+          "description": "Human readable date and time string"
+        },
+        "attendeesOrResponses": {
+          "type": "string",
+          "description": "Summary of registered attendees or RSVPs"
+        },
+        "statusStr": {
+          "type": "string",
+          "description": "Status string (ACTIVE, COMPLETED, ARCHIVED)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Display string for creation timestamp"
+        },
+        "createdAtEpoch": {
+          "type": "number",
+          "description": "Timestamp in milliseconds when event was posted"
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Geographical latitude coordinate"
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Geographical longitude coordinate"
+        },
+        "authorId": {
+          "type": "string",
+          "description": "Unique identifier of user who created the event"
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Display name of the author"
+        }
+      },
+      "required": ["id", "title", "typeStr", "statusStr"]
+    }
+  },
+  "firestore": {
+    "/community_posts/{postId}": {
+      "schema": "CommunityEvent",
+      "description": "Collection of community events, meetups, and local initiatives"
+    }
+  }
+}
