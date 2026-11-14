@@ -17,7 +17,7 @@
 <title>LOOP — Borrow more. Own less.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..18,300..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Google+Sans+Flex:opsz,wght@6..18,300..800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--paper:#f8f7f2;--ink:#20221f;--muted:#777970;--blue:#b9c9f4;--yellow:#f7df79;--green:#a9d9b4;--coral:#f0785d;--line:#e7e4dc;--serif:'Google Sans Flex','Google Sans',Arial,sans-serif;--sans:'Google Sans Flex','Google Sans',Arial,sans-serif}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit;text-decoration:none}button{font:inherit}.wrap{width:min(1120px,calc(100% - 44px));margin:auto}.nav{height:76px;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:700;font-size:25px;letter-spacing:-2px}.brand span{color:var(--coral)}.navlinks{display:flex;gap:30px;font-size:12px;color:#55584f}.nav-cta,.pill{border:0;border-radius:999px;background:#20221f;color:white;padding:12px 20px;font-size:11px;font-weight:600;cursor:pointer;transition:.2s}.nav-cta:hover,.pill:hover{transform:translateY(-2px);background:var(--coral)}
@@ -214,13 +214,159 @@ h1,h2,h3,h4,.brand,.foot-brand{font-family:var(--sans)}
  .art-caption{font-size:6px;letter-spacing:1.1px}
 }
 
+
+/* LOOP — Analog Archive art direction: archival paper, ink, clay and olive */
+:root{--paper:#eee5d5;--ink:#28231f;--muted:#756b5e;--coral:#bd5b3e;--line:#d9cbb8;--archive-paper:#e9ddc9;--archive-ink:#28231f;--archive-clay:#bd5b3e;--archive-olive:#74764d;--archive-cream:#f7f1e7}
+body{background:#eee5d5}
+.hero{
+  min-height:680px;
+  padding-top:68px;
+  border-radius:4px;
+  border:1px solid rgba(67,49,35,.18);
+  background-color:var(--archive-paper);
+  background-image:repeating-linear-gradient(0deg,rgba(74,55,37,.025) 0px,rgba(74,55,37,.025) 1px,transparent 1px,transparent 4px),repeating-linear-gradient(90deg,rgba(255,255,255,.12) 0px,rgba(255,255,255,.12) 1px,transparent 1px,transparent 5px);
+  box-shadow:inset 0 0 0 8px rgba(255,255,255,.16);
+}
+.hero:before{content:"";display:block!important;position:absolute;z-index:0;left:auto;right:-105px;top:78px;width:330px;height:330px;opacity:.95;filter:none;background:radial-gradient(circle at center,transparent 0 46%,rgba(116,118,77,.16) 46.3% 46.8%,transparent 47.1% 57%,rgba(189,91,62,.23) 57.3% 58%,transparent 58.3%);border-radius:50%;pointer-events:none}
+.hero:after{content:"";display:block!important;position:absolute;z-index:0;left:-80px;right:auto;top:335px;width:230px;height:230px;opacity:.9;filter:none;background:repeating-conic-gradient(from 8deg,rgba(189,91,62,.14) 0deg 2deg,transparent 2deg 12deg);border:1px solid rgba(116,118,77,.24);border-radius:50%;pointer-events:none}
+.hero-copy{position:relative;z-index:2;max-width:760px}
+.hero .eyebrow{font-family:'DM Mono',monospace;color:var(--archive-clay);letter-spacing:2.3px;font-size:10px}
+.hero h1{font-family:'Playfair Display',Georgia,serif;color:var(--archive-ink);font-weight:600;letter-spacing:-2.2px;font-size:clamp(48px,7vw,82px);line-height:.99}
+.hero p{color:#65594c;max-width:470px}
+.hero .hero-download,.hero .hero-actions .pill{background:var(--archive-ink);border-color:var(--archive-ink);border-radius:3px;box-shadow:4px 4px 0 var(--archive-clay)}
+.hero .hero-download:hover{background:var(--archive-clay);border-color:var(--archive-clay)}
+.hero .ghost{border-radius:3px;border-color:#82745f;color:var(--archive-ink);background:rgba(247,241,231,.38)}
+.hero .hero-art{z-index:3;border-radius:3px 3px 0 0;background:rgba(250,247,239,.97);border:1px solid rgba(67,49,35,.2);border-bottom:0;box-shadow:12px 14px 0 rgba(93,70,49,.13),0 24px 55px rgba(54,39,28,.13)}
+.hero .hero-art-top{border-color:#e2d7c6}
+.hero .hero-mini-logo span{color:var(--archive-clay)}
+.hero .hero-location,.hero .hero-art-footer{font-family:'DM Mono',monospace;color:#81735f}
+.hero .hero-product{border-radius:3px}
+.hero .hero-product.camera-product{background:#e4e1d3}
+.hero .hero-product.tools-product{background:#ead0bd}
+.hero .hero-product.outdoor-product{background:#d9ddc8}
+.hero .product-art{border-radius:2px;background:rgba(255,250,240,.76)}
+.hero .tiny-dot{background:var(--archive-olive)}
+@media(max-width:760px){.hero{min-height:680px;padding-top:52px;border-radius:3px}.hero:before{right:-160px;top:110px;width:270px;height:270px}.hero:after{left:-120px;top:390px;width:190px;height:190px}.hero h1{font-size:clamp(43px,11vw,62px)}}
+@media(prefers-reduced-motion:no-preference){.hero .hero-art{animation:heroSettle .8s cubic-bezier(.2,.7,.2,1) both}@keyframes heroSettle{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}}
+
+
+/* LOOP Material-inspired system — Google Sans + Analog Archive palette */
+:root{
+  --paper:#F5F0E6;--ink:#29251F;--muted:#71695E;--line:#E3D8C8;
+  --coral:#B85B40;--archive-paper:#E9DDC9;--archive-ink:#29251F;
+  --archive-clay:#B85B40;--archive-olive:#74764D;--archive-cream:#FBF7EF;
+  --md-primary:#76513F;--md-on-primary:#FFFFFF;--md-primary-container:#F1DED0;
+  --md-on-primary-container:#38251B;--md-secondary:#62664A;--md-secondary-container:#E5E7D4;
+  --md-surface:#FBF8F1;--md-surface-2:#F1EADF;--md-outline:#85796C;
+  --md-shadow:0 1px 2px rgba(42,34,25,.10),0 4px 12px rgba(42,34,25,.07);
+  --sans:'Google Sans','Google Sans Flex',Arial,sans-serif;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink);letter-spacing:normal}
+*,*::before,*::after{font-family:inherit}
+h1,h2,h3,h4,.brand,.foot-brand,.section-title,.copy h2,.panel h3,.step h3,.price-card h3,.price,.cta h2,.release-card h3,.download-panel h2,.ph-title{font-family:var(--sans)!important;letter-spacing:-.035em}
+button,a{ -webkit-tap-highlight-color:transparent }
+a:focus-visible,button:focus-visible{outline:3px solid #B85B40;outline-offset:3px}
+.wrap{width:min(1180px,calc(100% - 48px))}
+.nav{height:76px}
+.brand{font-size:25px;font-weight:750;letter-spacing:-1.8px}
+.navlinks{gap:28px;font-size:13px;font-weight:500;color:#5F584F}
+.navlinks a,.foot-social a{transition:color .18s ease}
+.navlinks a:hover{color:var(--archive-clay)}
+.nav-cta,.pill,.star-btn,.download-primary,.github-nav,.ghost,.outline-link,.download-secondary{
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:999px!important;font-family:var(--sans)!important;font-size:13px;font-weight:600;
+  letter-spacing:.01em;text-decoration:none;box-shadow:none;transition:background .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+.nav-cta,.pill,.star-btn,.download-primary{background:var(--md-primary);color:var(--md-on-primary);border:1px solid var(--md-primary);padding:0 22px}
+.nav-cta:hover,.pill:hover,.star-btn:hover,.download-primary:hover{background:#60402F;border-color:#60402F;box-shadow:0 2px 5px rgba(41,31,22,.18);transform:translateY(-1px)}
+.github-nav,.ghost,.outline-link,.download-secondary{background:transparent;color:var(--md-primary);border:1px solid #9A8878;padding:0 19px}
+.github-nav:hover,.ghost:hover,.outline-link:hover,.download-secondary:hover{background:var(--md-primary-container);border-color:var(--md-primary);color:var(--md-on-primary-container)}
+.hero{border:0;border-radius:28px;min-height:680px;padding:66px 24px 0;background-color:var(--archive-paper);background-image:repeating-linear-gradient(0deg,rgba(74,55,37,.018) 0px,rgba(74,55,37,.018) 1px,transparent 1px,transparent 5px),repeating-linear-gradient(90deg,rgba(255,255,255,.10) 0px,rgba(255,255,255,.10) 1px,transparent 1px,transparent 6px);box-shadow:inset 0 0 0 1px rgba(67,49,35,.08)}
+.hero:before,.hero:after{pointer-events:none}
+.hero .eyebrow{font-family:var(--sans)!important;font-size:11px;letter-spacing:.16em;font-weight:700;color:var(--archive-clay)}
+.hero h1{font-family:var(--sans)!important;font-size:clamp(46px,6.5vw,78px);line-height:1.02;font-weight:700;letter-spacing:-.065em;color:var(--archive-ink);margin:20px 0 16px}
+.hero p{font-family:var(--sans);font-size:16px;line-height:1.65;color:#5F554A;max-width:510px}
+.hero .hero-actions{gap:12px;margin-top:28px}
+.hero .hero-actions .hero-download{background:var(--md-primary);color:white;border:1px solid var(--md-primary);border-radius:999px;box-shadow:none;padding:0 24px;min-height:52px;font-size:14px}
+.hero .hero-actions .hero-download:hover{background:#60402F;border-color:#60402F;box-shadow:0 3px 8px rgba(41,31,22,.18);transform:translateY(-1px)}
+.hero .ghost{min-height:52px;padding:0 23px;border-radius:999px;background:rgba(251,247,239,.55);border:1px solid #8F7E6C;color:#3B332B;font-size:14px}
+.hero .ghost:hover{background:#F6E9DC;border-color:var(--md-primary)}
+.hero .hero-art{border-radius:24px 24px 0 0;background:var(--md-surface);border:1px solid rgba(67,49,35,.12);border-bottom:0;box-shadow:0 8px 28px rgba(54,39,28,.12);padding:18px 22px}
+.hero .hero-art-top{border-color:#E7DED1;padding-bottom:12px}
+.hero .hero-mini-logo{font-family:var(--sans);font-size:15px}
+.hero .hero-location,.hero .hero-art-footer{font-family:var(--sans)!important;font-size:10px;color:#777064}
+.hero .hero-product{border-radius:16px;padding:11px;background:#E8E5D9;transition:transform .2s ease,box-shadow .2s ease}
+.hero .hero-product:hover{transform:translateY(-2px);box-shadow:var(--md-shadow)}
+.hero .hero-product.tools-product{background:#F0DCCF}
+.hero .hero-product.outdoor-product{background:#E0E3D3}
+.hero .product-art{border-radius:12px;background:rgba(255,252,246,.78)}
+.hero .hero-product small,.hero .hero-art-heading small{font-family:var(--sans);letter-spacing:.12em}
+.hero .hero-product b{font-family:var(--sans);font-size:11px}
+.hero .hero-product span{font-family:var(--sans);font-size:11px}
+section{padding:96px 0}
+.section-kicker{font-family:var(--sans);font-size:11px;letter-spacing:.13em;color:var(--archive-clay)}
+.section-title{font-weight:650;letter-spacing:-.055em;font-size:clamp(32px,4vw,48px)}
+.section-desc,.copy p,.panel p{font-size:14px;line-height:1.75}
+.benefit,.person,.category,.app-tile,.price-card,.release-card,.download-panel,.release-band,.step,.panel,.showcase,.community-abstract{
+  border-radius:20px!important;box-shadow:none;}
+.person,.category,.app-tile,.price-card,.release-card,.download-panel,.release-band{background:var(--md-surface);border:1px solid var(--line)}
+.person,.category,.app-tile,.price-card,.release-card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.person:hover,.category:hover,.app-tile:hover,.price-card:hover,.release-card:hover{transform:translateY(-3px);box-shadow:var(--md-shadow);border-color:#C9B6A2}
+.person .portrait{border-radius:0;background:#E9DDC9}
+.person-copy b,.benefit h3,.category h3,.step h3,.release-card h3,.price-card h3{font-family:var(--sans)!important;font-weight:650;letter-spacing:-.03em}
+.ico,.category .emoji,.app-tile .tile-icon{border-radius:14px;background:var(--md-secondary-container);color:#41452F}
+.panel.blue{background:#EADFD0}.panel.yellow{background:#E8E4D1}.panel.green{background:#DDE4D6}
+.panel h3,.step h3{font-family:var(--sans)!important;font-weight:650}
+.mini-window{border-radius:16px;box-shadow:var(--md-shadow)}
+.tick:before{background:var(--md-secondary-container);color:#4D5638}
+.category{min-height:150px;padding:22px}
+.steps .step:nth-child(1){background:#EADFD0}.steps .step:nth-child(2){background:#E6E5D8}.steps .step:nth-child(3){background:#DDE4D6}
+.showcase{background:#EDE5D9;padding:64px 30px}
+.phone{border-radius:26px;box-shadow:var(--md-shadow)}
+.phone .ph-block{background:#E9DDC9;border-radius:12px}.phone .ph-row{background:#EAD5C7;border-radius:10px}
+.app-tile{padding:22px}
+.pricing{gap:18px}.price-card{padding:27px}.price-card.dark{background:#302B25;color:#FBF7EF;border-color:#302B25}.price-card.dark p{color:#D1C5B8}
+.cta{background:#E5E6D6;border-radius:24px!important;padding:68px 24px}.cta:before{color:rgba(116,118,77,.09)}.cta h2{font-family:var(--sans)!important;font-style:normal;font-weight:700;color:#29251F}.cta p{color:#615B4F}
+.release-band{padding:20px 24px}.release-tag{color:var(--archive-olive)}.release-card{padding:28px}.repo-callout{background:#302B25;border-radius:20px!important}.repo-callout .star-btn{background:#E9DDC9;color:#302B25;border-color:#E9DDC9}
+.outline-link{min-height:40px;padding:0 16px}.download-first{padding:28px 0 75px}.download-panel{box-shadow:var(--md-shadow)}.download-primary{min-height:50px}.download-secondary{min-height:46px}.platform-chip{border-radius:999px;background:#F1EADF;border-color:#E3D8C8;font-family:var(--sans)}
+footer{border-radius:24px 24px 0 0!important}
+@media(max-width:760px){.wrap{width:calc(100% - 32px)}.hero{border-radius:22px;min-height:680px;padding-top:50px}.hero h1{font-size:clamp(42px,10vw,60px);letter-spacing:-.06em}.hero p{font-size:14px}.hero .hero-actions{flex-wrap:wrap}.hero .hero-art{border-radius:20px 20px 0 0;padding:13px 12px}.nav{height:68px}.navlinks{display:none}.section-title{font-size:36px}section{padding:72px 0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+
+/* LOOP audience cards — periwinkle + butter yellow from the supplied reference */
+.panel.blue{
+  background:#BACAF4 !important;
+  color:#20283B;
+}
+.panel.yellow{
+  background:#F6DF7E !important;
+  color:#30291D;
+}
+.panel.green{
+  background:#A8D9B3 !important;
+  color:#20372B;
+}
+.panel h3{color:inherit}
+.panel p{color:rgba(32,35,39,.78)}
+.panel .mini-window{
+  background:#FFFEFA;
+  border:1px solid rgba(42,38,31,.07);
+  box-shadow:0 12px 28px rgba(45,40,32,.13);
+}
+.panel .mini-window span:nth-child(2){background:#F6CBB6}
+.panel .mini-window span:nth-child(3){background:#E8E9E5}
+.panel .mini-window span:nth-child(4){background:#C8D7FF}
+
 </style>
 </head>
 <body>
-<header class="wrap nav"><a class="brand" href="#top">L<span>O</span>OP.</a><nav class="navlinks"><a href="#how">How it works</a><a href="#discover">Discover</a><a href="#community">Community</a><a href="#release">Release</a></nav><div class="nav-actions"><a class="github-nav github-link" href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank" rel="noopener">⌘ GitHub</a><a class="nav-cta" href="#download">Get the app ↗</a></div></header>
+<header class="wrap nav"><a class="brand" href="#top">L<span>O</span>OP.</a><nav class="navlinks"><a href="#how">How it works</a><a href="#discover">Discover</a><a href="#community">Community</a><a href="#release">Release</a></nav><div class="nav-actions"><a class="github-nav github-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">⌘ GitHub</a><a class="nav-cta" href="#download">Get the app ↗</a></div></header>
 <main id="top">
 <div class="wrap"><section class="hero"><div class="hero-copy"><div class="eyebrow">A little less owning. A lot more living.</div><h1>Good things<br>go in circles.</h1><p>Meet LOOP — your neighbourhood marketplace to rent the things you need and share the things you own.</p><div class="hero-actions">
-  <a class="pill hero-download" id="heroDownloadButton" href="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest" target="_blank" rel="noopener">↓ Download latest release</a>
+  <a class="pill hero-download" id="heroDownloadButton" href="https://github.com/rkivln/loop-android-wireframe/releases/tag/v1.0.0" target="_blank" rel="noopener">↓ Download latest release</a>
   <a class="ghost" href="#how">See how it works</a>
 </div></div><div class="hero-art" aria-label="Illustrated LOOP app interface">
   <div class="hero-art-top"><span class="hero-mini-logo">L<span>O</span>OP.</span><span class="hero-location">⌖ Nearby · Puducherry</span><span class="hero-avatar">G</span></div>
@@ -354,18 +500,23 @@ h1,h2,h3,h4,.brand,.foot-brand{font-family:var(--sans)}
 <section class="wrap center"><div class="section-kicker">Made to fit your day</div><h2 class="section-title">Stay in the LOOP.</h2><p class="section-desc">Keep your discoveries, requests and listings together in one simple place.</p><div class="app-grid"><div class="app-tile"><div class="tile-icon"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M38 20c0 10-14 23-14 23S10 30 10 20a14 14 0 1 1 28 0Z"/><circle cx="24" cy="20" r="4"/></svg></div><b>Discover nearby</b><small>Explore what's around you</small></div><div class="app-tile"><div class="tile-icon"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="11" width="32" height="29" rx="5"/><path d="M16 7v8M32 7v8M8 20h32M16 27h5M27 27h5M16 33h5"/></svg></div><b>Manage bookings</b><small>Keep dates organised</small></div><div class="app-tile"><div class="tile-icon"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h32v23H22l-10 7v-7H8z"/><path d="M16 19h16M16 25h11"/></svg></div><b>Stay connected</b><small>Coordinate with clarity</small></div><div class="app-tile"><div class="tile-icon"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m24 6 5.5 11.2L42 19l-9 8.8 2.1 12.5L24 34.4l-11.1 5.9L15 27.8 6 19l12.5-1.8L24 6Z"/></svg></div><b>Build your profile</b><small>Grow a trusted community</small></div></div></section>
 <section class="wrap center" id="pricing"><div class="section-kicker">Straightforward by design</div><h2 class="section-title">Your pace. Your plan.</h2><p class="section-desc">Start exploring LOOP. Listing and rental terms are shown clearly as you use the app.</p><div class="pricing"><article class="price-card"><div class="section-kicker">For everyone</div><h3>Free to explore</h3><p>Discover local listings and get started with your LOOP profile.</p><div class="price">₹0 <small>/ to join</small></div><a class="pill" href="#download">Get started ↗</a></article><article class="price-card dark"><div class="section-kicker">For active owners</div><h3>More ways to share</h3><p>Manage your listings and rental requests from one place.</p><div class="price">Flexible <small>/ listing terms</small></div><a class="pill" href="#download">Join LOOP ↗</a></article></div><p style="font-size:9px;color:#92948b;margin-top:18px">Illustrative launch plans. Final fees, deposits and payment terms will be displayed in-app.</p></section>
 
-<section class="wrap release-section" id="release"><div class="release-band"><div><div class="release-meta"><span class="live-dot"></span><span class="release-tag">LOOP app release</span><span style="font-size:10px;color:#85877d">Early access · Launch information</span></div><p>Follow development, explore the source and help shape what comes next.</p></div><div class="release-actions"><a class="github-nav github-link" href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank" rel="noopener">⌘ Open GitHub</a><a class="star-btn star-link" href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank" rel="noopener">★ Star this repo</a></div></div><div class="center" style="margin-top:58px"><div class="section-kicker">The release desk</div><h2 class="section-title">Everything you need to get started.</h2><p class="section-desc">Release notes, project resources and ways to contribute — all in one place.</p></div><div class="release-grid"><article class="release-card"><div class="section-kicker">What's included</div><h3>Built for a more shareable neighbourhood.</h3><p>LOOP is a peer-to-peer rental marketplace concept that helps people discover nearby items, request rentals and share things they own.</p><ul><li>Discover local rental listings</li><li>Explore item details and availability</li><li>Manage rental requests and listings</li><li>Build trust through user profiles and reviews</li></ul><div class="release-links"><a class="outline-link github-link" href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank" rel="noopener">Source code ↗</a><a class="outline-link" href="mailto:hello@loop.app?subject=LOOP%20feedback">Send feedback ↗</a></div></article><aside class="repo-callout"><div class="section-kicker" style="color:#b9c9f4">Open source corner</div><h3 style="font:600 27px var(--serif);margin:12px 0">Like what we're building?</h3><p>Give the repository a star to support the project. Found a bug or have an idea? Open an issue or contribute on GitHub.</p><div class="repo-stats"><span><b>★</b> Show support</span><span><b>↗</b> Share ideas</span><span><b>⌘</b> Contribute</span></div><a class="star-btn star-link" href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank" rel="noopener">★ Star LOOP on GitHub</a><p class="release-note" style="color:#a7aaa2">The button opens the repository; confirm the Star action on GitHub.</p></aside></div></section>
+<section class="wrap release-section" id="release"><div class="release-band"><div><div class="release-meta"><span class="live-dot"></span><span class="release-tag">LOOP app release</span><span style="font-size:10px;color:#85877d">Early access · Launch information</span></div><p>Follow development, explore the source and help shape what comes next.</p></div><div class="release-actions"><a class="github-nav github-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">⌘ Open GitHub</a><a class="star-btn star-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">★ Star this repo</a></div></div><div class="center" style="margin-top:58px"><div class="section-kicker">The release desk</div><h2 class="section-title">Everything you need to get started.</h2><p class="section-desc">Release notes, project resources and ways to contribute — all in one place.</p></div><div class="release-grid"><article class="release-card"><div class="section-kicker">What's included</div><h3>Built for a more shareable neighbourhood.</h3><p>LOOP is a peer-to-peer rental marketplace concept that helps people discover nearby items, request rentals and share things they own.</p><ul><li>Discover local rental listings</li><li>Explore item details and availability</li><li>Manage rental requests and listings</li><li>Build trust through user profiles and reviews</li></ul><div class="release-links"><a class="outline-link github-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">Source code ↗</a><a class="outline-link" href="mailto:hello@loop.app?subject=LOOP%20feedback">Send feedback ↗</a></div></article><aside class="repo-callout"><div class="section-kicker" style="color:#b9c9f4">Open source corner</div><h3 style="font:600 27px var(--serif);margin:12px 0">Like what we're building?</h3><p>Give the repository a star to support the project. Found a bug or have an idea? Open an issue or contribute on GitHub.</p><div class="repo-stats"><span><b>★</b> Show support</span><span><b>↗</b> Share ideas</span><span><b>⌘</b> Contribute</span></div><a class="star-btn star-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">★ Star LOOP on GitHub</a><p class="release-note" style="color:#a7aaa2">The button opens the repository; confirm the Star action on GitHub.</p></aside></div></section>
 <section class="wrap" id="download"><div class="cta"><div class="section-kicker">Download LOOP</div><h2>Ready to make the most of your neighbourhood?</h2><p>Get the app, discover what is nearby and keep good things moving.</p><a class="pill" id="finalDownloadButton" href="#download">Download for Android ↗</a><p style="font-size:10px;margin-top:13px;color:#4c5b4e" id="finalDownloadHint">The app download link will appear here when the release is live.</p></div></section>
 </main>
-<footer class="wrap"><div class="foot-top"><div><div class="foot-brand">L<span>O</span>OP.</div><p>A neighbourhood rental community built around access, trust and making better use of what we already have.</p></div><div><h4>Explore</h4><ul><li><a href="#discover">Discover items</a></li><li><a href="#how">How it works</a></li><li><a href="#pricing">Plans</a></li></ul></div><div><h4>Community</h4><ul><li><a href="#community">For renters</a></li><li><a href="#community">For owners</a></li><li><a href="#download">Get updates</a></li></ul></div><div><h4>Project</h4><ul><li><a href="#release">Release notes</a></li><li><a class="github-link" href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank" rel="noopener">GitHub repository ↗</a></li><li><a class="star-link" href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank" rel="noopener">Star the repo ★</a></li></ul></div><div><h4>Say hello</h4><ul><li><a href="mailto:hello@loop.app">Contact</a></li><li><a href="mailto:hello@loop.app?subject=LOOP%20feedback">Feedback</a></li><li><a href="mailto:hello@loop.app?subject=LOOP%20support">Support</a></li></ul></div></div><div class="foot-bottom"><span>© 2026 LOOP. Keep good things going.</span><span>Made for sharing, wherever you are.</span></div></footer>
+<footer class="wrap"><div class="foot-top"><div><div class="foot-brand">L<span>O</span>OP.</div><p>A neighbourhood rental community built around access, trust and making better use of what we already have.</p></div><div><h4>Explore</h4><ul><li><a href="#discover">Discover items</a></li><li><a href="#how">How it works</a></li><li><a href="#pricing">Plans</a></li></ul></div><div><h4>Community</h4><ul><li><a href="#community">For renters</a></li><li><a href="#community">For owners</a></li><li><a href="#download">Get updates</a></li></ul></div><div><h4>Project</h4><ul><li><a href="#release">Release notes</a></li><li><a class="github-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">GitHub repository ↗</a></li><li><a class="star-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">Star the repo ★</a></li></ul></div><div><h4>Say hello</h4><ul><li><a href="mailto:hello@loop.app">Contact</a></li><li><a href="mailto:hello@loop.app?subject=LOOP%20feedback">Feedback</a></li><li><a href="mailto:hello@loop.app?subject=LOOP%20support">Support</a></li></ul></div></div><div class="foot-bottom"><span>© 2026 LOOP. Keep good things going.</span><span>Made for sharing, wherever you are.</span></div></footer>
 <script>
 // Add the direct APK URL or Google Play listing URL when the app is published.
-const LOOP_GITHUB_REPO = "https://github.com/YOUR_USERNAME/YOUR_REPO";
-const LOOP_GITHUB_LATEST_RELEASE = `${LOOP_GITHUB_REPO}/releases/latest`;
-// The hero download button opens the latest GitHub Release, where users can download the APK asset.
+const LOOP_GITHUB_REPO = "https://github.com/rkivln/loop-android-wireframe";
+const LOOP_GITHUB_RELEASE = "https://github.com/rkivln/loop-android-wireframe/releases/tag/v1.0.0";
+const LOOP_ANDROID_APK = "https://github.com/rkivln/loop-android-wireframe/releases/download/v1.0.0/LOOP.v1.0.0.apk";
+// Link directly to the published v1.0.0 Android APK.
 document.querySelectorAll(".github-link, .star-link").forEach(link => { link.href = LOOP_GITHUB_REPO; });
 const heroDownload = document.getElementById("heroDownloadButton");
-if (heroDownload) heroDownload.href = LOOP_GITHUB_LATEST_RELEASE;
+if (heroDownload) heroDownload.href = LOOP_ANDROID_APK;
+const finalDownload = document.getElementById("finalDownloadButton");
+if (finalDownload) finalDownload.href = LOOP_ANDROID_APK;
+const finalDownloadHint = document.getElementById("finalDownloadHint");
+if (finalDownloadHint) finalDownloadHint.textContent = "Android APK · LOOP v1.0.0 · Download hosted on GitHub.";
 document.querySelectorAll('a[href^="#"]').forEach(link=>link.addEventListener("click",event=>{const target=document.querySelector(link.getAttribute("href"));if(target&&!link.classList.contains("is-disabled")){event.preventDefault();target.scrollIntoView({behavior:"smooth",block:"start"});}}));
 </script>
 </body>
