@@ -108,6 +108,16 @@ fun EditProfileScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
+            val avatarPresetColors = listOf(
+                Color(0xFF0F172A),
+                Color(0xFF1D4ED8),
+                Color(0xFF065F46),
+                Color(0xFFC2410C),
+                Color(0xFF5B21B6),
+                Color(0xFF9F1239)
+            )
+            val avatarPresetInitials = listOf("JN", "PS", "RK", "VD", "AN", "LP")
+
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -131,22 +141,25 @@ fun EditProfileScreen(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                avatarPresetColors.forEachIndexed { index, color ->
+                for ((index, color) in avatarPresetColors.withIndex()) {
                     val isSelected = selectedAvatarIndex == index
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
+                    val itemMod = if (isSelected) {
+                        Modifier
                             .padding(horizontal = 6.dp)
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(color)
-                            .then(
-                                if (isSelected) {
-                                    Modifier.border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                } else {
-                                    Modifier
-                                }
-                            )
+                            .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                    } else {
+                        Modifier
+                            .padding(horizontal = 6.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                    }
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = itemMod
                             .clickable { selectedAvatarIndex = index }
                             .testTag("avatar_option_$index")
                     ) {

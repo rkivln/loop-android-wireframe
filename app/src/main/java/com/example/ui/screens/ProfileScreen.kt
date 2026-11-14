@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -52,10 +54,12 @@ import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -118,15 +122,19 @@ enum class ProfileTab(val label: String, val emoji: String) {
 @Composable
 fun ProfileScreen(
     onNavigateBookings: () -> Unit = {},
+    onEditProfile: () -> Unit = {},
+    onSignOut: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val userProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
     val userActivities by RentalRepository.userActivityFlow.collectAsStateWithLifecycle()
     val userPosts by RentalRepository.userCommunityPostsFlow.collectAsStateWithLifecycle()
+    val bookings by RentalRepository.bookingsFlow.collectAsStateWithLifecycle()
 
     var selectedTab by remember { mutableStateOf(ProfileTab.OVERVIEW) }
     var isEditingProfile by remember { mutableStateOf(false) }
     var isCreatingPost by remember { mutableStateOf(false) }
+    var isShowingBookings by remember { mutableStateOf(false) }
     var selectedPostFilter by remember { mutableStateOf<CommunityPostType?>(null) }
     var saveSuccessMessage by remember { mutableStateOf<String?>(null) }
 
@@ -143,7 +151,7 @@ fun ProfileScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(PaperWarm)
+            .background(PaperIvory)
     ) {
         LazyColumn(
             modifier = Modifier
@@ -263,7 +271,7 @@ fun ProfileScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (userProfile.displayName == "Gokulan R") "JN" else userProfile.initials,
+                                text = userProfile.initials,
                                 style = LoopType.HeadlineMedium.copy(fontSize = 22.sp),
                                 color = InkWhite
                             )
@@ -274,7 +282,7 @@ fun ProfileScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (userProfile.displayName == "Gokulan R") "Jaya Nandhini G" else userProfile.displayName,
+                                    text = userProfile.displayName.ifBlank { "Loop Member" },
                                     style = LoopType.HeadlineMedium.copy(fontSize = 19.sp),
                                     color = InkCharcoal
                                 )
@@ -482,11 +490,15 @@ fun ProfileScreen(
                                 .background(PaperPureWhite)
                                 .border(1.dp, PaperBorderSubtle, RoundedCornerShape(22.dp))
                         ) {
+                            val activeBookingsCount = bookings.count { !it.isCompleted }
                             EditorialMenuRow(
                                 icon = Icons.Default.ShoppingBag,
                                 title = "Active Reservations",
-                                badge = "1 Active",
-                                onClick = onNavigateBookings
+                                badge = "$activeBookingsCount Active",
+                                onClick = {
+                                    isShowingBookings = true
+                                    onNavigateBookings()
+                                }
                             )
                             EditorialMenuRow(
                                 icon = Icons.Default.Handshake,
@@ -502,8 +514,34 @@ fun ProfileScreen(
                             )
                             EditorialMenuRow(
                                 icon = Icons.Default.Security,
-                                title = "Security Deposit & Ledger",
-                                badge = "₹0 on hold"
+                                title = "Saved Favorites",
+                                badge = "${userProfile.favoriteItemIds.size} saved"
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedButton(
+                            onClick = onSignOut,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFB91C1C)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 22.dp)
+                                .height(48.dp)
+                                .testTag("sign_out_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = "Sign Out",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Sign Out of Google Account",
+                                style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold)
                             )
                         }
                     }
@@ -716,6 +754,7 @@ fun ProfileScreen(
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut()
         ) {
+            BackHandler { isEditingProfile = false }
             EditProfileModalSheet(
                 currentProfile = userProfile,
                 onSave = { updatedProfile ->
@@ -733,6 +772,7 @@ fun ProfileScreen(
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut()
         ) {
+            BackHandler { isCreatingPost = false }
             CreateCommunityPostModalSheet(
                 onPostCreated = { title, type, desc, loc, dt ->
                     RentalRepository.createCommunityPost(title, type, desc, loc, dt)
@@ -741,6 +781,22 @@ fun ProfileScreen(
                     showFeedback("Community ${type.title} published!")
                 },
                 onDismiss = { isCreatingPost = false }
+            )
+        }
+
+        // Active Reservations Modal Sheet
+        AnimatedVisibility(
+            visible = isShowingBookings,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut()
+        ) {
+            BookingsModalSheet(
+                bookings = bookings,
+                onUpdateStatus = { bookingId, status ->
+                    RentalRepository.updateBookingStatus(bookingId, status)
+                    showFeedback("Reservation marked as $status.")
+                },
+                onDismiss = { isShowingBookings = false }
             )
         }
     }
@@ -1149,7 +1205,7 @@ fun EditProfileModalSheet(
     onSave: (UserProfile) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var displayName by remember { mutableStateOf(if (currentProfile.displayName == "Gokulan R") "Jaya Nandhini G" else currentProfile.displayName) }
+    var displayName by remember { mutableStateOf(currentProfile.displayName) }
     var bio by remember { mutableStateOf(currentProfile.bio) }
     var location by remember { mutableStateOf(currentProfile.location) }
     var selectedAvatarIndex by remember { mutableIntStateOf(currentProfile.avatarPresetIndex) }

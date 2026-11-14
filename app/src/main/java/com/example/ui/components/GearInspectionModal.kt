@@ -66,6 +66,11 @@ import com.example.ui.theme.ParchmentBorder
 import com.example.ui.theme.ParchmentWhite
 import com.example.ui.theme.StatusGreen
 import com.example.ui.theme.StatusGreenBg
+import com.example.ui.theme.CaptionTechnical
+import com.example.ui.theme.H1
+import com.example.ui.theme.H3
+import com.example.ui.theme.ButtonLabel
+
 
 data class InspectionPoint(
     val id: String,

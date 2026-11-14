@@ -213,7 +213,7 @@ fun UserLocationMapScreen(
                 )
             }
 
-            events.forEach { event ->
+            for (event in events) {
                 val pos = LatLng(event.latitude, event.longitude)
                 Marker(
                     state = MarkerState(position = pos),

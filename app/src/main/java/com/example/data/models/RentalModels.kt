@@ -45,6 +45,7 @@ data class RentalItem(
     val reviewCount: Int,
     val description: String,
     @DrawableRes val primaryImageRes: Int,
+    val imageUrl: String? = null,
     val imageCount: Int = 5,
     val features: List<SpecFeature>,
     val owner: RentalOwner,
@@ -52,7 +53,11 @@ data class RentalItem(
     val isFavorite: Boolean = false,
     val availableToday: Boolean = true,
     val securityDeposit: Int = 0
-)
+) {
+    val dailyRate: Int get() = pricePerDay
+    val deposit: Int get() = securityDeposit
+    val isAvailable: Boolean get() = availableToday
+}
 
 enum class DeliveryOptionType(val title: String, val subtitle: String?, val fee: Int) {
     SELF_PICKUP("Self Pickup", null, 0),
@@ -71,8 +76,24 @@ data class BookingRequest(
 ) {
     val rentalTotal: Int get() = item.pricePerDay * daysCount
     val deliveryFee: Int get() = deliveryOption.fee
-    val grandTotal: Int get() = rentalTotal + deliveryFee + serviceFee
 }
+
+data class UserRentalBooking(
+    val id: String,
+    val item: RentalItem,
+    val hostId: String = "",
+    val hostName: String,
+    val renterId: String = "",
+    val renterName: String = "",
+    val startDate: String = "",
+    val endDate: String = "",
+    val daysRemaining: Int,
+    val totalPaid: Int,
+    val status: String = "Confirmed",
+    val handoverOtp: String = "8492",
+    val deliveryOption: String = "Self Pickup",
+    val isCompleted: Boolean = false
+)
 
 enum class MessageStatus {
     SENDING,
@@ -95,6 +116,7 @@ data class RentalMessage(
     val text: String,
     val timestamp: String,
     val isFromMe: Boolean,
+    val senderId: String = "",
     val messageType: ChatMessageType = ChatMessageType.TEXT,
     val status: MessageStatus = MessageStatus.READ,
     val audioDuration: String? = null,

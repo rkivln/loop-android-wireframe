@@ -372,13 +372,15 @@ private fun CommunityActivityMapMarker(
     point: DiscoveryPinItem,
     isSelected: Boolean
 ) {
-    val (bgColor, emoji) = when (point.type) {
-        DiscoveryPinType.COMMUNITY_EVENT -> AccentWarmYellow to "📸"
-        DiscoveryPinType.HELP_REQUEST -> Color(0xFFF0A288) to "🤝"
-        DiscoveryPinType.STUDY_GROUP -> AccentMint to "📚"
-        DiscoveryPinType.PICKUP_HUB -> Color(0xFFD6E3E9) to "🔒"
-        DiscoveryPinType.USER_HOST -> PaperPureWhite to "🛠️"
-        DiscoveryPinType.RENTAL_ITEM -> AccentMint to "📦"
+    val bgColor: Color
+    val emoji: String
+    when (point.type) {
+        DiscoveryPinType.COMMUNITY_EVENT -> { bgColor = AccentWarmYellow; emoji = "📸" }
+        DiscoveryPinType.HELP_REQUEST -> { bgColor = Color(0xFFF0A288); emoji = "🤝" }
+        DiscoveryPinType.STUDY_GROUP -> { bgColor = AccentMint; emoji = "📚" }
+        DiscoveryPinType.PICKUP_HUB -> { bgColor = Color(0xFFD6E3E9); emoji = "🔒" }
+        DiscoveryPinType.USER_HOST -> { bgColor = PaperPureWhite; emoji = "🛠️" }
+        DiscoveryPinType.RENTAL_ITEM -> { bgColor = AccentMint; emoji = "📦" }
     }
 
     Column(

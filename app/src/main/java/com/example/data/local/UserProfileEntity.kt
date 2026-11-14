@@ -13,12 +13,15 @@ data class UserProfileEntity(
     val phone: String,
     val bio: String,
     val location: String,
-    val avatarPresetIndex: Int,
-    val customAvatarUrl: String,
-    val itemsLentCount: Int,
-    val itemsRentedCount: Int,
-    val rating: Double,
-    val isVerified: Boolean = true
+    val avatarPresetIndex: Int = 0,
+    val customAvatarUri: String? = null,
+    val rating: Float = 5.0f,
+    val reviewCount: Int = 0,
+    val rentalsCompleted: Int = 0,
+    val listingsCount: Int = 0,
+    val earnedAmount: Int = 0,
+    val isVerified: Boolean = true,
+    val memberSince: String = "Member since 2026"
 )
 
 fun UserProfileEntity.toDomain(): UserProfile {
@@ -30,11 +33,14 @@ fun UserProfileEntity.toDomain(): UserProfile {
         bio = bio,
         location = location,
         avatarPresetIndex = avatarPresetIndex,
-        customAvatarUrl = customAvatarUrl,
-        itemsLentCount = itemsLentCount,
-        itemsRentedCount = itemsRentedCount,
+        customAvatarUri = customAvatarUri,
         rating = rating,
-        isVerified = isVerified
+        reviewCount = reviewCount,
+        rentalsCompleted = rentalsCompleted,
+        listingsCount = listingsCount,
+        earnedAmount = earnedAmount,
+        isVerified = isVerified,
+        memberSince = memberSince
     )
 }
 
@@ -47,10 +53,13 @@ fun UserProfile.toEntity(): UserProfileEntity {
         bio = bio,
         location = location,
         avatarPresetIndex = avatarPresetIndex,
-        customAvatarUrl = customAvatarUrl,
-        itemsLentCount = itemsLentCount,
-        itemsRentedCount = itemsRentedCount,
+        customAvatarUri = customAvatarUri,
         rating = rating,
-        isVerified = isVerified
+        reviewCount = reviewCount,
+        rentalsCompleted = rentalsCompleted,
+        listingsCount = listingsCount,
+        earnedAmount = earnedAmount,
+        isVerified = isVerified,
+        memberSince = memberSince
     )
 }

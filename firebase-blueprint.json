@@ -1,78 +1,180 @@
 {
   "entities": {
-    "CommunityEvent": {
-      "title": "CommunityEvent",
-      "description": "A community event, help request, or study group created by community members",
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile containing identity, stats, badges, and contact details for Loop community members",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier of the community event or post"
-        },
-        "title": {
-          "type": "string",
-          "description": "Headline of the community event or initiative"
-        },
-        "typeStr": {
-          "type": "string",
-          "description": "Type of event (EVENT, HELP_REQUEST, STUDY_GROUP)"
-        },
-        "categoryName": {
-          "type": "string",
-          "description": "Category associated with the event"
-        },
-        "description": {
-          "type": "string",
-          "description": "Detailed description of the event"
-        },
-        "location": {
-          "type": "string",
-          "description": "Neighborhood or street address of the event"
-        },
-        "dateTime": {
-          "type": "string",
-          "description": "Human readable date and time string"
-        },
-        "attendeesOrResponses": {
-          "type": "string",
-          "description": "Summary of registered attendees or RSVPs"
-        },
-        "statusStr": {
-          "type": "string",
-          "description": "Status string (ACTIVE, COMPLETED, ARCHIVED)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Display string for creation timestamp"
-        },
-        "createdAtEpoch": {
-          "type": "number",
-          "description": "Timestamp in milliseconds when event was posted"
-        },
-        "latitude": {
-          "type": "number",
-          "description": "Geographical latitude coordinate"
-        },
-        "longitude": {
-          "type": "number",
-          "description": "Geographical longitude coordinate"
-        },
-        "authorId": {
-          "type": "string",
-          "description": "Unique identifier of user who created the event"
-        },
-        "authorName": {
-          "type": "string",
-          "description": "Display name of the author"
-        }
+        "userId": { "type": "string", "description": "Owner user UID matching auth" },
+        "displayName": { "type": "string", "description": "Public display name" },
+        "email": { "type": "string", "description": "Email address" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "bio": { "type": "string", "description": "Member biography" },
+        "location": { "type": "string", "description": "Neighborhood in Puducherry" },
+        "avatarPresetIndex": { "type": "number", "description": "Selected avatar preset icon index" },
+        "customAvatarUri": { "type": "string", "description": "Optional custom avatar image URI" },
+        "rating": { "type": "number", "description": "Average member rating" },
+        "reviewCount": { "type": "number", "description": "Total reviews count" },
+        "rentalsCompleted": { "type": "number", "description": "Number of rentals fulfilled" },
+        "listingsCount": { "type": "number", "description": "Number of active equipment listings" },
+        "earnedAmount": { "type": "number", "description": "Total earnings in INR" },
+        "isVerified": { "type": "boolean", "description": "Community verified status" },
+        "memberSince": { "type": "string", "description": "Joined date string" },
+        "badges": { "type": "array", "description": "Earned community badges" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp via serverTimestamp" }
       },
-      "required": ["id", "title", "typeStr", "statusStr"]
+      "required": ["userId", "displayName", "email", "createdAt"]
+    },
+    "RentalItem": {
+      "title": "RentalItem",
+      "description": "Equipment, tools, and creative gear shared for rent in Puducherry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique listing identifier" },
+        "title": { "type": "string", "description": "Title of the equipment or gear" },
+        "categoryName": { "type": "string", "description": "Rental category name" },
+        "pricePerDay": { "type": "number", "description": "Rental fee per day in INR" },
+        "location": { "type": "string", "description": "Pickup neighborhood in Puducherry" },
+        "rating": { "type": "number", "description": "Item average rating" },
+        "reviewCount": { "type": "number", "description": "Total review count" },
+        "description": { "type": "string", "description": "Comprehensive gear description" },
+        "ownerId": { "type": "string", "description": "UID of owner who listed the item" },
+        "ownerName": { "type": "string", "description": "Display name of the owner" },
+        "ownerInitials": { "type": "string", "description": "Owner initials for avatar display" },
+        "isPopular": { "type": "boolean", "description": "Whether item is featured or popular" },
+        "isFavorite": { "type": "boolean", "description": "Favorite bookmark flag" },
+        "availableToday": { "type": "boolean", "description": "Instant rental availability flag" },
+        "features": { "type": "array", "description": "List of key features and gear specifications" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Listing creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Listing update timestamp" }
+      },
+      "required": ["id", "title", "categoryName", "pricePerDay", "ownerId", "createdAt"]
+    },
+    "CommunityEvent": {
+      "title": "CommunityEvent",
+      "description": "A community event, help request, photowalk, or study group created by community members",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of community event or post" },
+        "title": { "type": "string", "description": "Headline of the event or initiative" },
+        "typeStr": { "type": "string", "description": "Type of event (EVENT, HELP_REQUEST, STUDY_GROUP)" },
+        "categoryName": { "type": "string", "description": "Category associated with the event" },
+        "description": { "type": "string", "description": "Detailed description of the initiative" },
+        "location": { "type": "string", "description": "Street or landmark address in Puducherry" },
+        "dateTime": { "type": "string", "description": "Display date and time string" },
+        "attendeesOrResponses": { "type": "string", "description": "Summary of registered RSVPs" },
+        "statusStr": { "type": "string", "description": "Status string (ACTIVE, COMPLETED, ARCHIVED)" },
+        "authorId": { "type": "string", "description": "User UID who posted the initiative" },
+        "authorName": { "type": "string", "description": "Display name of the author" },
+        "latitude": { "type": "number", "description": "Geographical latitude coordinate" },
+        "longitude": { "type": "number", "description": "Geographical longitude coordinate" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp via serverTimestamp" }
+      },
+      "required": ["id", "title", "typeStr", "statusStr", "authorId", "createdAt"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Direct message thread between a renter and a gear host",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique conversation ID" },
+        "participantIds": { "type": "array", "description": "Array of member UIDs participating in thread" },
+        "hostId": { "type": "string", "description": "UID of gear host" },
+        "hostName": { "type": "string", "description": "Name of gear host" },
+        "hostInitials": { "type": "string", "description": "Initials of gear host" },
+        "hostBadge": { "type": "string", "description": "Badge description of gear host" },
+        "hostPhone": { "type": "string", "description": "Contact number of host" },
+        "renterId": { "type": "string", "description": "UID of renter" },
+        "renterName": { "type": "string", "description": "Name of renter" },
+        "itemId": { "type": "string", "description": "Optional associated rental item ID" },
+        "itemTitle": { "type": "string", "description": "Optional associated rental item title" },
+        "itemPricePerDay": { "type": "number", "description": "Price per day of gear in inquiry" },
+        "isOnline": { "type": "boolean", "description": "Online presence indicator" },
+        "isTyping": { "type": "boolean", "description": "Typing status indicator" },
+        "unreadCount": { "type": "number", "description": "Count of unread messages" },
+        "isPinned": { "type": "boolean", "description": "Pinned thread status" },
+        "lastMessageText": { "type": "string", "description": "Summary of latest message" },
+        "lastMessageTimestamp": { "type": "string", "description": "Formatted time of last message" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of most recent activity" }
+      },
+      "required": ["id", "participantIds", "hostId", "renterId", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "An individual chat message in a conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique message ID" },
+        "senderId": { "type": "string", "description": "UID of user who sent message" },
+        "senderName": { "type": "string", "description": "Display name of sender" },
+        "text": { "type": "string", "description": "Message text content" },
+        "timestampStr": { "type": "string", "description": "Human-readable timestamp string" },
+        "timestampEpoch": { "type": "number", "description": "Epoch millisecond value" },
+        "isFromMe": { "type": "boolean", "description": "Direction flag" },
+        "messageTypeStr": { "type": "string", "description": "Message category (TEXT, AUDIO, LOCATION, GEAR_OFFER)" },
+        "statusStr": { "type": "string", "description": "Message status (SENT, DELIVERED, READ)" },
+        "audioDuration": { "type": "string", "description": "Duration for voice messages" },
+        "locationTitle": { "type": "string", "description": "Title of shared GPS location" },
+        "locationAddress": { "type": "string", "description": "Address of shared location" },
+        "itemTitle": { "type": "string", "description": "Title of equipment offered" },
+        "itemPricePerDay": { "type": "number", "description": "Daily rental price in offer" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "senderId", "text", "messageTypeStr", "statusStr", "createdAt"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A rental agreement and reservation between renter and owner",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique booking reservation ID" },
+        "renterId": { "type": "string", "description": "UID of renter" },
+        "renterName": { "type": "string", "description": "Display name of renter" },
+        "hostId": { "type": "string", "description": "UID of gear owner" },
+        "hostName": { "type": "string", "description": "Display name of host" },
+        "itemId": { "type": "string", "description": "ID of reserved rental item" },
+        "itemTitle": { "type": "string", "description": "Title of reserved rental item" },
+        "startDate": { "type": "string", "description": "Start date string" },
+        "endDate": { "type": "string", "description": "End date string" },
+        "daysCount": { "type": "number", "description": "Duration in days" },
+        "pricePerDay": { "type": "number", "description": "Rate per day in INR" },
+        "totalAmount": { "type": "number", "description": "Total payment in INR" },
+        "status": { "type": "string", "description": "Booking status: Pending, Confirmed, Completed, Cancelled" },
+        "deliveryOption": { "type": "string", "description": "Fulfillment option: Self Pickup or Local Delivery" },
+        "handoverOtp": { "type": "string", "description": "4-digit verification code for gear handover" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Booking timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["id", "renterId", "hostId", "itemId", "totalAmount", "status", "createdAt"]
     }
   },
   "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles for authenticated Loop members"
+    },
+    "/items/{itemId}": {
+      "schema": "RentalItem",
+      "description": "Equipment listings shared for community gear rental"
+    },
     "/community_posts/{postId}": {
       "schema": "CommunityEvent",
-      "description": "Collection of community events, meetups, and local initiatives"
+      "description": "Community events, skill exchanges, photowalks, and study group initiatives"
+    },
+    "/conversations/{convId}": {
+      "schema": "Conversation",
+      "description": "Direct message chat channels between members"
+    },
+    "/conversations/{convId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Individual messages in a chat conversation"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Rental bookings and reservations"
     }
   }
 }

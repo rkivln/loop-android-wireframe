@@ -37,3 +37,73 @@ val SurfaceDark = Color(0xFF0E1415)
 val OnSurfaceDark = Color(0xFFDEE3E4)
 val SurfaceVariantDark = Color(0xFF3F484A)
 val OnSurfaceVariantDark = Color(0xFFBFC8CA)
+
+// Editorial Design Tokens for Loop
+val InkCharcoal = Color(0xFF1E2322)
+val InkSecondary = Color(0xFF4A5553)
+val InkMuted = Color(0xFF7A8684)
+val InkWhite = Color(0xFFFFFFFF)
+
+val PaperPureWhite = Color(0xFFFFFFFF)
+val PaperIvory = Color(0xFFF9F8F5)
+val PaperWarm = Color(0xFFF4F1EA)
+val PaperBorder = Color(0xFFE2DDD5)
+val PaperBorderSubtle = Color(0xFFEFECE5)
+
+val AccentForestGreen = Color(0xFF1B4D3E)
+val AccentMint = Color(0xFFD4EDE4)
+val AccentPeach = Color(0xFFFFDBCF)
+val AccentPowderBlue = Color(0xFFD8EEF3)
+val AccentWarmYellow = Color(0xFFE89800)
+val AccentYellowSoft = Color(0xFFFFF3D4)
+val AccentBeigeOat = Color(0xFFEBE6DC)
+
+// Compatibility aliases
+val AccentYellow = AccentWarmYellow
+val InkBlack = InkCharcoal
+val ParchmentBg = PaperWarm
+val ParchmentBorder = PaperBorder
+val ParchmentWhite = PaperPureWhite
+val StatusGreen = AccentForestGreen
+val StatusGreenBg = AccentMint
+
+val AccentCobalt = Color(0xFF0284C7)
+val AccentCobaltSubtle = Color(0xFFE0F2FE)
+val BorderDefault = PaperBorder
+val BorderSubtle = PaperBorderSubtle
+val CanvasDark = InkCharcoal
+val CanvasSubtle = PaperWarm
+val CanvasWhite = PaperPureWhite
+val InkPrimary = InkCharcoal
+val LineHairline = PaperBorderSubtle
+val TextLight = PaperPureWhite
+val TextMuted = InkMuted
+val TextPrimary = InkCharcoal
+val TextSecondary = InkSecondary
+val BackgroundLight = PaperIvory
+val BrandBlue = Color(0xFF0284C7)
+val BrandDark = InkCharcoal
+val BrandGreen = AccentForestGreen
+val SurfaceCard = PaperPureWhite
+val SurfaceSecondary = PaperWarm
+val AlertCrimson = Color(0xFFDC2626)
+val StatusLive = Color(0xFF16A34A)
+val AccentYellowDark = Color(0xFFB45309)
+val HeartRed = Color(0xFFEF4444)
+val ParchmentSurface = PaperIvory
+
+val Primary = PrimaryTeal
+val OnPrimary = OnPrimaryTeal
+val PrimaryContainer = PrimaryContainerTeal
+val OnPrimaryContainer = OnPrimaryContainerTeal
+val Secondary = SecondaryTerracotta
+val OnSecondary = OnSecondaryTerracotta
+val SecondaryContainer = SecondaryContainerTerracotta
+val OnSecondaryContainer = OnSecondaryContainerTerracotta
+val Background = PaperWarm
+val OnBackground = InkCharcoal
+val Surface = PaperPureWhite
+val OnSurface = InkCharcoal
+val SurfaceVariant = SurfaceVariantLight
+val OnSurfaceVariant = InkSecondary
+val Outline = PaperBorder

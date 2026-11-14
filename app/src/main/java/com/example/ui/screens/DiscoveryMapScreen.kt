@@ -95,6 +95,7 @@ import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
 import com.example.ui.components.CommunityActivityMap
 import com.example.ui.components.EventMapMarkerCallout
+import com.example.ui.components.MapLibreGLMapView
 import com.example.ui.components.ProfileMarker
 import com.example.ui.theme.AccentBeigeOat
 import com.example.ui.theme.AccentForestGreen
@@ -123,6 +124,12 @@ private val MapRoadSecondary = Color(0xFFEFECE3)      // Subtle cross street cas
 private val MapRouteTrack = Color(0xFFE5A93C)         // Warm ochre trail highlight
 private val MapHubRadiusFill = Color(0xFFE2EFE7)      // Soft mint pickup zone fill
 private val MapHubRadiusStroke = Color(0xFF2D5A43)    // Forest green dashed boundary
+
+enum class MapEngineMode(val displayName: String, val emoji: String) {
+    MAPLIBRE("MapLibre GL", "🗺️"),
+    GOOGLE_MAP("Google Map", "🌐"),
+    CANVAS("Canvas", "🏛️")
+}
 
 @Composable
 fun DiscoveryMapScreen(
@@ -182,6 +189,9 @@ fun DiscoveryMapScreen(
                 onLocationReceived = { lat, lng ->
                     userLat = lat
                     userLng = lng
+                    panOffsetX = 0f
+                    panOffsetY = 0f
+                    zoomScale = 1.3f
                 }
             )
         }
@@ -200,6 +210,9 @@ fun DiscoveryMapScreen(
                 onLocationReceived = { lat, lng ->
                     userLat = lat
                     userLng = lng
+                    panOffsetX = 0f
+                    panOffsetY = 0f
+                    zoomScale = 1.3f
                 }
             )
         }
@@ -239,39 +252,60 @@ fun DiscoveryMapScreen(
     }
 
     val carouselState = rememberLazyListState()
-    var useGoogleMap by remember { mutableStateOf(true) }
+    var mapMode by remember { mutableStateOf(MapEngineMode.MAPLIBRE) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MapGroundPaper)
     ) {
-        if (useGoogleMap) {
-            CommunityActivityMap(
-                modifier = Modifier.fillMaxSize(),
-                activityPoints = filteredPins,
-                onPointSelected = { pin ->
-                    selectedPin = pin
-                    val pinIndex = filteredPins.indexOf(pin)
-                    if (pinIndex >= 0) {
-                        coroutineScope.launch {
-                            carouselState.animateScrollToItem(pinIndex)
+        when (mapMode) {
+            MapEngineMode.MAPLIBRE -> {
+                MapLibreGLMapView(
+                    modifier = Modifier.fillMaxSize(),
+                    activityPoints = filteredPins,
+                    selectedPin = selectedPin,
+                    onPointSelected = { pin ->
+                        selectedPin = pin
+                        val pinIndex = filteredPins.indexOf(pin)
+                        if (pinIndex >= 0) {
+                            coroutineScope.launch {
+                                carouselState.animateScrollToItem(pinIndex)
+                            }
                         }
+                    },
+                    onMapClick = {
+                        selectedPin = null
                     }
-                },
-                onDirectionsClick = { pin ->
-                    selectedPin = pin
-                },
-                onRsvpClick = { pin ->
-                    selectedPin = pin
-                },
-                showFilterRow = false
-            )
-        } else {
-            // Light Themed Architectural Map Canvas
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
+                )
+            }
+            MapEngineMode.GOOGLE_MAP -> {
+                CommunityActivityMap(
+                    modifier = Modifier.fillMaxSize(),
+                    activityPoints = filteredPins,
+                    onPointSelected = { pin ->
+                        selectedPin = pin
+                        val pinIndex = filteredPins.indexOf(pin)
+                        if (pinIndex >= 0) {
+                            coroutineScope.launch {
+                                carouselState.animateScrollToItem(pinIndex)
+                            }
+                        }
+                    },
+                    onDirectionsClick = { pin ->
+                        selectedPin = pin
+                    },
+                    onRsvpClick = { pin ->
+                        selectedPin = pin
+                    },
+                    showFilterRow = false
+                )
+            }
+            MapEngineMode.CANVAS -> {
+                // Light Themed Architectural Map Canvas
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
                     .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
                         zoomScale = (zoomScale * zoom).coerceIn(0.8f, 2.2f)
@@ -559,13 +593,15 @@ fun DiscoveryMapScreen(
             }
         }
     }
+}
 
     // Top Navigation & Filter Bar (Light Themed)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-        ) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .fillMaxWidth()
+            .statusBarsPadding()
+    ) {
             // Header Row
             Row(
                 modifier = Modifier
@@ -625,25 +661,31 @@ fun DiscoveryMapScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Map Mode Toggle (Google Map vs Canvas)
+                    // Map Mode Toggle (MapLibre GL vs Google Map vs Canvas)
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(100.dp))
-                            .background(if (useGoogleMap) InkCharcoal else PaperPureWhite)
+                            .background(if (mapMode != MapEngineMode.CANVAS) InkCharcoal else PaperPureWhite)
                             .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = ripple(bounded = true),
-                                onClick = { useGoogleMap = !useGoogleMap }
+                                onClick = {
+                                    mapMode = when (mapMode) {
+                                        MapEngineMode.MAPLIBRE -> MapEngineMode.GOOGLE_MAP
+                                        MapEngineMode.GOOGLE_MAP -> MapEngineMode.CANVAS
+                                        MapEngineMode.CANVAS -> MapEngineMode.MAPLIBRE
+                                    }
+                                }
                             )
                             .padding(horizontal = 10.dp, vertical = 7.dp)
                             .testTag("map_mode_toggle_btn"),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (useGoogleMap) "🗺️ Google Map" else "🏛️ Canvas",
+                            text = "${mapMode.emoji} ${mapMode.displayName}",
                             style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                            color = if (useGoogleMap) InkWhite else InkCharcoal
+                            color = if (mapMode != MapEngineMode.CANVAS) InkWhite else InkCharcoal
                         )
                     }
 
@@ -656,9 +698,17 @@ fun DiscoveryMapScreen(
                             .border(1.dp, if (isGpsActive) AccentForestGreen else PaperBorder, CircleShape)
                             .clickable {
                                 locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                                panOffsetX = 0f
-                                panOffsetY = 0f
-                                zoomScale = 1.1f
+                                isGpsActive = true
+                                LocationHelper.fetchCurrentLocation(
+                                    context = context,
+                                    onLocationReceived = { lat, lng ->
+                                        userLat = lat
+                                        userLng = lng
+                                        panOffsetX = 0f
+                                        panOffsetY = 0f
+                                        zoomScale = 1.3f
+                                    }
+                                )
                             }
                             .testTag("map_locate_me_btn"),
                         contentAlignment = Alignment.Center
@@ -758,8 +808,8 @@ fun DiscoveryMapScreen(
             }
         }
 
-        // Bottom Discovery Marker Callout & Carousel Drawer for Canvas mode
-        if (!useGoogleMap) {
+        // Bottom Discovery Marker Callout & Carousel Drawer for MapLibre & Canvas modes
+        if (mapMode != MapEngineMode.GOOGLE_MAP) {
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -767,109 +817,110 @@ fun DiscoveryMapScreen(
                     .navigationBarsPadding()
                     .padding(bottom = 10.dp)
             ) {
-            // Reusable UI Component that appears when a user clicks a map marker
-            AnimatedVisibility(
-                visible = selectedPin != null,
-                enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut()
-            ) {
-                selectedPin?.let { pin ->
-                    EventMapMarkerCallout(
-                        pin = pin,
-                        onDirectionsClick = {
-                            LocationHelper.openNavigationIntent(
-                                context = context,
-                                latitude = pin.latitude,
-                                longitude = pin.longitude,
-                                label = pin.title
-                            )
-                        },
-                        onRsvpClick = {
-                            RentalRepository.rsvpToCommunityPost(pin.id)
-                        },
-                        onViewDetailsClick = {
-                            if (pin.rentalItem != null) {
-                                onItemClick(pin.rentalItem)
-                            } else if (pin.owner != null) {
-                                onContactOwner(pin.owner)
-                            }
-                        },
-                        onDismiss = {
-                            selectedPin = null
-                        }
-                    )
-                }
-            }
-
-            // Compact Neighborhood Marker Carousel when callout is dismissed or to quickly switch markers
-            AnimatedVisibility(visible = selectedPin == null) {
-                LazyRow(
-                    state = carouselState,
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 18.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                // Reusable UI Component that appears when a user clicks a map marker
+                AnimatedVisibility(
+                    visible = selectedPin != null,
+                    enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut()
                 ) {
-                    items(filteredPins) { pin ->
-                        Box(
-                            modifier = Modifier
-                                .width(300.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(PaperPureWhite)
-                                .border(1.5.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
-                                .clickable { selectedPin = pin }
-                                .padding(12.dp)
-                                .testTag("map_carousel_card_${pin.id}")
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                    selectedPin?.let { pin ->
+                        EventMapMarkerCallout(
+                            pin = pin,
+                            onDirectionsClick = {
+                                LocationHelper.openNavigationIntent(
+                                    context = context,
+                                    latitude = pin.latitude,
+                                    longitude = pin.longitude,
+                                    label = pin.title
+                                )
+                            },
+                            onRsvpClick = {
+                                RentalRepository.rsvpToCommunityPost(pin.id)
+                            },
+                            onViewDetailsClick = {
+                                if (pin.rentalItem != null) {
+                                    onItemClick(pin.rentalItem)
+                                } else if (pin.owner != null) {
+                                    onContactOwner(pin.owner)
+                                }
+                            },
+                            onDismiss = {
+                                selectedPin = null
+                            }
+                        )
+                    }
+                }
+
+                // Compact Neighborhood Marker Carousel when callout is dismissed or to quickly switch markers
+                AnimatedVisibility(visible = selectedPin == null) {
+                    LazyRow(
+                        state = carouselState,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredPins) { pin ->
+                            Box(
+                                modifier = Modifier
+                                    .width(300.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(PaperPureWhite)
+                                    .border(1.5.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
+                                    .clickable { selectedPin = pin }
+                                    .padding(12.dp)
+                                    .testTag("map_carousel_card_${pin.id}")
                             ) {
-                                val iconBg = when (pin.type) {
-                                    DiscoveryPinType.PICKUP_HUB -> AccentForestGreen
-                                    DiscoveryPinType.STUDY_GROUP -> AccentPowderBlue
-                                    DiscoveryPinType.HELP_REQUEST -> AccentPeach
-                                    DiscoveryPinType.COMMUNITY_EVENT -> AccentMint
-                                    else -> PaperIvory
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(iconBg),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = when (pin.type) {
-                                            DiscoveryPinType.PICKUP_HUB -> Icons.Outlined.Lock
-                                            DiscoveryPinType.STUDY_GROUP -> Icons.Default.MenuBook
-                                            DiscoveryPinType.HELP_REQUEST -> Icons.Default.Handshake
-                                            DiscoveryPinType.COMMUNITY_EVENT -> Icons.Default.PhotoCamera
-                                            else -> Icons.Default.NearMe
-                                        },
-                                        contentDescription = null,
-                                        tint = if (pin.type == DiscoveryPinType.PICKUP_HUB) InkWhite else InkCharcoal,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
+                                    val iconBg = when (pin.type) {
+                                        DiscoveryPinType.PICKUP_HUB -> AccentForestGreen
+                                        DiscoveryPinType.STUDY_GROUP -> AccentPowderBlue
+                                        DiscoveryPinType.HELP_REQUEST -> AccentPeach
+                                        DiscoveryPinType.COMMUNITY_EVENT -> AccentMint
+                                        else -> PaperIvory
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(iconBg),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = when (pin.type) {
+                                                DiscoveryPinType.PICKUP_HUB -> Icons.Outlined.Lock
+                                                DiscoveryPinType.STUDY_GROUP -> Icons.Default.MenuBook
+                                                DiscoveryPinType.HELP_REQUEST -> Icons.Default.Handshake
+                                                DiscoveryPinType.COMMUNITY_EVENT -> Icons.Default.PhotoCamera
+                                                else -> Icons.Default.NearMe
+                                            },
+                                            contentDescription = null,
+                                            tint = if (pin.type == DiscoveryPinType.PICKUP_HUB) InkWhite else InkCharcoal,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
 
-                                Spacer(modifier = Modifier.width(10.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
 
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = pin.title,
-                                        style = LoopType.HeadlineMedium.copy(fontSize = 14.sp),
-                                        color = InkCharcoal,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "${pin.tag} · ${pin.distance}",
-                                        style = LoopType.Metadata.copy(fontSize = 11.sp),
-                                        color = InkSecondary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = pin.title,
+                                            style = LoopType.HeadlineMedium.copy(fontSize = 14.sp),
+                                            color = InkCharcoal,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${pin.tag} · ${pin.distance}",
+                                            style = LoopType.Metadata.copy(fontSize = 11.sp),
+                                            color = InkSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -878,5 +929,4 @@ fun DiscoveryMapScreen(
             }
         }
     }
-}
 }

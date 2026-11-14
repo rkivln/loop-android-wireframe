@@ -202,3 +202,80 @@ fun EventMapMarkerCallout(
         }
     }
 }
+
+@Composable
+fun EventMapMarkerCallout(
+    pin: com.example.data.models.DiscoveryPinItem,
+    onDirectionsClick: () -> Unit = {},
+    onRsvpClick: () -> Unit = {},
+    onViewDetailsClick: () -> Unit = {},
+    onDismiss: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .testTag("event_marker_callout")
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = pin.tag.ifBlank { pin.type.name },
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = pin.distance,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = pin.title,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = pin.description.ifBlank { pin.subtitle },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onDirectionsClick,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Directions")
+                }
+                Button(
+                    onClick = onRsvpClick,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (pin.isAttending) "Attending ✓" else "RSVP")
+                }
+            }
+        }
+    }
+}
