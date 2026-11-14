@@ -1,40 +1,47 @@
 package com.example.data.firebase
 
-import com.example.data.models.ChatConversation
-import com.example.data.models.ChatMessageType
-import com.example.data.models.DeliveryOptionType
-import com.example.data.models.DiscoveryPinItem
-import com.example.data.models.DiscoveryPinType
-import com.example.data.models.MessageStatus
-import com.example.data.models.RentalCategory
-import com.example.data.models.RentalItem
-import com.example.data.models.RentalMessage
-import com.example.data.models.RentalOwner
-import com.example.data.models.SpecFeature
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.IgnoreExtraProperties
+import com.google.firebase.firestore.ServerTimestamp
 
 /**
- * Firestore DTOs for Loop Cloud Backend Synchronization
+ * Firestore Canonical Typed Data Models for Loop App
+ * Uses @DocumentId, @ServerTimestamp, and full default parameters
  */
 
-data class FirestoreUser(
-    val uid: String = "",
-    val name: String = "",
-    val badge: String = "Verified User",
-    val initials: String = "U",
-    val rating: Double = 5.0,
-    val phone: String = "",
+@IgnoreExtraProperties
+data class FirestoreUserProfile(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val displayName: String = "",
+    val email: String = "",
+    val phone: String? = null,
+    val bio: String? = null,
     val location: String = "Puducherry",
-    val isOnline: Boolean = true,
-    val lastSeenTimestamp: Long = System.currentTimeMillis()
+    val avatarPresetIndex: Int = 0,
+    val customAvatarUri: String? = null,
+    val rating: Double = 5.0,
+    val reviewCount: Int = 0,
+    val rentalsCompleted: Int = 0,
+    val listingsCount: Int = 0,
+    val earnedAmount: Int = 0,
+    val isVerified: Boolean = true,
+    val memberSince: String = "Joined 2026",
+    val badges: List<String> = emptyList(),
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
 )
 
+@IgnoreExtraProperties
 data class FirestoreSpecFeature(
     val iconType: String = "",
     val label: String = ""
 )
 
+@IgnoreExtraProperties
 data class FirestoreRentalItem(
-    val id: String = "",
+    @DocumentId val id: String = "",
     val title: String = "",
     val categoryName: String = "ELECTRONICS",
     val pricePerDay: Int = 0,
@@ -42,43 +49,47 @@ data class FirestoreRentalItem(
     val rating: Double = 4.9,
     val reviewCount: Int = 0,
     val description: String = "",
-    val primaryImageName: String = "canon",
-    val imageCount: Int = 3,
-    val features: List<FirestoreSpecFeature> = emptyList(),
     val ownerId: String = "",
     val ownerName: String = "",
     val ownerInitials: String = "",
     val isPopular: Boolean = false,
     val isFavorite: Boolean = false,
     val availableToday: Boolean = true,
-    val securityDeposit: Int = 0,
-    val createdAt: Long = System.currentTimeMillis()
+    val features: List<Map<String, String>> = emptyList(),
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
 )
 
-data class FirestoreMessage(
-    val id: String = "",
-    val senderName: String = "",
-    val senderId: String = "",
-    val text: String = "",
-    val timestampStr: String = "",
-    val timestampEpoch: Long = System.currentTimeMillis(),
-    val isFromMe: Boolean = false,
-    val messageTypeStr: String = "TEXT",
-    val statusStr: String = "READ",
-    val audioDuration: String? = null,
-    val locationTitle: String? = null,
-    val locationAddress: String? = null,
-    val itemTitle: String? = null,
-    val itemPricePerDay: Int? = null
+@IgnoreExtraProperties
+data class FirestoreCommunityEvent(
+    @DocumentId val id: String = "",
+    val title: String = "",
+    val typeStr: String = "EVENT",
+    val categoryName: String = "COMMUNITY",
+    val description: String = "",
+    val location: String = "Puducherry",
+    val dateTime: String = "",
+    val attendeesOrResponses: String = "0 participating",
+    val statusStr: String = "ACTIVE",
+    val authorId: String = "",
+    val authorName: String = "",
+    val latitude: Double = 11.9340,
+    val longitude: Double = 79.8330,
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
 )
 
+@IgnoreExtraProperties
 data class FirestoreConversation(
-    val id: String = "",
+    @DocumentId val id: String = "",
+    val participantIds: List<String> = emptyList(),
     val hostId: String = "",
     val hostName: String = "",
     val hostInitials: String = "",
     val hostBadge: String = "Top Owner",
     val hostPhone: String = "",
+    val renterId: String = "",
+    val renterName: String = "",
     val itemId: String? = null,
     val itemTitle: String? = null,
     val itemPricePerDay: Int? = null,
@@ -88,41 +99,46 @@ data class FirestoreConversation(
     val isPinned: Boolean = false,
     val lastMessageText: String = "",
     val lastMessageTimestamp: String = "",
-    val updatedAt: Long = System.currentTimeMillis()
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
 )
 
-data class FirestoreDiscoveryPin(
-    val id: String = "",
-    val title: String = "",
-    val subtitle: String = "",
-    val typeStr: String = "USER_HOST",
-    val latitude: Double = 11.9340,
-    val longitude: Double = 79.8330,
-    val rating: Double = 4.9,
-    val distance: String = "0.4 km away",
-    val tag: String = "",
-    val dateOrAvailability: String = "Available today",
-    val locationName: String = "Puducherry",
-    val priceOrAttendees: String = "",
-    val description: String = "",
-    val ownerId: String? = null,
-    val itemId: String? = null,
-    val isAttending: Boolean = false
+@IgnoreExtraProperties
+data class FirestoreMessage(
+    @DocumentId val id: String = "",
+    val senderId: String = "",
+    val senderName: String = "",
+    val text: String = "",
+    val timestampStr: String = "",
+    val timestampEpoch: Long = 0L,
+    val isFromMe: Boolean = false,
+    val messageTypeStr: String = "TEXT",
+    val statusStr: String = "READ",
+    val audioDuration: String? = null,
+    val locationTitle: String? = null,
+    val locationAddress: String? = null,
+    val itemTitle: String? = null,
+    val itemPricePerDay: Int? = null,
+    @ServerTimestamp val createdAt: Timestamp? = null
 )
 
+@IgnoreExtraProperties
 data class FirestoreBooking(
-    val id: String = "",
+    @DocumentId val id: String = "",
+    val renterId: String = "",
+    val renterName: String = "",
+    val hostId: String = "",
+    val hostName: String = "",
     val itemId: String = "",
     val itemTitle: String = "",
-    val renterName: String = "Jaya Nandhini G",
-    val hostName: String = "Rakesh Kumar",
-    val startDate: String = "10 Oct 2026",
-    val endDate: String = "12 Oct 2026",
-    val daysCount: Int = 3,
-    val pricePerDay: Int = 700,
-    val totalAmount: Int = 2150,
+    val startDate: String = "",
+    val endDate: String = "",
+    val daysCount: Int = 1,
+    val pricePerDay: Int = 0,
+    val totalAmount: Int = 0,
     val status: String = "Confirmed",
     val deliveryOption: String = "Self Pickup",
     val handoverOtp: String = "8492",
-    val createdAt: Long = System.currentTimeMillis()
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
 )

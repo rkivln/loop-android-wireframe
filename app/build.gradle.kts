@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -65,6 +67,14 @@ android {
     }
 }
 
+tasks.withType<Test> {
+    failFast = true
+    timeout.set(Duration.ofMinutes(2))
+    testLogging {
+        events("passed", "failed", "skipped")
+    }
+}
+
 secrets {
     propertiesFileName = ".env"
     defaultPropertiesFileName = ".env.example"
@@ -94,6 +104,10 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.ai)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
     implementation(libs.firebase.appcheck.recaptcha)
     implementation(libs.firebase.appcheck.debug)
     implementation(libs.kotlinx.coroutines.android)

@@ -16,7 +16,8 @@ data class UserProfile(
     val earnedAmount: Int = 2450,
     val isVerified: Boolean = true,
     val memberSince: String = "Member since Oct 2024",
-    val badges: List<String> = listOf("✓ ID Verified", "★ Curated Host", "📸 35mm Club", "⚡ Quick Responder")
+    val badges: List<String> = listOf("✓ ID Verified", "★ Curated Host", "📸 35mm Club", "⚡ Quick Responder"),
+    val favoriteItemIds: List<String> = emptyList()
 ) {
     val initials: String
         get() {
@@ -88,5 +89,11 @@ data class UserCommunityPost(
     val dateTime: String,
     val attendeesOrResponses: String,
     val status: CommunityPostStatus = CommunityPostStatus.ACTIVE,
-    val createdAt: String = "Today"
+    val createdAt: String = "Today",
+    val categoryName: String = "CREATIVE_PHOTO",
+    val latitude: Double = 11.9340,
+    val longitude: Double = 79.8330,
+    val authorId: String = "user_me",
+    val authorName: String = "Organizer",
+    val createdAtEpoch: Long = System.currentTimeMillis()
 )

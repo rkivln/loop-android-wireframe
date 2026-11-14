@@ -6,17 +6,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [
-        CommunityEventEntity::class,
-        UserProfileEntity::class
-    ],
-    version = 3,
+    entities = [CommunityEventEntity::class, UserProfileEntity::class],
+    version = 1,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
-
     abstract fun communityEventDao(): CommunityEventDao
-    abstract fun userProfileDao(): UserProfileDao
 
     companion object {
         @Volatile
@@ -24,15 +19,14 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+                INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "loop_community.db"
+                    "loop_local_cache.db"
                 )
-                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .fallbackToDestructiveMigration()
                     .build()
-                INSTANCE = instance
-                instance
+                    .also { INSTANCE = it }
             }
         }
     }

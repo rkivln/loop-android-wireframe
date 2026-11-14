@@ -2,30 +2,290 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 120 &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 30)) &&
+             (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 500)) &&
+             (!('location' in data) || data.location == null || (data.location is string && data.location.size() <= 120)) &&
+             (!('avatarPresetIndex' in data) || data.avatarPresetIndex is int) &&
+             (!('customAvatarUri' in data) || data.customAvatarUri == null || (data.customAvatarUri is string && data.customAvatarUri.size() <= 500)) &&
+             (!('rating' in data) || data.rating is number) &&
+             (!('reviewCount' in data) || data.reviewCount is int) &&
+             (!('rentalsCompleted' in data) || data.rentalsCompleted is int) &&
+             (!('listingsCount' in data) || data.listingsCount is int) &&
+             (!('earnedAmount' in data) || data.earnedAmount is int) &&
+             (!('isVerified' in data) || data.isVerified is bool) &&
+             (!('memberSince' in data) || (data.memberSince is string && data.memberSince.size() <= 50)) &&
+             (!('badges' in data) || (data.badges is list && data.badges.size() <= 20)) &&
+             (!('favoriteItemIds' in data) || (data.favoriteItemIds is list && data.favoriteItemIds.size() <= 200));
+    }
+
+    function isValidRentalItem(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+             data.categoryName is string && data.categoryName.size() <= 50 &&
+             data.pricePerDay is int && data.pricePerDay >= 0 && data.pricePerDay <= 500000 &&
+             data.ownerId is string && data.ownerId.size() > 0 && data.ownerId.size() <= 128 &&
+             (!('securityDeposit' in data) || (data.securityDeposit is int && data.securityDeposit >= 0 && data.securityDeposit <= 2000000)) &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 120)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             (!('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 100)) &&
+             (!('ownerInitials' in data) || (data.ownerInitials is string && data.ownerInitials.size() <= 10)) &&
+             (!('rating' in data) || data.rating is number) &&
+             (!('reviewCount' in data) || data.reviewCount is int) &&
+             (!('isPopular' in data) || data.isPopular is bool) &&
+             (!('isFavorite' in data) || data.isFavorite is bool) &&
+             (!('availableToday' in data) || data.availableToday is bool) &&
+             (!('features' in data) || (data.features is list && data.features.size() <= 20));
+    }
+
     function isValidCommunityEvent(data) {
-      return data.id is string &&
-             data.title is string && data.title.size() > 0 && data.title.size() <= 120 &&
-             data.typeStr is string &&
-             data.statusStr is string;
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+             data.typeStr is string && data.typeStr.size() <= 50 &&
+             data.statusStr is string && data.statusStr.size() <= 50 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() <= 128 &&
+             (!('categoryName' in data) || (data.categoryName is string && data.categoryName.size() <= 50)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 150)) &&
+             (!('dateTime' in data) || (data.dateTime is string && data.dateTime.size() <= 100)) &&
+             (!('attendeesOrResponses' in data) || (data.attendeesOrResponses is string && data.attendeesOrResponses.size() <= 100)) &&
+             (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 100)) &&
+             (!('latitude' in data) || data.latitude is number) &&
+             (!('longitude' in data) || data.longitude is number);
     }
 
-    match /community_posts/{postId} {
-      allow read: if true;
-      allow create: if isValidCommunityEvent(request.resource.data);
-      allow update: if request.resource.data.title is string;
-      allow delete: if true;
+    function isValidConversation(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.participantIds is list && data.participantIds.size() >= 1 && data.participantIds.size() <= 10 &&
+             data.hostId is string && data.hostId.size() > 0 && data.hostId.size() <= 128 &&
+             data.renterId is string && data.renterId.size() > 0 && data.renterId.size() <= 128 &&
+             (!('hostName' in data) || (data.hostName is string && data.hostName.size() <= 100)) &&
+             (!('hostInitials' in data) || (data.hostInitials is string && data.hostInitials.size() <= 10)) &&
+             (!('hostBadge' in data) || (data.hostBadge is string && data.hostBadge.size() <= 50)) &&
+             (!('hostPhone' in data) || (data.hostPhone is string && data.hostPhone.size() <= 30)) &&
+             (!('renterName' in data) || (data.renterName is string && data.renterName.size() <= 100)) &&
+             (!('itemId' in data) || data.itemId == null || (data.itemId is string && data.itemId.size() <= 128)) &&
+             (!('itemTitle' in data) || data.itemTitle == null || (data.itemTitle is string && data.itemTitle.size() <= 150)) &&
+             (!('itemPricePerDay' in data) || data.itemPricePerDay == null || data.itemPricePerDay is int) &&
+             (!('isOnline' in data) || data.isOnline is bool) &&
+             (!('isTyping' in data) || data.isTyping is bool) &&
+             (!('unreadCount' in data) || data.unreadCount is int) &&
+             (!('isPinned' in data) || data.isPinned is bool) &&
+             (!('lastMessageText' in data) || (data.lastMessageText is string && data.lastMessageText.size() <= 1000)) &&
+             (!('lastMessageTimestamp' in data) || (data.lastMessageTimestamp is string && data.lastMessageTimestamp.size() <= 50));
     }
 
+    function isValidMessage(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.senderId is string && data.senderId.size() > 0 && data.senderId.size() <= 128 &&
+             data.text is string && data.text.size() <= 2000 &&
+             data.messageTypeStr is string && data.messageTypeStr.size() <= 30 &&
+             data.statusStr is string && data.statusStr.size() <= 30 &&
+             (!('senderName' in data) || (data.senderName is string && data.senderName.size() <= 100)) &&
+             (!('timestampStr' in data) || (data.timestampStr is string && data.timestampStr.size() <= 50)) &&
+             (!('timestampEpoch' in data) || data.timestampEpoch is number) &&
+             (!('isFromMe' in data) || data.isFromMe is bool) &&
+             (!('audioDuration' in data) || data.audioDuration == null || (data.audioDuration is string && data.audioDuration.size() <= 30)) &&
+             (!('locationTitle' in data) || data.locationTitle == null || (data.locationTitle is string && data.locationTitle.size() <= 150)) &&
+             (!('locationAddress' in data) || data.locationAddress == null || (data.locationAddress is string && data.locationAddress.size() <= 250)) &&
+             (!('itemTitle' in data) || data.itemTitle == null || (data.itemTitle is string && data.itemTitle.size() <= 150)) &&
+             (!('itemPricePerDay' in data) || data.itemPricePerDay == null || data.itemPricePerDay is int);
+    }
+
+    function isValidBooking(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.renterId is string && data.renterId.size() > 0 && data.renterId.size() <= 128 &&
+             data.hostId is string && data.hostId.size() > 0 && data.hostId.size() <= 128 &&
+             data.itemId is string && data.itemId.size() > 0 && data.itemId.size() <= 128 &&
+             data.totalAmount is int && data.totalAmount >= 0 &&
+             data.status is string && data.status.size() <= 30 &&
+             (!('renterName' in data) || (data.renterName is string && data.renterName.size() <= 100)) &&
+             (!('hostName' in data) || (data.hostName is string && data.hostName.size() <= 100)) &&
+             (!('itemTitle' in data) || (data.itemTitle is string && data.itemTitle.size() <= 150)) &&
+             (!('startDate' in data) || (data.startDate is string && data.startDate.size() <= 50)) &&
+             (!('endDate' in data) || (data.endDate is string && data.endDate.size() <= 50)) &&
+             (!('daysCount' in data) || data.daysCount is int) &&
+             (!('pricePerDay' in data) || data.pricePerDay is int) &&
+             (!('deliveryOption' in data) || (data.deliveryOption is string && data.deliveryOption.size() <= 50)) &&
+             (!('handoverOtp' in data) || (data.handoverOtp is string && data.handoverOtp.size() <= 10));
+    }
+
+    function isConversationParticipant(convId) {
+      let conv = get(/databases/$(database)/documents/conversations/$(convId)).data;
+      return conv.hostId == request.auth.uid ||
+             conv.renterId == request.auth.uid ||
+             request.auth.uid in conv.participantIds;
+    }
+
+    // USER PROFILES
     match /users/{userId} {
-      allow read, write: if true;
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidUserProfile(incoming());
+      allow update: if isSignedIn() && isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'phone', 'bio', 'location', 'avatarPresetIndex',
+                         'customAvatarUri', 'rating', 'reviewCount', 'rentalsCompleted',
+                         'listingsCount', 'earnedAmount', 'isVerified', 'memberSince',
+                         'badges', 'favoriteItemIds', 'updatedAt'
+                       ]);
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
     }
 
+    // RENTAL EQUIPMENT ITEMS
     match /items/{itemId} {
-      allow read, write: if true;
+      allow get: if isSignedIn() && isValidId(itemId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(itemId) &&
+                       incoming().id == itemId &&
+                       incoming().ownerId == request.auth.uid &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidRentalItem(incoming());
+      allow update: if isSignedIn() && isValidId(itemId) &&
+                       existing().ownerId == request.auth.uid &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidRentalItem(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'categoryName', 'pricePerDay', 'securityDeposit', 'location',
+                         'rating', 'reviewCount', 'description', 'ownerName', 'ownerInitials',
+                         'isPopular', 'isFavorite', 'availableToday', 'features', 'updatedAt'
+                       ]);
+      allow delete: if isSignedIn() && isValidId(itemId) && existing().ownerId == request.auth.uid;
     }
 
+    // COMMUNITY POSTS / INITIATIVES
+    match /community_posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(postId) &&
+                       incoming().id == postId &&
+                       incoming().authorId == request.auth.uid &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidCommunityEvent(incoming());
+      allow update: if isSignedIn() && isValidId(postId) &&
+                       incoming().authorId == existing().authorId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidCommunityEvent(incoming()) &&
+                       (
+                         (existing().authorId == request.auth.uid &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'title', 'typeStr', 'categoryName', 'description', 'location',
+                            'dateTime', 'attendeesOrResponses', 'statusStr', 'authorName',
+                            'latitude', 'longitude', 'updatedAt'
+                          ])) ||
+                         (incoming().diff(existing()).affectedKeys().hasOnly(['attendeesOrResponses', 'updatedAt']))
+                       );
+      allow delete: if isSignedIn() && isValidId(postId) && existing().authorId == request.auth.uid;
+    }
+
+    // CONVERSATIONS (participant-scoped read/list/write)
     match /conversations/{convId} {
-      allow read, write: if true;
+      allow get: if isSignedIn() && isValidId(convId) &&
+                    (resource == null ||
+                     resource.data.hostId == request.auth.uid ||
+                     resource.data.renterId == request.auth.uid ||
+                     request.auth.uid in resource.data.participantIds);
+      allow list: if isSignedIn() &&
+                    (resource.data.hostId == request.auth.uid ||
+                     resource.data.renterId == request.auth.uid ||
+                     request.auth.uid in resource.data.participantIds);
+      allow create: if isSignedIn() && isValidId(convId) &&
+                       incoming().id == convId &&
+                       (incoming().hostId == request.auth.uid || incoming().renterId == request.auth.uid) &&
+                       request.auth.uid in incoming().participantIds &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidConversation(incoming());
+      allow update: if isSignedIn() && isValidId(convId) &&
+                       (existing().hostId == request.auth.uid ||
+                        existing().renterId == request.auth.uid ||
+                        request.auth.uid in existing().participantIds) &&
+                       incoming().hostId == existing().hostId &&
+                       incoming().renterId == existing().renterId &&
+                       incoming().participantIds == existing().participantIds &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidConversation(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'lastMessageText', 'lastMessageTimestamp', 'unreadCount',
+                         'isPinned', 'isOnline', 'isTyping', 'updatedAt'
+                       ]);
+      allow delete: if isSignedIn() && isValidId(convId) &&
+                       (existing().hostId == request.auth.uid || existing().renterId == request.auth.uid);
+
+      // MESSAGES SUBCOLLECTION (participant-scoped, append-only)
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(messageId) && isConversationParticipant(convId);
+        allow list: if isSignedIn() && isConversationParticipant(convId);
+        allow create: if isSignedIn() && isValidId(messageId) &&
+                         isConversationParticipant(convId) &&
+                         incoming().id == messageId &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         isValidMessage(incoming());
+        allow update: if false; // Append-only immutable messages
+        allow delete: if isSignedIn() && isValidId(messageId) &&
+                         isConversationParticipant(convId) &&
+                         existing().senderId == request.auth.uid;
+      }
+    }
+
+    // BOOKINGS (renter + host scoped)
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() && isValidId(bookingId) &&
+                    (resource.data.renterId == request.auth.uid || resource.data.hostId == request.auth.uid);
+      allow list: if isSignedIn() &&
+                    (resource.data.renterId == request.auth.uid || resource.data.hostId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(bookingId) &&
+                       incoming().id == bookingId &&
+                       incoming().renterId == request.auth.uid &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidBooking(incoming());
+      allow update: if isSignedIn() && isValidId(bookingId) &&
+                       (existing().renterId == request.auth.uid || existing().hostId == request.auth.uid) &&
+                       incoming().renterId == existing().renterId &&
+                       incoming().hostId == existing().hostId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidBooking(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'handoverOtp']);
+      allow delete: if isSignedIn() && isValidId(bookingId) &&
+                       (existing().renterId == request.auth.uid || existing().hostId == request.auth.uid);
     }
   }
 }

@@ -6,31 +6,25 @@ import com.example.data.RentalRepository
 import com.example.data.firebase.FirestoreService
 import com.example.data.local.AppDatabase
 import com.example.data.local.CommunityEventDao
-import com.example.data.local.CommunityEventEntity
 import com.example.data.local.toEntity
 import com.example.data.local.toUserCommunityPost
 import com.example.data.models.CommunityPostStatus
-import com.example.data.models.CommunityPostType
-import com.example.data.models.RentalCategory
 import com.example.data.models.UserCommunityPost
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Clean Data Repository Interface for Community Events.
- * Coordinates local Room persistence with remote Firestore synchronization.
- */
 interface ICommunityEventRepository {
     val allEvents: Flow<List<UserCommunityPost>>
     val activeEvents: Flow<List<UserCommunityPost>>
@@ -43,135 +37,108 @@ interface ICommunityEventRepository {
     suspend fun syncWithFirestore(): Result<Unit>
 }
 
-/**
- * Data repository implementation combining Room Database (local offline-first source of truth)
- * with Firebase Firestore (real-time cloud database).
- */
 class CommunityEventRepository(
     private val eventDao: CommunityEventDao,
-    private val firestoreService: FirestoreService = FirestoreService.instance,
+    private val firestoreService: FirestoreService,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ICommunityEventRepository {
 
-    private val TAG = "CommunityEventRepo"
+    private val tag = "CommunityEventRepo"
     private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private var syncJob: Job? = null
 
-    /**
-     * All community events observed reactively from Room SQLite database.
-     */
     override val allEvents: Flow<List<UserCommunityPost>> = eventDao.getAllEvents()
         .map { entities -> entities.map { it.toUserCommunityPost() } }
         .distinctUntilChanged()
 
-    /**
-     * Active events observed reactively from Room SQLite database.
-     */
     override val activeEvents: Flow<List<UserCommunityPost>> = eventDao.getActiveEvents()
         .map { entities -> entities.map { it.toUserCommunityPost() } }
         .distinctUntilChanged()
 
     init {
-        // 1. Seed initial events to Room if local database is empty
         repositoryScope.launch {
             try {
-                val count = eventDao.getCount()
-                if (count == 0) {
+                if (eventDao.getCount() == 0) {
                     val initialEntities = RentalRepository.initialCommunityPosts.map { post ->
-                        post.toEntity(isSynced = true)
+                        post.toEntity(isSynced = false)
                     }
                     eventDao.insertEvents(initialEntities)
-                    Log.d(TAG, "Seeded ${initialEntities.size} initial community events into Room")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error checking/seeding Room database: ${e.message}")
-            }
-        }
-
-        // 2. Start real-time Firestore listener to keep local Room database updated
-        repositoryScope.launch {
-            try {
-                firestoreService.listenToCommunityPosts().collectLatest { cloudPosts ->
-                    if (cloudPosts.isNotEmpty()) {
-                        val entities = cloudPosts.map { it.toEntity(isSynced = true) }
-                        eventDao.insertEvents(entities)
-                        Log.d(TAG, "Synchronized ${entities.size} community posts from Firestore into Room")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Realtime Firestore sync exception: ${e.message}")
+                Log.e(tag, "Error seeding Room database: ${e.message}")
             }
         }
     }
 
-    /**
-     * Reactive stream for a specific event by ID from Room.
-     */
+    fun startAuthenticatedSync() {
+        if (Firebase.auth.currentUser == null) return
+        if (syncJob?.isActive == true) return
+        syncJob = repositoryScope.launch {
+            try {
+                firestoreService.listenToCommunityPosts().collect { cloudPosts ->
+                    if (cloudPosts.isNotEmpty()) {
+                        val entities = cloudPosts.map { it.toEntity(isSynced = true) }
+                        eventDao.insertEvents(entities)
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(tag, "Realtime Firestore community sync failed: ${e.message}")
+            }
+        }
+    }
+
+    fun stopSync() {
+        syncJob?.cancel()
+        syncJob = null
+    }
+
     override fun getEventById(id: String): Flow<UserCommunityPost?> =
         eventDao.getEventById(id).map { it?.toUserCommunityPost() }
 
-    /**
-     * One-shot fetch for a single event from Room.
-     */
     override suspend fun getEventByIdOnce(id: String): UserCommunityPost? = withContext(ioDispatcher) {
         eventDao.getEventByIdOnce(id)?.toUserCommunityPost()
     }
 
-    /**
-     * Stores a new community event.
-     * Persists immediately to Room for instantaneous offline UI updates,
-     * then synchronizes with Firestore.
-     */
     override suspend fun createEvent(post: UserCommunityPost): Result<UserCommunityPost> = withContext(ioDispatcher) {
         try {
-            // Write to Room first (optimistic local durability)
             val entity = post.toEntity(isSynced = false)
             eventDao.insertEvent(entity)
 
-            // Sync with Firestore
-            try {
-                firestoreService.createCommunityPost(post)
-                eventDao.updateSyncStatus(post.id, isSynced = true)
-            } catch (fe: Exception) {
-                Log.w(TAG, "Event saved locally to Room, pending Firestore cloud sync: ${fe.message}")
+            val cloudResult = firestoreService.createCommunityPost(post)
+            cloudResult.onSuccess { syncedPost ->
+                eventDao.insertEvent(syncedPost.toEntity(isSynced = true))
+            }.onFailure { error ->
+                Log.e(tag, "Failed to sync created event to Firestore: ${error.message}")
             }
-
-            Result.success(post)
+            Result.success(cloudResult.getOrDefault(post))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create community event: ${e.message}", e)
+            Log.e(tag, "Failed to create community event: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-    /**
-     * Updates an event's active/completed/archived status in both Room and Firestore.
-     */
     override suspend fun updateEventStatus(id: String, status: CommunityPostStatus): Result<Unit> = withContext(ioDispatcher) {
         try {
-            // Update Room locally
             eventDao.updateStatus(id, status.name)
-
-            // Update Firestore
-            try {
-                firestoreService.updateCommunityPostStatus(id, status)
-            } catch (fe: Exception) {
-                Log.w(TAG, "Status updated in Room; Firestore pending: ${fe.message}")
-            }
-
+            val result = firestoreService.updateCommunityPostStatus(id, status)
+            result.onFailure { Log.e(tag, "Status update failed in Firestore: ${it.message}") }
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to update event status: ${e.message}", e)
+            Log.e(tag, "Failed to update event status: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-    /**
-     * Records an RSVP / response to a community event.
-     * Updates attendee counts locally in Room and syncs to Firestore.
-     */
     override suspend fun rsvpToEvent(id: String): Result<String> = withContext(ioDispatcher) {
         try {
             val current = eventDao.getEventByIdOnce(id)
-            val currentText = current?.attendeesOrResponses ?: "0 registered"
+            val currentText = current?.attendeesOrResponses ?: "0 participating"
 
             val numRegex = Regex("(\\d+)")
             val match = numRegex.find(currentText)
@@ -188,15 +155,8 @@ class CommunityEventRepository(
                     "${currentCount + 1} members participating"
             }
 
-            // Update in Room
             eventDao.updateAttendees(id, newAttendeesText)
-
-            // Update in Firestore
-            try {
-                firestoreService.updateCommunityPostAttendees(id, newAttendeesText)
-            } catch (fe: Exception) {
-                Log.w(TAG, "Attendees updated in Room; Firestore sync pending: ${fe.message}")
-            }
+            firestoreService.updateCommunityPostAttendees(id, newAttendeesText)
 
             val feedback = when (current?.type) {
                 "HELP_REQUEST" -> "Response sent to organizer!"
@@ -205,46 +165,42 @@ class CommunityEventRepository(
             }
 
             Result.success(feedback)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to RSVP to event: ${e.message}", e)
+            Log.e(tag, "Failed to RSVP to event: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-    /**
-     * Deletes a community event from both Room and Firestore.
-     */
     override suspend fun deleteEvent(id: String): Result<Unit> = withContext(ioDispatcher) {
         try {
             eventDao.deleteEventById(id)
-
-            try {
-                firestoreService.deleteCommunityPost(id)
-            } catch (fe: Exception) {
-                Log.w(TAG, "Event deleted locally from Room; Firestore pending: ${fe.message}")
-            }
-
+            firestoreService.deleteCommunityPost(id)
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to delete event: ${e.message}", e)
+            Log.e(tag, "Failed to delete event: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-    /**
-     * Manually triggers a one-shot fetch and synchronization from Firestore into Room.
-     */
     override suspend fun syncWithFirestore(): Result<Unit> = withContext(ioDispatcher) {
         try {
-            firestoreService.listenToCommunityPosts().collectLatest { cloudPosts ->
-                if (cloudPosts.isNotEmpty()) {
-                    val entities = cloudPosts.map { it.toEntity(isSynced = true) }
-                    eventDao.insertEvents(entities)
-                }
+            if (Firebase.auth.currentUser == null) {
+                return@withContext Result.failure(IllegalStateException("User not signed in"))
+            }
+            val cloudPosts = firestoreService.listenToCommunityPosts().first()
+            if (cloudPosts.isNotEmpty()) {
+                val entities = cloudPosts.map { it.toEntity(isSynced = true) }
+                eventDao.insertEvents(entities)
             }
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Manual sync error: ${e.message}", e)
+            Log.e(tag, "Manual sync error: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -259,15 +215,12 @@ class CommunityEventRepository(
                     val db = AppDatabase.getInstance(context)
                     CommunityEventRepository(
                         eventDao = db.communityEventDao(),
-                        firestoreService = FirestoreService.instance
+                        firestoreService = FirestoreService.getInstance(context)
                     ).also { INSTANCE = it }
                 }
             }
         }
 
-        /**
-         * Returns existing instance or creates a default one if ApplicationContext is accessible.
-         */
         fun get(): CommunityEventRepository? = INSTANCE
     }
 }

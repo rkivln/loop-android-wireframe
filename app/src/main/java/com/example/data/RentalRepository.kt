@@ -1,13 +1,16 @@
 package com.example.data
 
+import android.content.Context
+import android.util.Log
 import com.example.R
+import com.example.data.firebase.FirestoreBooking
 import com.example.data.firebase.FirestoreService
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
+import com.example.data.models.CommunityEvent
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
 import com.example.data.models.CuratedWalkingRoute
-import com.example.data.models.DeliveryOptionType
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
 import com.example.data.models.MapCategoryFilter
@@ -21,19 +24,34 @@ import com.example.data.models.UserActivityItem
 import com.example.data.models.UserActivityType
 import com.example.data.models.UserCommunityPost
 import com.example.data.models.UserProfile
+import com.example.data.models.UserRentalBooking
+import com.example.data.repository.CommunityEventRepository
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 object RentalRepository {
+    private const val TAG = "RentalRepository"
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val firestoreService = FirestoreService.instance
+    private var firestoreService: FirestoreService? = null
+    private var communityRepo: CommunityEventRepository? = null
+    private var activeSessionUid: String? = null
+    private var syncJobs = mutableListOf<Job>()
+    private var messageListenerJob: Job? = null
 
     val defaultOwner = RentalOwner(
         id = "owner_1",
@@ -83,580 +101,78 @@ object RentalRepository {
         phone = "+91 99520 87654"
     )
 
-    val items: List<RentalItem> = listOf(
-        RentalItem(
-            id = "item_leica_m",
-            title = "Canon EOS & 35mm Glass",
-            category = RentalCategory.ELECTRONICS,
-            pricePerDay = 750,
-            location = "White Town, Puducherry",
-            rating = 4.9f,
-            reviewCount = 38,
-            description = "Impeccably maintained 35mm photographic setup with prime portrait glass. Natural film rendering, leather neck strap, extra high-capacity battery, and fast 64GB card included.",
-            primaryImageRes = R.drawable.img_editorial_lifestyle_1_1791087263359,
-            imageCount = 5,
-            features = listOf(
-                SpecFeature("CAMERA", "24.2 MP APS-C"),
-                SpecFeature("LENS", "35mm f/1.8 Prime"),
-                SpecFeature("STORAGE", "64GB Extreme SD"),
-                SpecFeature("BAG", "Horween Leather Strap")
-            ),
-            owner = defaultOwner,
-            isPopular = true,
-            isFavorite = true,
-            availableToday = true,
-            securityDeposit = 1500
-        ),
-        RentalItem(
-            id = "item_synth_station",
-            title = "Analogue Synth & Studio Desk",
-            category = RentalCategory.STUDY_OFFICE,
-            pricePerDay = 850,
-            location = "Heritage Quarter",
-            rating = 4.9f,
-            reviewCount = 24,
-            description = "Complete creative desktop audio setup featuring compact analogue synthesizer, closed-back studio monitors, and oak workspace accessories for music production and podcast sessions.",
-            primaryImageRes = R.drawable.img_editorial_studio_2_1791087277042,
-            imageCount = 4,
-            features = listOf(
-                SpecFeature("CHIP", "Analogue Engine"),
-                SpecFeature("STORAGE", "USB-C Audio Interface"),
-                SpecFeature("BAG", "Hard Shell Flight Case"),
-                SpecFeature("BATTERY", "Power Supply & Cables")
-            ),
-            owner = ownerPriya,
-            isPopular = true,
-            isFavorite = false,
-            availableToday = true,
-            securityDeposit = 2000
-        ),
-        RentalItem(
-            id = "item_coastal_ebike",
-            title = "Coastal Cruiser Electric E-Bike",
-            category = RentalCategory.VEHICLES,
-            pricePerDay = 450,
-            location = "Goubert Avenue",
-            rating = 4.8f,
-            reviewCount = 52,
-            description = "Minimalist matte scrambler e-bike with 75km range, integrated LED headlamp, woven front basket, and dual disk brakes. Ideal for scenic coastal rides along the Promenade.",
-            primaryImageRes = R.drawable.img_editorial_outdoor_3_1791087293034,
-            imageCount = 4,
-            features = listOf(
-                SpecFeature("RANGE", "75 km Range"),
-                SpecFeature("BATTERY", "Quick-Swap Battery"),
-                SpecFeature("BAG", "Kevlar Helmet Included"),
-                SpecFeature("CAMERA", "Integrated U-Lock")
-            ),
-            owner = ownerVikram,
-            isPopular = true,
-            isFavorite = true,
-            availableToday = true,
-            securityDeposit = 1000
-        ),
-        RentalItem(
-            id = "item_armchair",
-            title = "Scandinavian Linen Armchair",
-            category = RentalCategory.FURNITURE,
-            pricePerDay = 300,
-            location = "Suffren Street",
-            rating = 4.9f,
-            reviewCount = 19,
-            description = "Artisanal neutral linen armchair with solid oak joinery. Sourced for architectural photoshoots, pop-up gallery lounges, and relaxed reading corners.",
-            primaryImageRes = R.drawable.modern_armchair_1790478015816,
-            imageCount = 3,
-            features = listOf(
-                SpecFeature("BAG", "Natural Linen Cover"),
-                SpecFeature("LENS", "Solid White Oak"),
-                SpecFeature("CHIP", "Lightweight Modular")
-            ),
-            owner = defaultOwner,
-            isPopular = false,
-            isFavorite = false,
-            availableToday = true,
-            securityDeposit = 800
-        ),
-        RentalItem(
-            id = "item_projector",
-            title = "Portable Cinema Projector",
-            category = RentalCategory.EVENTS,
-            pricePerDay = 500,
-            location = "Lawspet Quarter",
-            rating = 4.8f,
-            reviewCount = 31,
-            description = "Compact 1080p full HD cinematic projector with built-in Harman Kardon acoustics, lightweight tripod, and wireless AirPlay / Chromecast support for outdoor courtyard screenings.",
-            primaryImageRes = R.drawable.modern_projector_1790478027952,
-            imageCount = 4,
-            features = listOf(
-                SpecFeature("CAMERA", "1080p Cine Lens"),
-                SpecFeature("STORAGE", "HDMI & AirPlay"),
-                SpecFeature("BAG", "Carbon Tripod Bag"),
-                SpecFeature("CHIP", "360° Audio Speaker")
-            ),
-            owner = ownerAnanya,
-            isPopular = false,
-            isFavorite = false,
-            availableToday = true,
-            securityDeposit = 1200
-        ),
-        RentalItem(
-            id = "item_pro_laptop",
-            title = "M2 Pro Workstation Laptop",
-            category = RentalCategory.ELECTRONICS,
-            pricePerDay = 600,
-            location = "Mission Street",
-            rating = 4.9f,
-            reviewCount = 27,
-            description = "High-performance laptop calibrated for Lightroom, DaVinci Resolve, and mobile development. Sourced with padded felt sleeve and 96W USB-C charger.",
-            primaryImageRes = R.drawable.modern_laptop_1790477981432,
-            imageCount = 4,
-            features = listOf(
-                SpecFeature("CHIP", "M2 Pro 12-Core"),
-                SpecFeature("STORAGE", "1TB Fast NVMe"),
-                SpecFeature("BATTERY", "16h Battery Life"),
-                SpecFeature("BAG", "Felt Wool Sleeve")
-            ),
-            owner = ownerPriya,
-            isPopular = false,
-            isFavorite = false,
-            availableToday = true,
-            securityDeposit = 2500
-        )
-    )
+    val items: List<RentalItem> = emptyList()
 
-    val initialConversations: List<ChatConversation> = listOf(
-        ChatConversation(
-            id = "conv_rakesh",
-            owner = defaultOwner,
-            itemContext = items[0],
-            isOnline = true,
-            isTyping = false,
-            unreadCount = 1,
-            isPinned = true,
-            messages = listOf(
-                RentalMessage(
-                    id = "m_rakesh_0",
-                    senderName = "System",
-                    text = "Inquiry started for Canon EOS & 35mm Glass (₹750/day)",
-                    timestamp = "10:28 AM",
-                    isFromMe = false,
-                    messageType = ChatMessageType.RENTAL_OFFER,
-                    itemTitle = "Canon EOS & 35mm Glass",
-                    itemPricePerDay = 750,
-                    itemImageRes = R.drawable.img_editorial_lifestyle_1_1791087263359
-                ),
-                RentalMessage(
-                    id = "m_rakesh_1",
-                    senderName = "Rakesh Kumar",
-                    text = "Hello! Looking forward to passing over the 35mm kit. The glass is freshly cleaned.",
-                    timestamp = "10:30 AM",
-                    isFromMe = false,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.READ
-                ),
-                RentalMessage(
-                    id = "m_rakesh_2",
-                    senderName = "Me",
-                    text = "Hi Rakesh! Could we meet around 11 AM near Café des Arts in White Town?",
-                    timestamp = "10:32 AM",
-                    isFromMe = true,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.READ
-                ),
-                RentalMessage(
-                    id = "m_rakesh_4",
-                    senderName = "Rakesh Kumar",
-                    text = "Pickup Location",
-                    timestamp = "10:35 AM",
-                    isFromMe = false,
-                    messageType = ChatMessageType.LOCATION_PIN,
-                    locationTitle = "Café des Arts Courtyard",
-                    locationAddress = "10, Suffren St, White Town, Puducherry",
-                    status = MessageStatus.READ
-                ),
-                RentalMessage(
-                    id = "m_rakesh_5",
-                    senderName = "Rakesh Kumar",
-                    text = "Perfect! I'll have the camera, leather strap, and extra battery ready for you. See you there.",
-                    timestamp = "10:36 AM",
-                    isFromMe = false,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.DELIVERED
-                )
-            )
-        ),
-        ChatConversation(
-            id = "conv_priya",
-            owner = ownerPriya,
-            itemContext = items[1],
-            isOnline = true,
-            isTyping = false,
-            unreadCount = 0,
-            isPinned = false,
-            messages = listOf(
-                RentalMessage(
-                    id = "m_priya_1",
-                    senderName = "Me",
-                    text = "Hi Priya! Is the synth station available for recording this Saturday?",
-                    timestamp = "Yesterday",
-                    isFromMe = true,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.READ
-                ),
-                RentalMessage(
-                    id = "m_priya_2",
-                    senderName = "Priya Sharma",
-                    text = "Yes, it is! Comes packed in the flight case with all required cables.",
-                    timestamp = "Yesterday",
-                    isFromMe = false,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.READ
-                )
-            )
-        ),
-        ChatConversation(
-            id = "conv_vikram",
-            owner = ownerVikram,
-            itemContext = items[2],
-            isOnline = false,
-            isTyping = false,
-            unreadCount = 0,
-            isPinned = false,
-            messages = listOf(
-                RentalMessage(
-                    id = "m_vikram_1",
-                    senderName = "Vikram David",
-                    text = "Coastal E-bike is fully charged and tire pressure is dialed in.",
-                    timestamp = "Tuesday",
-                    isFromMe = false,
-                    messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.READ
-                )
-            )
-        )
-    )
+    val initialConversations: List<ChatConversation> = emptyList()
+    val sampleMessages: List<RentalMessage> = emptyList()
 
-    val sampleMessages: List<RentalMessage> = initialConversations.first().messages
+    val discoveryPins: List<DiscoveryPinItem> = emptyList()
 
-    val discoveryPins: List<DiscoveryPinItem> = listOf(
-        DiscoveryPinItem(
-            id = "pin_rakesh",
-            title = "Rakesh Kumar",
-            subtitle = "35mm Optics & Cameras",
-            type = DiscoveryPinType.USER_HOST,
-            latitude = 11.9338,
-            longitude = 79.8350,
-            rating = 4.9f,
-            distance = "250 m away",
-            tag = "★ Master Host",
-            dateOrAvailability = "Available today",
-            locationName = "Suffren St, White Town",
-            priceOrAttendees = "₹750 / day",
-            description = "Dedicated photographer renting vintage 35mm bodies, portrait lenses, and hard shell flight cases.",
-            owner = defaultOwner,
-            rentalItem = items[0],
-            imageRes = R.drawable.img_editorial_lifestyle_1_1791087263359,
-            category = RentalCategory.ELECTRONICS,
-            filterCategory = MapCategoryFilter.MAKERS,
-            neighborhood = "White Town",
-            walkingTime = "3 min walk",
-            cyclingTime = "1 min ride",
-            address = "10, Suffren Street, White Town, Puducherry"
-        ),
-        DiscoveryPinItem(
-            id = "pin_study_courtyard",
-            title = "Alliance Courtyard Study Table",
-            subtitle = "Quiet Co-working & Design Circle",
-            type = DiscoveryPinType.STUDY_GROUP,
-            latitude = 11.9328,
-            longitude = 79.8335,
-            rating = 4.95f,
-            distance = "320 m away",
-            tag = "📚 Study Group",
-            dateOrAvailability = "Daily · 9:00 AM – 6:00 PM",
-            locationName = "Alliance Française Courtyard",
-            priceOrAttendees = "6 open desks",
-            description = "Quiet shaded veranda with high-speed fiber Wi-Fi, power banks, and shared architecture & photography design volumes.",
-            imageRes = R.drawable.img_editorial_studio_2_1791087277042,
-            category = RentalCategory.STUDY_OFFICE,
-            filterCategory = MapCategoryFilter.STUDY_GROUPS,
-            neighborhood = "White Town",
-            walkingTime = "4 min walk",
-            cyclingTime = "1 min ride",
-            address = "58, Suffren Street, White Town, Puducherry"
-        ),
-        DiscoveryPinItem(
-            id = "pin_help_darkroom",
-            title = "35mm Film Roll Loading & Darkroom Help",
-            subtitle = "Community Skill Exchange",
-            type = DiscoveryPinType.HELP_REQUEST,
-            latitude = 11.9360,
-            longitude = 79.8320,
-            rating = 4.9f,
-            distance = "450 m away",
-            tag = "🤝 Help Needed",
-            dateOrAvailability = "Today · Flexible",
-            locationName = "Romain Rolland Studio",
-            priceOrAttendees = "Exchange / Coffee",
-            description = "Beginner photographer seeking a fellow film shooter to assist with spooling 120 medium format roll into Paterson developing tank.",
-            imageRes = R.drawable.canon_eos_camera_1790477967758,
-            category = RentalCategory.ELECTRONICS,
-            filterCategory = MapCategoryFilter.HELP_NEEDED,
-            neighborhood = "White Town",
-            walkingTime = "6 min walk",
-            cyclingTime = "2 min ride",
-            address = "22, Romain Rolland St, White Town"
-        ),
-        DiscoveryPinItem(
-            id = "pin_event_photowalk",
-            title = "Promenade Sunset Walk",
-            subtitle = "Rock Beach Promenade",
-            type = DiscoveryPinType.COMMUNITY_EVENT,
-            latitude = 11.9295,
-            longitude = 79.8370,
-            rating = 4.9f,
-            distance = "400 m away",
-            tag = "📸 Photo Walk",
-            dateOrAvailability = "Today · 5:00 PM – 7:00 PM",
-            locationName = "Promenade Rock Beach",
-            priceOrAttendees = "18 creators",
-            description = "Casual twilight gathering of local photographers exploring the French Quarter seafront with shared lenses and analogue cameras.",
-            isAttending = true,
-            imageRes = R.drawable.img_editorial_lifestyle_1_1791087263359,
-            category = RentalCategory.EVENTS,
-            filterCategory = MapCategoryFilter.LOCAL_EVENTS,
-            neighborhood = "Promenade",
-            walkingTime = "5 min walk",
-            cyclingTime = "2 min ride",
-            address = "Rock Beach Promenade, White Town"
-        ),
-        DiscoveryPinItem(
-            id = "pin_priya",
-            title = "Priya Sharma",
-            subtitle = "Audio & Studio Gear",
-            type = DiscoveryPinType.USER_HOST,
-            latitude = 11.9372,
-            longitude = 79.8270,
-            rating = 4.8f,
-            distance = "650 m away",
-            tag = "Verified Host",
-            dateOrAvailability = "Available today",
-            locationName = "Heritage Quarter",
-            priceOrAttendees = "₹850 / day",
-            description = "Producer sharing synthesizers, studio audio interfaces, and high-spec creative laptops.",
-            owner = ownerPriya,
-            rentalItem = items[1],
-            imageRes = R.drawable.img_editorial_studio_2_1791087277042,
-            category = RentalCategory.STUDY_OFFICE,
-            filterCategory = MapCategoryFilter.MAKERS,
-            neighborhood = "Heritage Quarter",
-            walkingTime = "8 min walk",
-            cyclingTime = "3 min ride",
-            address = "42, MG Road, Heritage Quarter, Puducherry"
-        ),
-        DiscoveryPinItem(
-            id = "pin_vikram",
-            title = "Vikram David",
-            subtitle = "Coastal E-Bikes",
-            type = DiscoveryPinType.USER_HOST,
-            latitude = 11.9310,
-            longitude = 79.8365,
-            rating = 4.8f,
-            distance = "500 m away",
-            tag = "⚡ Superhost",
-            dateOrAvailability = "Available today",
-            locationName = "Goubert Avenue",
-            priceOrAttendees = "₹450 / day",
-            description = "Curator of electric mobility and scrambler cruisers for seamless coastal wandering.",
-            owner = ownerVikram,
-            rentalItem = items[2],
-            imageRes = R.drawable.img_editorial_outdoor_3_1791087293034,
-            category = RentalCategory.VEHICLES,
-            filterCategory = MapCategoryFilter.MAKERS,
-            neighborhood = "Promenade",
-            walkingTime = "6 min walk",
-            cyclingTime = "2 min ride",
-            address = "Goubert Avenue Seafront, Puducherry"
-        ),
-        DiscoveryPinItem(
-            id = "pin_hub_cafe",
-            title = "Café des Arts Lockbox",
-            subtitle = "Loop Contactless Pickup Hub",
-            type = DiscoveryPinType.PICKUP_HUB,
-            latitude = 11.9345,
-            longitude = 79.8340,
-            rating = 5.0f,
-            distance = "150 m away",
-            tag = "🔒 24/7 Smart Hub",
-            dateOrAvailability = "Open 7:00 AM – 10:00 PM",
-            locationName = "Suffren St Courtyard",
-            priceOrAttendees = "Free pickup",
-            description = "Official Loop community handoff depot. Drop off or collect verified pieces anytime with secure digital PIN lockers.",
-            category = RentalCategory.ELECTRONICS,
-            filterCategory = MapCategoryFilter.GEAR_HUBS,
-            neighborhood = "White Town",
-            walkingTime = "2 min walk",
-            cyclingTime = "1 min ride",
-            address = "10, Suffren St Courtyard, White Town"
-        ),
-        DiscoveryPinItem(
-            id = "pin_ananya",
-            title = "Ananya Nair",
-            subtitle = "Cinema & Projector Setup",
-            type = DiscoveryPinType.USER_HOST,
-            latitude = 11.9510,
-            longitude = 79.8210,
-            rating = 4.9f,
-            distance = "1.8 km away",
-            tag = "Curator",
-            dateOrAvailability = "Available today",
-            locationName = "Lawspet Quarter",
-            priceOrAttendees = "₹500 / day",
-            description = "Film student renting 1080p portable cinema projector with tripod and HDMI casting kit.",
-            owner = ownerAnanya,
-            rentalItem = items[4],
-            imageRes = R.drawable.modern_projector_1790478027952,
-            category = RentalCategory.EVENTS,
-            filterCategory = MapCategoryFilter.MAKERS,
-            neighborhood = "Lawspet",
-            walkingTime = "22 min walk",
-            cyclingTime = "7 min ride",
-            address = "Lawspet Cultural Quarter, Puducherry"
-        )
-    )
-
-    val curatedRoutes: List<CuratedWalkingRoute> = listOf(
-        CuratedWalkingRoute(
-            id = "route_makers_walk",
-            title = "French Quarter Makers Circuit",
-            subtitle = "Explore 35mm cameras, smart hub & studio desk",
-            distanceKm = "1.4 km",
-            durationMin = "18 min",
-            stopsCount = 4,
-            pinIds = listOf("pin_hub_cafe", "pin_rakesh", "pin_vikram", "pin_priya"),
-            description = "A peaceful stroll through French colonial heritage streets connecting top verified equipment makers and the central lockbox."
-        ),
-        CuratedWalkingRoute(
-            id = "route_promenade_sunset",
-            title = "Promenade Coastal Drift",
-            subtitle = "From Suffren Street to Rock Beach",
-            distanceKm = "2.1 km",
-            durationMin = "26 min",
-            stopsCount = 3,
-            pinIds = listOf("pin_rakesh", "pin_vikram", "pin_event_photowalk"),
-            description = "Follow the sea breeze along Goubert Avenue, connecting e-bike creators with the golden hour photographer meetup."
-        )
-    )
+    val curatedRoutes: List<CuratedWalkingRoute> = emptyList()
 
     val initialUserProfile = UserProfile(
-        uid = "user_me",
-        displayName = "Jaya Nandhini G",
-        email = "gokulan.rkivln@gmail.com",
-        phone = "+91 98401 22345",
-        bio = "Designer and photographer based in White Town, Puducherry. Passionate about tactile objects, analogue processes, and quiet travels.",
+        uid = "",
+        displayName = "Loop Member",
+        email = "",
+        phone = "",
+        bio = "Creator and photographer in Puducherry.",
         location = "White Town, Puducherry",
         avatarPresetIndex = 0,
         rating = 5.0f,
-        reviewCount = 18,
-        rentalsCompleted = 14,
-        listingsCount = 2,
-        earnedAmount = 2450,
+        reviewCount = 0,
+        rentalsCompleted = 0,
+        listingsCount = 0,
+        earnedAmount = 0,
         isVerified = true,
-        memberSince = "Member since 2024",
-        badges = listOf("✓ ID Verified", "★ Curated Host", "📸 35mm Club", "⚡ Quick Responder")
+        memberSince = "Joined 2026",
+        badges = listOf("✓ Google Verified", "★ Loop Member")
     )
 
-    val initialUserActivities: List<UserActivityItem> = listOf(
-        UserActivityItem(
-            id = "act_1",
-            title = "Reserved Canon EOS 200D & 35mm Glass",
-            subtitle = "Active handoff from Rakesh Kumar · Return in 2 days",
-            type = UserActivityType.RESERVATION,
-            timestamp = "Today, 10:30 AM",
-            statusBadge = "Active",
-            iconEmoji = "📸",
-            relatedId = "conv_rakesh"
-        ),
-        UserActivityItem(
-            id = "act_2",
-            title = "Posted Help Request: 35mm Film Roll Loading",
-            subtitle = "Seeking darkroom assistance for 120 medium format spooling",
-            type = UserActivityType.HELP_REQUEST,
-            timestamp = "Today, 9:15 AM",
-            statusBadge = "Open",
-            iconEmoji = "🤝",
-            relatedId = "post_help_1"
-        ),
-        UserActivityItem(
-            id = "act_3",
-            title = "Created Community Event: Promenade Sunset Walk",
-            subtitle = "18 creators registered for twilight photography gathering",
-            type = UserActivityType.COMMUNITY_EVENT,
-            timestamp = "Yesterday",
-            statusBadge = "Upcoming",
-            iconEmoji = "🌅",
-            relatedId = "post_event_1"
-        ),
-        UserActivityItem(
-            id = "act_4",
-            title = "Smart Hub Pickup: Suffren Street Lockbox",
-            subtitle = "Contactless code #8492 verified for lens hood pickup",
-            type = UserActivityType.HUB_CHECKIN,
-            timestamp = "2 days ago",
-            statusBadge = "Completed",
-            iconEmoji = "🔒"
-        ),
-        UserActivityItem(
-            id = "act_5",
-            title = "Returned M2 Pro Laptop to Priya Sharma",
-            subtitle = "Inspected and closed with 5.0★ host rating",
-            type = UserActivityType.RESERVATION,
-            timestamp = "4 days ago",
-            statusBadge = "Returned",
-            iconEmoji = "💻"
-        )
-    )
+    val initialUserActivities: List<UserActivityItem> = emptyList()
 
-    val initialCommunityPosts: List<UserCommunityPost> = listOf(
-        UserCommunityPost(
-            id = "post_event_1",
-            title = "Promenade Sunset Walk",
-            type = CommunityPostType.EVENT,
-            description = "Casual twilight gathering of local photographers exploring the French Quarter seafront with shared lenses and analogue cameras.",
-            location = "Rock Beach Promenade, White Town",
-            dateTime = "Today · 5:00 PM – 7:00 PM",
-            attendeesOrResponses = "18 creators attending",
-            status = CommunityPostStatus.ACTIVE,
-            createdAt = "Yesterday"
-        ),
-        UserCommunityPost(
-            id = "post_help_1",
-            title = "35mm Film Roll Loading & Darkroom Help",
-            type = CommunityPostType.HELP_REQUEST,
-            description = "Beginner photographer seeking a fellow film shooter to assist with spooling 120 medium format roll into Paterson developing tank.",
-            location = "Romain Rolland Studio, White Town",
-            dateTime = "Flexible timing today",
-            attendeesOrResponses = "2 responses received",
-            status = CommunityPostStatus.ACTIVE,
-            createdAt = "Today"
-        ),
-        UserCommunityPost(
-            id = "post_study_1",
-            title = "Alliance Courtyard Study Table",
-            type = CommunityPostType.STUDY_GROUP,
-            description = "Quiet shaded veranda with high-speed fiber Wi-Fi, power banks, and shared architecture & photography design volumes.",
-            location = "Alliance Française Courtyard, Suffren St",
-            dateTime = "Daily · 9:00 AM – 6:00 PM",
-            attendeesOrResponses = "6 desks booked",
-            status = CommunityPostStatus.ACTIVE,
-            createdAt = "3 days ago"
-        )
-    )
+    val initialCommunityPosts: List<UserCommunityPost> = emptyList()
 
     private val _itemsFlow = MutableStateFlow(items)
     val itemsFlow: StateFlow<List<RentalItem>> = _itemsFlow.asStateFlow()
 
-    private val _conversationsFlow = MutableStateFlow(initialConversations)
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _selectedCategory = MutableStateFlow<RentalCategory?>(null)
+    val selectedCategory: StateFlow<RentalCategory?> = _selectedCategory.asStateFlow()
+
+    val filteredItems: StateFlow<List<RentalItem>> = combine(
+        _itemsFlow,
+        _searchQuery,
+        _selectedCategory
+    ) { allItems, query, cat ->
+        allItems.filter { item ->
+            val matchesQuery = query.isBlank() ||
+                item.title.contains(query, ignoreCase = true) ||
+                item.description.contains(query, ignoreCase = true) ||
+                item.location.contains(query, ignoreCase = true)
+            val matchesCategory = cat == null || item.category == cat
+            matchesQuery && matchesCategory
+        }
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, items)
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun setSelectedCategory(cat: RentalCategory?) {
+        _selectedCategory.value = cat
+    }
+
+    private val _conversationsFlow = MutableStateFlow<List<ChatConversation>>(emptyList())
     val conversationsFlow: StateFlow<List<ChatConversation>> = _conversationsFlow.asStateFlow()
+
+    private val _activeConversationMessagesFlow = MutableStateFlow<Map<String, List<RentalMessage>>>(emptyMap())
+    val activeConversationMessagesFlow: StateFlow<Map<String, List<RentalMessage>>> =
+        _activeConversationMessagesFlow.asStateFlow()
+
+    private val _bookingsFlow = MutableStateFlow<List<UserRentalBooking>>(emptyList())
+    val bookingsFlow: StateFlow<List<UserRentalBooking>> = _bookingsFlow.asStateFlow()
 
     private val _discoveryPinsFlow = MutableStateFlow(discoveryPins)
     val discoveryPinsFlow: StateFlow<List<DiscoveryPinItem>> = _discoveryPinsFlow.asStateFlow()
@@ -664,47 +180,219 @@ object RentalRepository {
     private val _userProfileFlow = MutableStateFlow(initialUserProfile)
     val userProfileFlow: StateFlow<UserProfile> = _userProfileFlow.asStateFlow()
 
-    private val _userActivityFlow = MutableStateFlow(initialUserActivities)
+    private val _userActivityFlow = MutableStateFlow<List<UserActivityItem>>(emptyList())
     val userActivityFlow: StateFlow<List<UserActivityItem>> = _userActivityFlow.asStateFlow()
 
     private val _userCommunityPostsFlow = MutableStateFlow(initialCommunityPosts)
     val userCommunityPostsFlow: StateFlow<List<UserCommunityPost>> = _userCommunityPostsFlow.asStateFlow()
 
-    init {
+    private val _syncErrorFlow = MutableStateFlow<String?>(null)
+    val syncErrorFlow: StateFlow<String?> = _syncErrorFlow.asStateFlow()
+
+    val communityEventsFlow: StateFlow<List<CommunityEvent>> = _userCommunityPostsFlow.map { posts ->
+        posts.map { post ->
+            CommunityEvent(
+                id = post.id,
+                title = post.title,
+                description = post.description,
+                category = post.categoryName,
+                locationName = post.location,
+                latitude = post.latitude,
+                longitude = post.longitude,
+                timeString = post.dateTime,
+                organizerName = post.authorName,
+                participantCount = Regex("(\\d+)").find(post.attendeesOrResponses)?.value?.toIntOrNull() ?: 1
+            )
+        }
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
+
+    fun startSession(context: Context, uid: String) {
+        val currentUser = Firebase.auth.currentUser ?: return
+        if (activeSessionUid == uid && syncJobs.any { it.isActive }) return
+
+        clearSession()
+        activeSessionUid = uid
+        _syncErrorFlow.value = null
+
+        val service = FirestoreService.getInstance(context)
+        firestoreService = service
+        val cRepo = CommunityEventRepository.getInstance(context)
+        communityRepo = cRepo
+        cRepo.startAuthenticatedSync()
+
+        // Ensure user's profile doc exists in Firestore
         repositoryScope.launch {
-            firestoreService.listenToItems().collectLatest { cloudItems ->
-                if (cloudItems.isNotEmpty()) {
-                    _itemsFlow.value = cloudItems
-                }
+            val starterProfile = UserProfile(
+                uid = uid,
+                displayName = currentUser.displayName ?: "Loop Member",
+                email = currentUser.email ?: "member@loop.in",
+                location = "White Town, Puducherry",
+                memberSince = "Joined 2026"
+            )
+            val existingDoc = try {
+                service.firestore.collection("users").document(uid).get().await()
+            } catch (_: Exception) {
+                null
+            }
+            if (existingDoc == null || !existingDoc.exists()) {
+                service.saveUserProfile(starterProfile)
             }
         }
 
-        repositoryScope.launch {
-            firestoreService.listenToConversations().collectLatest { cloudConvs ->
-                if (cloudConvs.isNotEmpty()) {
-                    _conversationsFlow.value = cloudConvs
+        // 1. User Profile real-time sync
+        syncJobs += repositoryScope.launch {
+            try {
+                service.listenToUserProfile(uid).collect { cloudProfile ->
+                    _userProfileFlow.value = cloudProfile
+                    val favIds = cloudProfile.favoriteItemIds.toSet()
+                    _itemsFlow.value = _itemsFlow.value.map { item ->
+                        item.copy(isFavorite = item.id in favIds)
+                    }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Profile sync error: ${e.message}", e)
+                _syncErrorFlow.value = "Profile sync error: ${e.localizedMessage}"
             }
         }
 
-        repositoryScope.launch {
-            firestoreService.listenToUserProfile("user_me").collectLatest { cloudProfile ->
-                val finalProfile = if (cloudProfile.displayName.isBlank() || cloudProfile.displayName == "Gokulan R") {
-                    val migrated = cloudProfile.copy(displayName = "Jaya Nandhini G")
-                    firestoreService.updateUserProfile(migrated)
-                    migrated
-                } else {
-                    cloudProfile
+        // 2. Gear Listings real-time sync
+        syncJobs += repositoryScope.launch {
+            try {
+                service.listenToItems().collect { cloudItems ->
+                    val favIds = _userProfileFlow.value.favoriteItemIds.toSet()
+                    val merged = cloudItems.map { item ->
+                        item.copy(isFavorite = item.id in favIds)
+                    }
+                    _itemsFlow.value = merged
                 }
-                _userProfileFlow.value = finalProfile
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Items sync error: ${e.message}", e)
+                _syncErrorFlow.value = "Gear catalog sync error: ${e.localizedMessage}"
             }
         }
+
+        // 3. Community Posts / Events sync (Room + Firestore)
+        syncJobs += repositoryScope.launch {
+            try {
+                cRepo.allEvents.collect { events ->
+                    if (events.isNotEmpty()) {
+                        _userCommunityPostsFlow.value = events
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Community sync error: ${e.message}", e)
+            }
+        }
+
+        // 4. Participant-scoped Conversations sync
+        syncJobs += repositoryScope.launch {
+            try {
+                service.listenToConversations(uid, _itemsFlow.value).collect { cloudConvs ->
+                    val currentMap = _activeConversationMessagesFlow.value
+                    _conversationsFlow.value = cloudConvs.map { conv ->
+                        val cachedMsgs = currentMap[conv.id]
+                        if (!cachedMsgs.isNullOrEmpty()) conv.copy(messages = cachedMsgs) else conv
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Conversations sync error: ${e.message}", e)
+                _syncErrorFlow.value = "Chat sync error: ${e.localizedMessage}"
+            }
+        }
+
+        // 5. Bookings real-time sync (renter or host)
+        syncJobs += repositoryScope.launch {
+            try {
+                service.listenToBookings(uid, _itemsFlow.value).collect { cloudBookings ->
+                    _bookingsFlow.value = cloudBookings
+                    val bookingActivities = cloudBookings.map { booking ->
+                        UserActivityItem(
+                            id = "act_${booking.id}",
+                            title = "${booking.item.title} (${booking.status})",
+                            subtitle = "Host: ${booking.hostName} · ₹${booking.totalPaid} · OTP #${booking.handoverOtp}",
+                            type = UserActivityType.RESERVATION,
+                            timestamp = "${booking.startDate} – ${booking.endDate}",
+                            statusBadge = booking.status,
+                            iconEmoji = "📦",
+                            relatedId = booking.id
+                        )
+                    }
+                    _userActivityFlow.value = bookingActivities
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Bookings sync error: ${e.message}", e)
+                _syncErrorFlow.value = "Bookings sync error: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    fun observeConversationMessages(conversationId: String) {
+        val service = firestoreService ?: return
+        if (Firebase.auth.currentUser == null) return
+        messageListenerJob?.cancel()
+        messageListenerJob = repositoryScope.launch {
+            try {
+                service.listenToMessages(conversationId).collect { msgs ->
+                    _activeConversationMessagesFlow.value =
+                        _activeConversationMessagesFlow.value + (conversationId to msgs)
+                    _conversationsFlow.value = _conversationsFlow.value.map { conv ->
+                        if (conv.id == conversationId) conv.copy(messages = msgs, unreadCount = 0) else conv
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Messages listener error: ${e.message}", e)
+                _syncErrorFlow.value = "Unable to load messages: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    fun clearSession() {
+        syncJobs.forEach { it.cancel() }
+        syncJobs.clear()
+        messageListenerJob?.cancel()
+        messageListenerJob = null
+        communityRepo?.stopSync()
+        activeSessionUid = null
+        _conversationsFlow.value = emptyList()
+        _activeConversationMessagesFlow.value = emptyMap()
+        _bookingsFlow.value = emptyList()
+        _userActivityFlow.value = emptyList()
+        _userProfileFlow.value = initialUserProfile
+        _itemsFlow.value = items
+        _syncErrorFlow.value = null
+    }
+
+    fun clearSyncError() {
+        _syncErrorFlow.value = null
+    }
+
+    suspend fun openOrCreateConversation(
+        host: RentalOwner,
+        item: RentalItem? = null
+    ): Result<ChatConversation> {
+        val service = firestoreService
+            ?: return Result.failure(IllegalStateException("Not connected to cloud session."))
+        return service.createOrGetConversation(host = host, item = item)
     }
 
     fun updateUserProfile(profile: UserProfile) {
         _userProfileFlow.value = profile
         repositoryScope.launch {
-            firestoreService.updateUserProfile(profile)
+            firestoreService?.saveUserProfile(profile)?.onFailure {
+                _syncErrorFlow.value = "Failed to save profile: ${it.localizedMessage}"
+            }
         }
     }
 
@@ -715,71 +403,133 @@ object RentalRepository {
         locationTitle: String? = null,
         locationAddress: String? = null
     ) {
+        val currentUid = Firebase.auth.currentUser?.uid ?: return
+        val senderDisplay = _userProfileFlow.value.displayName.ifBlank {
+            Firebase.auth.currentUser?.displayName ?: "Me"
+        }
         val newMsg = RentalMessage(
             id = "msg_${System.currentTimeMillis()}",
-            senderName = "Me",
+            senderName = senderDisplay,
             text = text,
             timestamp = "Just now",
             isFromMe = true,
+            senderId = currentUid,
             messageType = messageType,
             status = MessageStatus.SENT,
             locationTitle = locationTitle,
             locationAddress = locationAddress
         )
 
-        _conversationsFlow.value = _conversationsFlow.value.map { conv ->
-            if (conv.id == conversationId) {
-                conv.copy(
-                    messages = conv.messages + newMsg,
-                    unreadCount = 0
-                )
-            } else conv
-        }
-
         repositoryScope.launch {
-            firestoreService.sendMessage(conversationId, newMsg)
+            firestoreService?.sendMessage(conversationId, newMsg)?.onFailure {
+                _syncErrorFlow.value = "Message failed to send: ${it.localizedMessage}"
+            }
         }
     }
 
-    fun createListing(
+    suspend fun createListing(
         title: String,
         price: Int,
+        deposit: Int = 0,
+        location: String = "White Town, Puducherry",
         category: RentalCategory,
-        desc: String
-    ): RentalItem {
+        desc: String,
+        imageUrl: String? = null
+    ): Result<RentalItem> {
+        val service = firestoreService
+            ?: return Result.failure(IllegalStateException("Sign in required to publish gear."))
+        val uid = Firebase.auth.currentUser?.uid
+            ?: return Result.failure(IllegalStateException("Sign in required."))
+
+        val profile = _userProfileFlow.value
         val newItem = RentalItem(
             id = "item_${System.currentTimeMillis()}",
-            title = title,
+            title = title.trim(),
             category = category,
-            pricePerDay = price,
-            location = "White Town, Puducherry",
+            pricePerDay = price.coerceAtLeast(1),
+            location = location.trim().ifBlank { "White Town, Puducherry" },
             rating = 5.0f,
             reviewCount = 1,
-            description = desc.ifBlank { "Newly listed object curated by Jaya Nandhini G." },
+            description = desc.trim().ifBlank { "Curated creator equipment available in Puducherry." },
             primaryImageRes = when (category) {
-                RentalCategory.ELECTRONICS, RentalCategory.STUDY_OFFICE -> R.drawable.img_editorial_studio_2_1791087277042
-                RentalCategory.FURNITURE, RentalCategory.HOME_LIVING -> R.drawable.modern_armchair_1790478015816
-                RentalCategory.VEHICLES -> R.drawable.img_editorial_outdoor_3_1791087293034
-                else -> R.drawable.img_editorial_lifestyle_1_1791087263359
+                RentalCategory.ELECTRONICS -> R.drawable.img_cafe
+                RentalCategory.STUDY_OFFICE -> R.drawable.img_synth
+                RentalCategory.FURNITURE, RentalCategory.HOME_LIVING -> R.drawable.img_street
+                RentalCategory.VEHICLES -> R.drawable.img_ebike
+                RentalCategory.EVENTS -> R.drawable.img_street
+                RentalCategory.TOOLS -> R.drawable.img_synth
             },
+            imageUrl = imageUrl,
             imageCount = 3,
             features = listOf(
                 SpecFeature("CAMERA", "Verified Object"),
                 SpecFeature("BAG", "Accessories Included")
             ),
-            owner = RentalOwner("owner_me", _userProfileFlow.value.displayName, "New Maker", _userProfileFlow.value.initials, "Joined today", 5.0f),
+            owner = RentalOwner(
+                id = uid,
+                name = profile.displayName.ifBlank { "Loop Host" },
+                badge = "Loop Host",
+                initials = profile.initials
+            ),
             isPopular = true,
             isFavorite = false,
-            availableToday = true
+            availableToday = true,
+            securityDeposit = deposit.coerceAtLeast(0)
         )
 
-        _itemsFlow.value = listOf(newItem) + _itemsFlow.value
-
-        repositoryScope.launch {
-            firestoreService.createListing(newItem)
+        return service.createListing(newItem).onSuccess { savedItem ->
+            _itemsFlow.value = listOf(savedItem) + _itemsFlow.value.filterNot { it.id == savedItem.id }
+        }.onFailure {
+            _syncErrorFlow.value = "Failed to publish listing: ${it.localizedMessage}"
         }
+    }
 
-        return newItem
+    suspend fun createBooking(
+        item: RentalItem,
+        startDate: String,
+        endDate: String,
+        daysCount: Int = 3,
+        deliveryOption: String = "Self Pickup"
+    ): Result<FirestoreBooking> {
+        val service = firestoreService
+            ?: return Result.failure(IllegalStateException("Sign in required to create a booking."))
+        val uid = Firebase.auth.currentUser?.uid
+            ?: return Result.failure(IllegalStateException("Sign in required."))
+
+        val profile = _userProfileFlow.value
+        val deliveryFee = if (deliveryOption.contains("Delivery", ignoreCase = true)) 100 else 0
+        val total = (item.pricePerDay * daysCount.coerceAtLeast(1)) + 50 + deliveryFee
+        val otp = (1000..9999).random().toString()
+
+        val booking = FirestoreBooking(
+            id = "book_${System.currentTimeMillis()}",
+            renterId = uid,
+            renterName = profile.displayName.ifBlank { "Loop Member" },
+            hostId = item.owner.id.ifBlank { uid },
+            hostName = item.owner.name.ifBlank { "Loop Host" },
+            itemId = item.id,
+            itemTitle = item.title,
+            startDate = startDate.ifBlank { "Oct 20, 2026" },
+            endDate = endDate.ifBlank { "Oct 23, 2026" },
+            daysCount = daysCount.coerceAtLeast(1),
+            pricePerDay = item.pricePerDay,
+            totalAmount = total,
+            status = "Confirmed",
+            deliveryOption = deliveryOption,
+            handoverOtp = otp
+        )
+
+        return service.createBooking(booking).onFailure {
+            _syncErrorFlow.value = "Booking failed: ${it.localizedMessage}"
+        }
+    }
+
+    fun updateBookingStatus(bookingId: String, status: String) {
+        repositoryScope.launch {
+            firestoreService?.updateBookingStatus(bookingId, status)?.onFailure {
+                _syncErrorFlow.value = "Could not update booking: ${it.localizedMessage}"
+            }
+        }
     }
 
     fun createCommunityPost(
@@ -789,6 +539,8 @@ object RentalRepository {
         location: String,
         dateTime: String
     ): UserCommunityPost {
+        val uid = Firebase.auth.currentUser?.uid ?: "member"
+        val profile = _userProfileFlow.value
         val newPost = UserCommunityPost(
             id = "post_${System.currentTimeMillis()}",
             title = title,
@@ -802,51 +554,69 @@ object RentalRepository {
                 CommunityPostType.STUDY_GROUP -> "1 desk claimed"
             },
             status = CommunityPostStatus.ACTIVE,
-            createdAt = "Just now"
+            createdAt = "Just now",
+            authorId = uid,
+            authorName = profile.displayName.ifBlank { "Community Member" }
         )
 
         _userCommunityPostsFlow.value = listOf(newPost) + _userCommunityPostsFlow.value
 
-        // Also record an activity entry in the user's ledger
-        val newActivity = UserActivityItem(
-            id = "act_${System.currentTimeMillis()}",
-            title = when (type) {
-                CommunityPostType.EVENT -> "Created Event: $title"
-                CommunityPostType.HELP_REQUEST -> "Posted Help Request: $title"
-                CommunityPostType.STUDY_GROUP -> "Hosted Study Table: $title"
-            },
-            subtitle = "${newPost.location} · ${newPost.dateTime}",
-            type = when (type) {
-                CommunityPostType.EVENT -> UserActivityType.COMMUNITY_EVENT
-                CommunityPostType.HELP_REQUEST -> UserActivityType.HELP_REQUEST
-                CommunityPostType.STUDY_GROUP -> UserActivityType.STUDY_GROUP
-            },
-            timestamp = "Just now",
-            statusBadge = "Active",
-            iconEmoji = type.emoji,
-            relatedId = newPost.id
-        )
-
-        _userActivityFlow.value = listOf(newActivity) + _userActivityFlow.value
+        repositoryScope.launch {
+            communityRepo?.createEvent(newPost) ?: firestoreService?.createCommunityPost(newPost)
+        }
         return newPost
     }
 
     fun toggleCommunityPostStatus(postId: String) {
+        val current = _userCommunityPostsFlow.value.find { it.id == postId } ?: return
+        val newStatus = if (current.status == CommunityPostStatus.ACTIVE) {
+            CommunityPostStatus.COMPLETED
+        } else {
+            CommunityPostStatus.ACTIVE
+        }
         _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.map { post ->
-            if (post.id == postId) {
-                val newStatus = if (post.status == CommunityPostStatus.ACTIVE) CommunityPostStatus.COMPLETED else CommunityPostStatus.ACTIVE
-                post.copy(status = newStatus)
-            } else post
+            if (post.id == postId) post.copy(status = newStatus) else post
+        }
+        repositoryScope.launch {
+            communityRepo?.updateEventStatus(postId, newStatus)
+                ?: firestoreService?.updateCommunityPostStatus(postId, newStatus)
         }
     }
 
     fun deleteCommunityPost(postId: String) {
         _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.filterNot { it.id == postId }
+        repositoryScope.launch {
+            communityRepo?.deleteEvent(postId)
+                ?: firestoreService?.deleteCommunityPost(postId)
+        }
     }
 
     fun toggleFavorite(itemId: String) {
+        val currentFavs = _userProfileFlow.value.favoriteItemIds.toMutableList()
+        if (itemId in currentFavs) {
+            currentFavs.remove(itemId)
+        } else {
+            currentFavs.add(itemId)
+        }
+        val updatedProfile = _userProfileFlow.value.copy(favoriteItemIds = currentFavs)
+        _userProfileFlow.value = updatedProfile
         _itemsFlow.value = _itemsFlow.value.map { item ->
-            if (item.id == itemId) item.copy(isFavorite = !item.isFavorite) else item
+            if (item.id == itemId) item.copy(isFavorite = itemId in currentFavs) else item
+        }
+        repositoryScope.launch {
+            firestoreService?.updateFavoriteItems(currentFavs, updatedProfile)
+        }
+    }
+
+    fun rsvpToCommunityPost(postId: String) {
+        _discoveryPinsFlow.value = _discoveryPinsFlow.value.map { pin ->
+            if (pin.id == postId) pin.copy(isAttending = !pin.isAttending) else pin
+        }
+        repositoryScope.launch {
+            val matchingPost = _userCommunityPostsFlow.value.find { it.id == postId }
+            if (matchingPost != null) {
+                communityRepo?.rsvpToEvent(postId)
+            }
         }
     }
 }

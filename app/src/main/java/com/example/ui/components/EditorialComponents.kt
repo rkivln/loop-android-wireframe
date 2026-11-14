@@ -82,6 +82,11 @@ import com.example.ui.theme.PaperPureWhite
 import com.example.ui.theme.PaperWarm
 import com.example.ui.theme.PlayfairFontFamily
 import com.example.ui.theme.PlusJakartaFontFamily
+import com.example.ui.theme.HeroDisplay
+import com.example.ui.theme.ButtonLabel
+import com.example.ui.theme.ButtonSecondaryLabel
+import com.example.ui.theme.PriceSmall
+
 
 /**
  * Editorial Top Navigation Bar
@@ -534,7 +539,7 @@ fun EditorialPhotoCard(
                 Icon(
                     imageVector = if (item.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Favorite",
-                    tint = if (item.isFavorite) AccentPeach else InkCharcoal,
+                    tint = if (item.isFavorite) com.example.ui.theme.HeartRed else InkCharcoal,
                     modifier = Modifier.size(18.dp)
                 )
             }
