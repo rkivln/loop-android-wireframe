@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BookmarkRemove
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
@@ -101,7 +102,10 @@ fun MyPostsSubScreen(
     myCommunityPosts: List<UserCommunityPost>,
     onBack: () -> Unit,
     onOpenItem: (RentalItem) -> Unit,
+    onEditItem: (RentalItem) -> Unit = {},
+    onToggleItemAvailability: (String) -> Unit = {},
     onDeleteItem: (String) -> Unit,
+    onEditPost: (UserCommunityPost) -> Unit = {},
     onTogglePostStatus: (String) -> Unit,
     onDeletePost: (String) -> Unit,
     onCreateListing: () -> Unit
@@ -170,7 +174,7 @@ fun MyPostsSubScreen(
             ) {
                 if (showItems && myItems.isNotEmpty()) {
                     items(myItems, key = { "item_${it.id}" }) { item ->
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(18.dp))
@@ -179,51 +183,126 @@ fun MyPostsSubScreen(
                                 .clickable { onOpenItem(item) }
                                 .padding(12.dp)
                                 .testTag("my_post_item_${item.id}"),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            ListingPhoto(
-                                imageUrl = item.imageUrl,
-                                fallbackRes = item.primaryImageRes,
-                                contentDescription = item.title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = item.category.title.uppercase(),
-                                    style = LoopType.EditorialTag.copy(fontSize = 9.5.sp),
-                                    color = AccentForestGreen
-                                )
-                                Text(
-                                    text = item.title,
-                                    style = LoopType.TitleMedium.copy(fontSize = 15.sp),
-                                    color = InkCharcoal,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "₹${item.pricePerDay}/day · ${item.location.ifBlank { "Neighborhood" }}",
-                                    style = LoopType.Metadata.copy(fontSize = 11.5.sp),
-                                    color = InkSecondary
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .clickable { onDeleteItem(item.id) }
-                                    .testTag("delete_my_item_${item.id}"),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.DeleteOutline,
-                                    contentDescription = "Delete listing",
-                                    tint = AlertCrimson,
-                                    modifier = Modifier.size(20.dp)
+                                ListingPhoto(
+                                    imageUrl = item.imageUrl,
+                                    fallbackRes = item.primaryImageRes,
+                                    contentDescription = item.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(RoundedCornerShape(12.dp))
                                 )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = item.category.title.uppercase(),
+                                            style = LoopType.EditorialTag.copy(fontSize = 9.5.sp),
+                                            color = AccentForestGreen
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(100.dp))
+                                                .background(if (item.availableToday) AccentMint else AccentBeigeOat)
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = if (item.availableToday) "Available" else "Paused",
+                                                style = LoopType.Metadata.copy(
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = if (item.availableToday) AccentForestGreen else InkSecondary
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = item.title,
+                                        style = LoopType.TitleMedium.copy(fontSize = 15.sp),
+                                        color = InkCharcoal,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "₹${item.pricePerDay}/day · ${item.location.ifBlank { "Neighborhood" }}",
+                                        style = LoopType.Metadata.copy(fontSize = 11.5.sp),
+                                        color = InkSecondary
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .clip(RoundedCornerShape(100.dp))
+                                        .background(if (item.availableToday) PaperIvory else AccentMint)
+                                        .border(
+                                            1.dp,
+                                            if (item.availableToday) PaperBorder else AccentForestGreen,
+                                            RoundedCornerShape(100.dp)
+                                        )
+                                        .clickable { onToggleItemAvailability(item.id) }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                                        .testTag("toggle_my_item_${item.id}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (item.availableToday) "Pause" else "Activate",
+                                        style = LoopType.Metadata.copy(
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        color = if (item.availableToday) InkCharcoal else AccentForestGreen
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .background(PaperIvory)
+                                        .border(1.dp, PaperBorder, CircleShape)
+                                        .clickable { onEditItem(item) }
+                                        .testTag("edit_my_item_${item.id}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit listing",
+                                        tint = InkCharcoal,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .clickable { onDeleteItem(item.id) }
+                                        .testTag("delete_my_item_${item.id}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteOutline,
+                                        contentDescription = "Delete listing",
+                                        tint = AlertCrimson,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -259,7 +338,10 @@ fun MyPostsSubScreen(
                                         color = if (isResolved) InkSecondary else AccentForestGreen
                                     )
                                 }
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Box(
                                         modifier = Modifier
                                             .heightIn(min = 48.dp)
@@ -278,6 +360,21 @@ fun MyPostsSubScreen(
                                         modifier = Modifier
                                             .size(48.dp)
                                             .clip(CircleShape)
+                                            .clickable { onEditPost(post) }
+                                            .testTag("edit_my_post_${post.id}"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit post",
+                                            tint = InkCharcoal,
+                                            modifier = Modifier.size(19.dp)
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
                                             .clickable { onDeletePost(post.id) },
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -289,6 +386,18 @@ fun MyPostsSubScreen(
                                         )
                                     }
                                 }
+                            }
+                            if (!post.imageUrl.isNullOrBlank()) {
+                                ListingPhoto(
+                                    imageUrl = post.imageUrl,
+                                    fallbackRes = 0,
+                                    contentDescription = post.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(120.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
                             }
                             Text(
                                 text = post.title,

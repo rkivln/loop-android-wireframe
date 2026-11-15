@@ -219,6 +219,13 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
             service.listenToCommunityPosts().first { list -> list.any { it.id == uniquePostId } }
         }
         assertTrue(posts.any { it.title == "Auroville Forest Photowalk" })
+
+        val purgeRes = withTimeout(DEFAULT_TIMEOUT_MS) { service.purgeAllItemsAndCommunityPosts() }
+        assertTrue("Purge failed: ${purgeRes.exceptionOrNull()}", purgeRes.isSuccess)
+        val remainingPosts = withTimeout(FLOW_TIMEOUT_MS) {
+            service.listenToCommunityPosts().first { list -> list.none { it.id == uniquePostId } }
+        }
+        assertTrue(remainingPosts.none { it.id == uniquePostId })
     }
 
     @Test

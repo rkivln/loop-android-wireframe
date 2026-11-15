@@ -312,6 +312,8 @@ object RentalRepository {
         }
     }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
 
+    private const val LEGACY_RESET_VERSION = 3
+
     fun startSession(context: Context, uid: String) {
         val currentUser = Firebase.auth.currentUser ?: return
         if (activeSessionUid == uid && syncJobs.any { it.isActive }) return
@@ -324,122 +326,148 @@ object RentalRepository {
         firestoreService = service
         val cRepo = CommunityEventRepository.getInstance(context)
         communityRepo = cRepo
-        cRepo.startAuthenticatedSync()
 
-        // Ensure user's profile doc exists in Firestore with zeroed starter stats and legacy reset version 2
-        repositoryScope.launch {
-            val starterProfile = UserProfile(
-                uid = uid,
-                displayName = currentUser.displayName ?: "",
-                email = currentUser.email ?: "",
-                legacyResetVersion = 2
-            )
+        syncJobs += repositoryScope.launch {
+            cRepo.clearLocalCache()
+
             val existingDoc = try {
                 service.firestore.collection("users").document(uid).get().await()
             } catch (_: Exception) {
                 null
             }
-            if (existingDoc == null || !existingDoc.exists()) {
-                service.saveUserProfile(starterProfile)
-            } else {
-                val currentVersion = existingDoc.getLong("legacyResetVersion")?.toInt() ?: 0
-                val storedEarned = existingDoc.getLong("earnedAmount")?.toInt() ?: 0
-                val storedLocation = existingDoc.getString("location").orEmpty()
-                if (currentVersion < 2 || storedEarned > 0 || storedLocation.contains("White Town", ignoreCase = true)) {
-                    service.saveUserProfile(starterProfile)
+
+            val currentVersion = existingDoc?.getLong("legacyResetVersion")?.toInt() ?: 0
+            val storedEarned = existingDoc?.getLong("earnedAmount")?.toInt() ?: 0
+            val storedRentals = existingDoc?.getLong("rentalsCompleted")?.toInt() ?: 0
+            val storedListings = existingDoc?.getLong("listingsCount")?.toInt() ?: 0
+            val storedLocation = existingDoc?.getString("location").orEmpty()
+
+            val needsFullReset = existingDoc == null ||
+                !existingDoc.exists() ||
+                currentVersion < LEGACY_RESET_VERSION ||
+                storedEarned > 0 ||
+                storedRentals > 0 ||
+                storedListings > 0 ||
+                storedLocation.contains("White Town", ignoreCase = true)
+
+            if (needsFullReset) {
+                service.purgeAllItemsAndCommunityPosts()
+                cRepo.clearLocalCache()
+                _rawItemsFlow.value = emptyList()
+                _rawCommunityPostsFlow.value = emptyList()
+                _rsvpIdsFlow.value = emptySet()
+
+                val preservedSettings = if (existingDoc != null && existingDoc.exists()) {
+                    UserSettings(
+                        appearanceMode = AppearanceMode.fromNameOrDefault(existingDoc.getString("appearanceMode")),
+                        profileVisibility = ProfileVisibility.fromNameOrDefault(existingDoc.getString("profileVisibility")),
+                        locationSharing = LocationSharingPreference.fromNameOrDefault(existingDoc.getString("locationSharing"))
+                    )
+                } else {
+                    UserSettings()
                 }
+
+                val resetProfile = UserProfile(
+                    uid = uid,
+                    displayName = currentUser.displayName?.takeIf { it.isNotBlank() }
+                        ?: existingDoc?.getString("displayName").orEmpty(),
+                    email = currentUser.email?.takeIf { it.isNotBlank() }
+                        ?: existingDoc?.getString("email").orEmpty(),
+                    phone = "",
+                    bio = "",
+                    location = "",
+                    avatarPresetIndex = existingDoc?.getLong("avatarPresetIndex")?.toInt() ?: 0,
+                    customAvatarUri = existingDoc?.getString("customAvatarUri"),
+                    rating = 0f,
+                    reviewCount = 0,
+                    rentalsCompleted = 0,
+                    listingsCount = 0,
+                    earnedAmount = 0,
+                    isVerified = false,
+                    memberSince = "",
+                    badges = emptyList(),
+                    favoriteItemIds = emptyList(),
+                    legacyResetVersion = LEGACY_RESET_VERSION,
+                    settings = preservedSettings
+                )
+                _userProfileFlow.value = resetProfile
+                service.saveUserProfile(resetProfile)
             }
 
-            // Also purge any legacy seeded items from the global /items collection
-            try {
-                val legacySeeds = service.firestore.collection("items")
-                    .whereIn("title", listOf(
-                        "Coastal Cruiser Electric E-Bike",
-                        "Canon EOS & 35mm Glass",
-                        "Scandinavian Linen Armchair",
-                        "Leica M6 & 35mm Summicron",
-                        "Marantz Studio Reference Rig",
-                        "Eames Lounge Chair & Ottoman"
-                    ))
-                    .get()
-                    .await()
-                for (doc in legacySeeds.documents) {
-                    doc.reference.delete().await()
-                }
-            } catch (_: Exception) {}
-        }
+            cRepo.startAuthenticatedSync()
 
-        // 1. User Profile real-time sync
-        syncJobs += repositoryScope.launch {
-            try {
-                service.listenToUserProfile(uid).collect { cloudProfile ->
-                    _userProfileFlow.value = cloudProfile
-                    ThemePreferencesStore.saveAppearanceMode(context, cloudProfile.settings.appearanceMode)
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Profile sync error: ${e.message}", e)
-                _syncErrorFlow.value = "Profile sync error: ${e.localizedMessage}"
-            }
-        }
-
-        // 2. Gear Listings real-time sync
-        syncJobs += repositoryScope.launch {
-            try {
-                service.listenToItems().collect { cloudItems ->
-                    _rawItemsFlow.value = cloudItems
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Items sync error: ${e.message}", e)
-                _syncErrorFlow.value = "Catalog sync error: ${e.localizedMessage}"
-            }
-        }
-
-        // 3. Community Posts / Events sync (Room + Firestore)
-        syncJobs += repositoryScope.launch {
-            try {
-                cRepo.allEvents.collect { events ->
-                    _rawCommunityPostsFlow.value = events
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Community sync error: ${e.message}", e)
-            }
-        }
-
-        // 4. Participant-scoped Conversations sync
-        syncJobs += repositoryScope.launch {
-            try {
-                service.listenToConversations(uid, _rawItemsFlow.value).collect { cloudConvs ->
-                    val currentMap = _activeConversationMessagesFlow.value
-                    _rawConversationsFlow.value = cloudConvs.map { conv ->
-                        val cachedMsgs = currentMap[conv.id]
-                        if (!cachedMsgs.isNullOrEmpty()) conv.copy(messages = cachedMsgs) else conv
+            // 1. User Profile real-time sync
+            syncJobs += repositoryScope.launch {
+                try {
+                    service.listenToUserProfile(uid).collect { cloudProfile ->
+                        _userProfileFlow.value = cloudProfile
+                        ThemePreferencesStore.saveAppearanceMode(context, cloudProfile.settings.appearanceMode)
                     }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Profile sync error: ${e.message}", e)
+                    _syncErrorFlow.value = "Profile sync error: ${e.localizedMessage}"
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Conversations sync error: ${e.message}", e)
-                _syncErrorFlow.value = "Chat sync error: ${e.localizedMessage}"
             }
-        }
 
-        // 5. Bookings real-time sync (renter or host)
-        syncJobs += repositoryScope.launch {
-            try {
-                service.listenToBookings(uid, _rawItemsFlow.value).collect { cloudBookings ->
-                    _bookingsFlow.value = cloudBookings
+            // 2. Gear Listings real-time sync
+            syncJobs += repositoryScope.launch {
+                try {
+                    service.listenToItems().collect { cloudItems ->
+                        _rawItemsFlow.value = cloudItems
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Items sync error: ${e.message}", e)
+                    _syncErrorFlow.value = "Catalog sync error: ${e.localizedMessage}"
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Bookings sync error: ${e.message}", e)
-                _syncErrorFlow.value = "Bookings sync error: ${e.localizedMessage}"
+            }
+
+            // 3. Community Posts / Events sync (Room + Firestore)
+            syncJobs += repositoryScope.launch {
+                try {
+                    cRepo.allEvents.collect { events ->
+                        _rawCommunityPostsFlow.value = events
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Community sync error: ${e.message}", e)
+                }
+            }
+
+            // 4. Participant-scoped Conversations sync
+            syncJobs += repositoryScope.launch {
+                try {
+                    service.listenToConversations(uid, _rawItemsFlow.value).collect { cloudConvs ->
+                        val currentMap = _activeConversationMessagesFlow.value
+                        _rawConversationsFlow.value = cloudConvs.map { conv ->
+                            val cachedMsgs = currentMap[conv.id]
+                            if (!cachedMsgs.isNullOrEmpty()) conv.copy(messages = cachedMsgs) else conv
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Conversations sync error: ${e.message}", e)
+                    _syncErrorFlow.value = "Chat sync error: ${e.localizedMessage}"
+                }
+            }
+
+            // 5. Bookings real-time sync (renter or host)
+            syncJobs += repositoryScope.launch {
+                try {
+                    service.listenToBookings(uid, _rawItemsFlow.value).collect { cloudBookings ->
+                        _bookingsFlow.value = cloudBookings
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Bookings sync error: ${e.message}", e)
+                    _syncErrorFlow.value = "Bookings sync error: ${e.localizedMessage}"
+                }
             }
         }
     }
@@ -476,6 +504,7 @@ object RentalRepository {
         _rawConversationsFlow.value = emptyList()
         _activeConversationMessagesFlow.value = emptyMap()
         _bookingsFlow.value = emptyList()
+        _rsvpIdsFlow.value = emptySet()
         _rawCommunityPostsFlow.value = initialCommunityPosts
         _userProfileFlow.value = initialUserProfile
         _rawItemsFlow.value = items
@@ -632,6 +661,78 @@ object RentalRepository {
         }
     }
 
+    suspend fun updateListing(
+        existingItem: RentalItem,
+        title: String,
+        price: Int,
+        deposit: Int = 0,
+        location: String = "",
+        category: RentalCategory,
+        desc: String,
+        imageUrl: String? = null,
+        imageUrls: List<String> = emptyList(),
+        availableToday: Boolean = existingItem.availableToday,
+        latitude: Double? = existingItem.latitude,
+        longitude: Double? = existingItem.longitude
+    ): Result<RentalItem> {
+        val service = firestoreService
+            ?: return Result.failure(IllegalStateException("Sign in required to update listing."))
+        val uid = Firebase.auth.currentUser?.uid
+            ?: return Result.failure(IllegalStateException("Sign in required."))
+
+        val profile = _userProfileFlow.value
+        val ownerName = profile.displayName.ifBlank { existingItem.owner.name }
+        val galleryUrls = imageUrls.filter { it.isNotBlank() }.take(4).ifEmpty {
+            listOfNotNull(imageUrl?.takeIf { it.isNotBlank() })
+        }
+        val coverUrl = galleryUrls.firstOrNull()
+        val locShare = profile.settings.locationSharing
+        val effectiveLat = if (locShare == LocationSharingPreference.PRECISE) latitude else existingItem.latitude
+        val effectiveLng = if (locShare == LocationSharingPreference.PRECISE) longitude else existingItem.longitude
+
+        val updatedItem = existingItem.copy(
+            title = title.trim(),
+            category = category,
+            pricePerDay = price.coerceAtLeast(1),
+            location = location.trim(),
+            description = desc.trim(),
+            imageUrl = coverUrl,
+            imageUrls = galleryUrls,
+            imageCount = galleryUrls.size,
+            availableToday = availableToday,
+            securityDeposit = deposit.coerceAtLeast(0),
+            latitude = effectiveLat,
+            longitude = effectiveLng,
+            owner = existingItem.owner.copy(
+                id = existingItem.owner.id.ifBlank { uid },
+                name = ownerName,
+                initials = profile.initials.ifBlank { existingItem.owner.initials }
+            )
+        )
+
+        return service.updateListing(updatedItem).onSuccess { savedItem ->
+            _rawItemsFlow.value = _rawItemsFlow.value.map { if (it.id == savedItem.id) savedItem else it }
+        }.onFailure {
+            _syncErrorFlow.value = "Failed to update listing: ${it.localizedMessage}"
+        }
+    }
+
+    fun toggleListingAvailability(itemId: String) {
+        val current = _rawItemsFlow.value.find { it.id == itemId } ?: return
+        val nextAvailable = !current.availableToday
+        _rawItemsFlow.value = _rawItemsFlow.value.map { item ->
+            if (item.id == itemId) item.copy(availableToday = nextAvailable) else item
+        }
+        repositoryScope.launch {
+            firestoreService?.updateListingAvailability(itemId, nextAvailable)?.onFailure {
+                _rawItemsFlow.value = _rawItemsFlow.value.map { item ->
+                    if (item.id == itemId) item.copy(availableToday = current.availableToday) else item
+                }
+                _syncErrorFlow.value = "Failed to update listing status: ${it.localizedMessage}"
+            }
+        }
+    }
+
     fun deleteListing(itemId: String) {
         _rawItemsFlow.value = _rawItemsFlow.value.filterNot { it.id == itemId }
         repositoryScope.launch {
@@ -696,7 +797,8 @@ object RentalRepository {
         location: String,
         dateTime: String,
         latitude: Double? = null,
-        longitude: Double? = null
+        longitude: Double? = null,
+        imageUrl: String? = null
     ): UserCommunityPost {
         val uid = Firebase.auth.currentUser?.uid ?: ""
         val profile = _userProfileFlow.value
@@ -721,7 +823,8 @@ object RentalRepository {
             latitude = effectiveLat,
             longitude = effectiveLng,
             authorId = uid,
-            authorName = profile.displayName.ifBlank { Firebase.auth.currentUser?.displayName ?: "Community Member" }
+            authorName = profile.displayName.ifBlank { Firebase.auth.currentUser?.displayName ?: "Community Member" },
+            imageUrl = imageUrl?.takeIf { it.isNotBlank() }
         )
 
         _rawCommunityPostsFlow.value = listOf(newPost) + _rawCommunityPostsFlow.value
@@ -730,6 +833,25 @@ object RentalRepository {
             communityRepo?.createEvent(newPost) ?: firestoreService?.createCommunityPost(newPost)
         }
         return newPost
+    }
+
+    fun updateCommunityPost(updatedPost: UserCommunityPost) {
+        val cleaned = updatedPost.copy(
+            title = updatedPost.title.trim(),
+            description = updatedPost.description.trim(),
+            location = updatedPost.location.trim(),
+            dateTime = updatedPost.dateTime.trim(),
+            imageUrl = updatedPost.imageUrl?.takeIf { it.isNotBlank() }
+        )
+        _rawCommunityPostsFlow.value = _rawCommunityPostsFlow.value.map { post ->
+            if (post.id == cleaned.id) cleaned else post
+        }
+        repositoryScope.launch {
+            val res = communityRepo?.updateEvent(cleaned) ?: firestoreService?.updateCommunityPost(cleaned)
+            res?.onFailure {
+                _syncErrorFlow.value = "Failed to update post: ${it.localizedMessage}"
+            }
+        }
     }
 
     fun toggleCommunityPostStatus(postId: String) {

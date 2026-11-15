@@ -104,7 +104,8 @@ data class PhotoEditState(
 
 data class DraftListingPhoto(
     val id: String,
-    val sourceUri: Uri,
+    val sourceUri: Uri = Uri.EMPTY,
+    val existingImageUrl: String? = null,
     val editState: PhotoEditState = PhotoEditState(),
     val previewBitmap: Bitmap? = null,
     val isNewlyAdded: Boolean = false
@@ -260,6 +261,31 @@ object PhotoBitmapProcessor {
         return "data:image/jpeg;base64,$encoded"
     }
 
+    fun loadExistingBitmap(imageUrl: String?, maxEdge: Int = 1280): Bitmap? {
+        if (imageUrl.isNullOrBlank()) return null
+        return try {
+            val decoded = when {
+                imageUrl.startsWith("data:image", ignoreCase = true) -> {
+                    val base64Part = imageUrl.substringAfter("base64,", missingDelimiterValue = "")
+                    if (base64Part.isNotBlank()) {
+                        val bytes = Base64.decode(base64Part, Base64.DEFAULT)
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    } else null
+                }
+                imageUrl.startsWith("http://", ignoreCase = true) ||
+                    imageUrl.startsWith("https://", ignoreCase = true) -> {
+                    java.net.URL(imageUrl).openStream().use { stream ->
+                        BitmapFactory.decodeStream(stream)
+                    }
+                }
+                else -> null
+            } ?: return null
+            scaleDownToMaxEdge(decoded, maxEdge)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun scaleDownToMaxEdge(bitmap: Bitmap, maxEdge: Int): Bitmap {
         val w = bitmap.width
         val h = bitmap.height
@@ -294,10 +320,16 @@ fun PhotoEditorModal(
     var aspectPreset by remember(draftPhoto.id) { mutableStateOf(draftPhoto.editState.aspectPreset) }
     var cropRect by remember(draftPhoto.id) { mutableStateOf(draftPhoto.editState.cropRect) }
 
-    LaunchedEffect(draftPhoto.id, draftPhoto.sourceUri) {
+    LaunchedEffect(draftPhoto.id, draftPhoto.sourceUri, draftPhoto.existingImageUrl) {
         isDecoding = true
         val decoded = withContext(Dispatchers.IO) {
-            PhotoBitmapProcessor.loadOrientedSourceBitmap(context, draftPhoto.sourceUri, maxEdge = 1280)
+            when {
+                draftPhoto.sourceUri != Uri.EMPTY ->
+                    PhotoBitmapProcessor.loadOrientedSourceBitmap(context, draftPhoto.sourceUri, maxEdge = 1280)
+                !draftPhoto.existingImageUrl.isNullOrBlank() ->
+                    PhotoBitmapProcessor.loadExistingBitmap(draftPhoto.existingImageUrl, maxEdge = 1280)
+                else -> draftPhoto.previewBitmap
+            }
         }
         sourceBitmap = decoded
         if (decoded != null && draftPhoto.isNewlyAdded) {

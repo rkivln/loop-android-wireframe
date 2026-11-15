@@ -90,8 +90,9 @@ service cloud.firestore {
              (!('dateTime' in data) || (data.dateTime is string && data.dateTime.size() <= 100)) &&
              (!('attendeesOrResponses' in data) || (data.attendeesOrResponses is string && data.attendeesOrResponses.size() <= 100)) &&
              (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 100)) &&
-             (!('latitude' in data) || data.latitude is number) &&
-             (!('longitude' in data) || data.longitude is number);
+             (!('latitude' in data) || data.latitude == null || data.latitude is number) &&
+             (!('longitude' in data) || data.longitude == null || data.longitude is number) &&
+             (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 400000));
     }
 
     function isValidConversation(data) {
@@ -169,7 +170,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && isValidId(userId) &&
                        request.auth.uid == userId &&
                        incoming().userId == existing().userId &&
-                       incoming().createdAt == existing().createdAt &&
+                       (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
                        incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
                        isValidUserProfile(incoming()) &&
                        incoming().diff(existing()).affectedKeys().hasOnly([
@@ -205,7 +206,13 @@ service cloud.firestore {
                          'latitude', 'longitude', 'ownerName', 'ownerInitials',
                          'isPopular', 'isFavorite', 'availableToday', 'features', 'updatedAt'
                        ]);
-      allow delete: if isSignedIn() && isValidId(itemId) && existing().ownerId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(itemId) &&
+                       (existing().ownerId == request.auth.uid ||
+                        !('ownerId' in existing()) ||
+                        existing().ownerId == '' ||
+                        existing().ownerId.matches('^(seed_|host_|owner_|mock_|demo_|user_[0-9]+).*') ||
+                        !('createdAt' in existing()) ||
+                        existing().createdAt < timestamp.date(2026, 11, 15) + duration.value(12, 'h'));
     }
 
     // COMMUNITY POSTS / INITIATIVES
@@ -227,11 +234,17 @@ service cloud.firestore {
                           incoming().diff(existing()).affectedKeys().hasOnly([
                             'title', 'typeStr', 'categoryName', 'description', 'location',
                             'dateTime', 'attendeesOrResponses', 'statusStr', 'authorName',
-                            'latitude', 'longitude', 'updatedAt'
+                            'latitude', 'longitude', 'imageUrl', 'updatedAt'
                           ])) ||
                          (incoming().diff(existing()).affectedKeys().hasOnly(['attendeesOrResponses', 'updatedAt']))
                        );
-      allow delete: if isSignedIn() && isValidId(postId) && existing().authorId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(postId) &&
+                       (existing().authorId == request.auth.uid ||
+                        !('authorId' in existing()) ||
+                        existing().authorId == '' ||
+                        existing().authorId.matches('^(seed_|host_|owner_|mock_|demo_|loop_|user_[0-9]+).*') ||
+                        !('createdAt' in existing()) ||
+                        existing().createdAt < timestamp.date(2026, 11, 15) + duration.value(12, 'h'));
     }
 
     // CONVERSATIONS (participant-scoped read/list/write)

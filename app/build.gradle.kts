@@ -16,11 +16,12 @@ android {
         applicationId = "com.aistudio.loop.puducherry"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["MAPS_API_KEY"] = "DEFAULT_MAPS_API_KEY"
+        buildConfigField("String", "GITHUB_UPDATE_REPO", "\"\"")
     }
 
     signingConfigs {

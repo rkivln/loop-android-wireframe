@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -38,14 +39,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,15 +75,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.ai.AiListingDraft
+import com.example.ai.AiPhotoAutoFillUiState
 import com.example.ai.AiValuationUiState
 import com.example.ai.GeminiAiService
 import com.example.data.LocationHelper
 import com.example.data.RentalRepository
 import com.example.data.models.LocationSharingPreference
 import com.example.data.models.RentalCategory
+import com.example.data.models.RentalItem
 import com.example.ui.components.CategoryTile
 import com.example.ui.components.DraftListingPhoto
 import com.example.ui.components.EditorialTopBar
+import com.example.ui.components.ListingPhoto
 import com.example.ui.components.PhotoBitmapProcessor
 import com.example.ui.components.PhotoEditorModal
 import com.example.ui.components.PrimaryCTA
@@ -102,31 +112,60 @@ import java.util.UUID
 
 @Composable
 fun CreateListingScreen(
+    editingItem: RentalItem? = null,
     onBack: () -> Unit = {},
-    onListingCreated: () -> Unit = {}
+    onListingCreated: () -> Unit = {},
+    onListingUpdated: () -> Unit = {},
+    onListingDeleted: () -> Unit = {}
 ) {
     BackHandler(onBack = onBack)
 
+    val isEditMode = editingItem != null
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var dailyRateStr by remember { mutableStateOf("") }
-    var depositStr by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var latitude by remember { mutableStateOf<Double?>(null) }
-    var longitude by remember { mutableStateOf<Double?>(null) }
+    var title by remember(editingItem?.id) { mutableStateOf(editingItem?.title ?: "") }
+    var description by remember(editingItem?.id) { mutableStateOf(editingItem?.description ?: "") }
+    var dailyRateStr by remember(editingItem?.id) {
+        mutableStateOf(editingItem?.pricePerDay?.toString() ?: "")
+    }
+    var depositStr by remember(editingItem?.id) {
+        mutableStateOf(editingItem?.securityDeposit?.toString() ?: "")
+    }
+    var location by remember(editingItem?.id) { mutableStateOf(editingItem?.location ?: "") }
+    var latitude by remember(editingItem?.id) { mutableStateOf(editingItem?.latitude) }
+    var longitude by remember(editingItem?.id) { mutableStateOf(editingItem?.longitude) }
     var isLocatingGps by remember { mutableStateOf(false) }
-    var selectedCategory by remember { mutableStateOf(RentalCategory.ELECTRONICS) }
-    var attachedPhotos by remember { mutableStateOf<List<DraftListingPhoto>>(emptyList()) }
+    var selectedCategory by remember(editingItem?.id) {
+        mutableStateOf(editingItem?.category ?: RentalCategory.ELECTRONICS)
+    }
+    var availableToday by remember(editingItem?.id) {
+        mutableStateOf(editingItem?.availableToday ?: true)
+    }
+    var attachedPhotos by remember(editingItem?.id) {
+        mutableStateOf<List<DraftListingPhoto>>(
+            editingItem?.let { item ->
+                val urls = item.imageUrls.filter { it.isNotBlank() }.ifEmpty {
+                    listOfNotNull(item.imageUrl?.takeIf { it.isNotBlank() })
+                }.take(4)
+                urls.mapIndexed { idx, url ->
+                    DraftListingPhoto(
+                        id = "existing_${item.id}_$idx",
+                        existingImageUrl = url
+                    )
+                }
+            } ?: emptyList()
+        )
+    }
     var activeEditorPhotoId by remember { mutableStateOf<String?>(null) }
     var pendingEditQueue by remember { mutableStateOf<List<String>>(emptyList()) }
     var queueTotalCount by remember { mutableIntStateOf(0) }
     var queueCompletedCount by remember { mutableIntStateOf(0) }
 
     var aiState by remember { mutableStateOf<AiValuationUiState>(AiValuationUiState.Idle) }
+    var photoAiState by remember { mutableStateOf<AiPhotoAutoFillUiState>(AiPhotoAutoFillUiState.Idle) }
     var isSubmitting by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val detectLiveLocation: (Boolean) -> Unit = { overwriteManual ->
         isLocatingGps = true
@@ -159,8 +198,9 @@ fun CreateListingScreen(
 
     val userSettings by RentalRepository.userSettingsFlow.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        if (userSettings.locationSharing != LocationSharingPreference.HIDDEN &&
+    LaunchedEffect(editingItem?.id) {
+        if (!isEditMode &&
+            userSettings.locationSharing != LocationSharingPreference.HIDDEN &&
             LocationHelper.hasLocationPermission(context)
         ) {
             detectLiveLocation(false)
@@ -193,6 +233,81 @@ fun CreateListingScreen(
         multiPhotoPickerLauncher.launch(
             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
         )
+    }
+
+    val applyPhotoDraftToForm: (AiListingDraft, Boolean) -> Unit = { draft, overwriteExisting ->
+        val inferredCategory = draft.toRentalCategory(selectedCategory)
+        if (overwriteExisting || title.isBlank()) {
+            selectedCategory = inferredCategory
+            title = draft.objectTitle
+        }
+        if (overwriteExisting || description.isBlank()) {
+            description = draft.description
+        }
+        if (overwriteExisting || dailyRateStr.isBlank()) {
+            dailyRateStr = draft.suggestedDailyRateInr.toString()
+        }
+        if (overwriteExisting || depositStr.isBlank()) {
+            depositStr = draft.recommendedDepositInr.toString()
+        }
+        aiState = AiValuationUiState.Success(draft.toGearValuation())
+    }
+
+    val analyzePhotosWithAi: () -> Unit = analyze@{
+        if (attachedPhotos.isEmpty() || photoAiState is AiPhotoAutoFillUiState.Loading) return@analyze
+        val hadExistingContent = title.isNotBlank() || description.isNotBlank()
+        photoAiState = AiPhotoAutoFillUiState.Loading
+        coroutineScope.launch {
+            val bitmaps = withContext(Dispatchers.IO) {
+                attachedPhotos.take(3).mapNotNull { draft ->
+                    val cached = draft.previewBitmap
+                    when {
+                        cached != null -> PhotoBitmapProcessor.renderTransformedBitmap(
+                            sourceBitmap = cached,
+                            editState = com.example.ui.components.PhotoEditState(
+                                aspectPreset = com.example.ui.components.CropAspectPreset.FREE
+                            ),
+                            maxOutputEdge = 1024
+                        )
+                        draft.sourceUri != Uri.EMPTY -> PhotoBitmapProcessor
+                            .loadOrientedSourceBitmap(context, draft.sourceUri, maxEdge = 1024)
+                            ?.let { src ->
+                                PhotoBitmapProcessor.renderTransformedBitmap(
+                                    sourceBitmap = src,
+                                    editState = draft.editState,
+                                    maxOutputEdge = 1024
+                                )
+                            }
+                        !draft.existingImageUrl.isNullOrBlank() ->
+                            PhotoBitmapProcessor.loadExistingBitmap(draft.existingImageUrl, maxEdge = 1024)
+                        else -> null
+                    }
+                }
+            }
+
+            if (bitmaps.isEmpty()) {
+                photoAiState = AiPhotoAutoFillUiState.Error("Could not read attached photo pixels. Try re-selecting the photo.")
+                return@launch
+            }
+
+            val result = GeminiAiService.analyzePhotosForListing(
+                photos = bitmaps,
+                existingTitle = title,
+                existingNotes = description
+            )
+            photoAiState = result.fold(
+                onSuccess = { draft ->
+                    applyPhotoDraftToForm(draft, !hadExistingContent)
+                    AiPhotoAutoFillUiState.Success(
+                        draft = draft,
+                        appliedAllFields = !hadExistingContent
+                    )
+                },
+                onFailure = { error ->
+                    AiPhotoAutoFillUiState.Error(error.localizedMessage ?: "Photo analysis failed.")
+                }
+            )
+        }
     }
 
     val evaluateWithAi: () -> Unit = {
@@ -241,7 +356,7 @@ fun CreateListingScreen(
             .navigationBarsPadding()
     ) {
         EditorialTopBar(
-            title = "Publish Piece",
+            title = if (isEditMode) "Edit Piece" else "Publish Piece",
             onBack = onBack
         )
 
@@ -325,9 +440,17 @@ fun CreateListingScreen(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
-                        } else {
+                        } else if (coverPhoto.sourceUri != Uri.EMPTY) {
                             AsyncImage(
                                 model = coverPhoto.sourceUri,
+                                contentDescription = "Cover piece photography",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            ListingPhoto(
+                                imageUrl = coverPhoto.existingImageUrl,
+                                fallbackRes = 0,
                                 contentDescription = "Cover piece photography",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -429,9 +552,17 @@ fun CreateListingScreen(
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
                                         )
-                                    } else {
+                                    } else if (photo.sourceUri != Uri.EMPTY) {
                                         AsyncImage(
                                             model = photo.sourceUri,
+                                            contentDescription = "Photo ${index + 1}",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        ListingPhoto(
+                                            imageUrl = photo.existingImageUrl,
+                                            fallbackRes = 0,
                                             contentDescription = "Photo ${index + 1}",
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
@@ -465,7 +596,11 @@ fun CreateListingScreen(
                                             .clip(CircleShape)
                                             .background(Color.Black.copy(alpha = 0.72f))
                                             .clickable {
-                                                attachedPhotos = attachedPhotos.filterNot { it.id == photo.id }
+                                                val updated = attachedPhotos.filterNot { it.id == photo.id }
+                                                attachedPhotos = updated
+                                                if (updated.isEmpty()) {
+                                                    photoAiState = AiPhotoAutoFillUiState.Idle
+                                                }
                                             }
                                             .testTag("remove_photo_$index"),
                                         contentAlignment = Alignment.Center
@@ -547,6 +682,149 @@ fun CreateListingScreen(
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(22.dp))
+                            }
+                        }
+                    }
+
+                    // Inline Photo-to-Listing Gemini Auto-Fill Card
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, AccentForestGreen.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+                            .padding(14.dp)
+                            .testTag("photo_autofill_card"),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .background(AccentMint),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = "Gemini photo auto-fill",
+                                        tint = AccentForestGreen,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = "PHOTO-TO-LISTING AI",
+                                        style = LoopType.EditorialTag,
+                                        color = AccentForestGreen
+                                    )
+                                    Text(
+                                        text = "Scanning up to ${attachedPhotos.take(3).size} attached photo(s)",
+                                        style = LoopType.Metadata.copy(fontSize = 11.sp),
+                                        color = InkMuted
+                                    )
+                                }
+                            }
+                        }
+
+                        when (val pState = photoAiState) {
+                            AiPhotoAutoFillUiState.Idle -> {
+                                Text(
+                                    text = "Let Gemini identify your gear, match the department, draft notes, and suggest fair INR rates from your photos.",
+                                    style = LoopType.BodySmall,
+                                    color = InkSecondary
+                                )
+                                SecondaryCTA(
+                                    text = "Auto-Fill Details from Photo",
+                                    onClick = analyzePhotosWithAi,
+                                    testTag = "photo_autofill_button"
+                                )
+                            }
+                            AiPhotoAutoFillUiState.Loading -> {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = AccentForestGreen,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Text(
+                                        text = "Inspecting gear photos with Gemini...",
+                                        style = LoopType.BodySmall,
+                                        color = InkCharcoal
+                                    )
+                                }
+                            }
+                            is AiPhotoAutoFillUiState.Success -> {
+                                val categoryTitle = pState.draft.toRentalCategory(selectedCategory).title
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(AccentMint)
+                                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                                ) {
+                                    Text(
+                                        text = pState.draft.observedCondition,
+                                        style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                                        color = AccentForestGreen
+                                    )
+                                }
+                                Text(
+                                    text = if (pState.appliedAllFields) {
+                                        "Auto-filled \"$categoryTitle\" · \"${pState.draft.objectTitle}\" at ₹${pState.draft.suggestedDailyRateInr}/day."
+                                    } else {
+                                        "Suggested: \"${pState.draft.objectTitle}\" ($categoryTitle · ₹${pState.draft.suggestedDailyRateInr}/day). Empty fields were populated while keeping your edits."
+                                    },
+                                    style = LoopType.BodySmall,
+                                    color = InkCharcoal
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (!pState.appliedAllFields) {
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            SecondaryCTA(
+                                                text = "Replace All Fields",
+                                                onClick = {
+                                                    applyPhotoDraftToForm(pState.draft, true)
+                                                    photoAiState = pState.copy(appliedAllFields = true)
+                                                },
+                                                testTag = "photo_autofill_apply_all_button"
+                                            )
+                                        }
+                                    }
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        SecondaryCTA(
+                                            text = "Re-scan Photos",
+                                            onClick = analyzePhotosWithAi,
+                                            testTag = "photo_autofill_rescan_button"
+                                        )
+                                    }
+                                }
+                            }
+                            is AiPhotoAutoFillUiState.Error -> {
+                                Text(
+                                    text = pState.message,
+                                    style = LoopType.BodySmall,
+                                    color = AlertCrimson
+                                )
+                                SecondaryCTA(
+                                    text = "Retry Photo Scan",
+                                    onClick = analyzePhotosWithAi,
+                                    testTag = "photo_autofill_retry_button"
+                                )
                             }
                         }
                     }
@@ -783,6 +1061,71 @@ fun CreateListingScreen(
                 }
             }
 
+            if (isEditMode) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(PaperPureWhite)
+                        .border(1.dp, PaperBorderSubtle, RoundedCornerShape(18.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "LISTING STATUS",
+                            style = LoopType.EditorialTag,
+                            color = InkSecondary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (availableToday) "Available for community booking" else "Paused — hidden from new bookings",
+                            style = LoopType.BodySmall,
+                            color = if (availableToday) AccentForestGreen else InkSecondary
+                        )
+                    }
+                    Switch(
+                        checked = availableToday,
+                        onCheckedChange = { availableToday = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = InkWhite,
+                            checkedTrackColor = AccentForestGreen,
+                            uncheckedThumbColor = InkWhite,
+                            uncheckedTrackColor = InkMuted
+                        ),
+                        modifier = Modifier.testTag("edit_listing_availability_switch")
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(PaperPureWhite)
+                        .border(1.dp, AlertCrimson.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                        .clickable { showDeleteConfirm = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .testTag("edit_listing_delete_button"),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Delete listing",
+                        tint = AlertCrimson,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Delete Piece from Catalog",
+                        style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = AlertCrimson
+                    )
+                }
+            }
+
             if (submitError != null) {
                 Text(
                     text = submitError ?: "",
@@ -794,7 +1137,7 @@ fun CreateListingScreen(
             Spacer(modifier = Modifier.height(4.dp))
         }
 
-        // Bottom Publish CTA
+        // Bottom Publish / Save CTA
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -802,7 +1145,12 @@ fun CreateListingScreen(
                 .padding(horizontal = 22.dp, vertical = 14.dp)
         ) {
             PrimaryCTA(
-                text = if (isSubmitting) "Publishing..." else "Publish to Living Catalog",
+                text = when {
+                    isSubmitting && isEditMode -> "Saving Changes..."
+                    isSubmitting -> "Publishing..."
+                    isEditMode -> "Save Changes"
+                    else -> "Publish to Living Catalog"
+                },
                 onClick = {
                     val rate = dailyRateStr.toIntOrNull() ?: 500
                     val dep = depositStr.toIntOrNull() ?: 1000
@@ -813,32 +1161,65 @@ fun CreateListingScreen(
                     isSubmitting = true
                     submitError = null
                     coroutineScope.launch {
-                        val encodedUrls = withContext(Dispatchers.Default) {
+                        val encodedUrls = withContext(Dispatchers.IO) {
                             attachedPhotos.mapNotNull { draft ->
-                                val bmp = draft.previewBitmap ?: PhotoBitmapProcessor
-                                    .loadOrientedSourceBitmap(context, draft.sourceUri, maxEdge = 1080)
-                                    ?.let { src ->
-                                        PhotoBitmapProcessor.renderTransformedBitmap(src, draft.editState, maxOutputEdge = 768)
-                                    }
-                                bmp?.let { PhotoBitmapProcessor.bitmapToBase64DataUri(it, targetMaxBytes = 140_000) }
+                                if (draft.previewBitmap == null &&
+                                    draft.sourceUri == Uri.EMPTY &&
+                                    !draft.existingImageUrl.isNullOrBlank()
+                                ) {
+                                    draft.existingImageUrl
+                                } else {
+                                    val bmp = draft.previewBitmap ?: PhotoBitmapProcessor
+                                        .loadOrientedSourceBitmap(context, draft.sourceUri, maxEdge = 1080)
+                                        ?.let { src ->
+                                            PhotoBitmapProcessor.renderTransformedBitmap(src, draft.editState, maxOutputEdge = 768)
+                                        }
+                                    bmp?.let { PhotoBitmapProcessor.bitmapToBase64DataUri(it, targetMaxBytes = 140_000) }
+                                }
                             }
                         }
-                        val res = RentalRepository.createListing(
-                            title = title,
-                            price = rate,
-                            deposit = dep,
-                            location = location,
-                            category = selectedCategory,
-                            desc = description,
-                            imageUrl = encodedUrls.firstOrNull(),
-                            imageUrls = encodedUrls,
-                            latitude = latitude,
-                            longitude = longitude
-                        )
+                        val targetItem = editingItem
+                        val res = if (targetItem != null) {
+                            RentalRepository.updateListing(
+                                existingItem = targetItem,
+                                title = title,
+                                price = rate,
+                                deposit = dep,
+                                location = location,
+                                category = selectedCategory,
+                                desc = description,
+                                imageUrl = encodedUrls.firstOrNull(),
+                                imageUrls = encodedUrls,
+                                availableToday = availableToday,
+                                latitude = latitude,
+                                longitude = longitude
+                            )
+                        } else {
+                            RentalRepository.createListing(
+                                title = title,
+                                price = rate,
+                                deposit = dep,
+                                location = location,
+                                category = selectedCategory,
+                                desc = description,
+                                imageUrl = encodedUrls.firstOrNull(),
+                                imageUrls = encodedUrls,
+                                latitude = latitude,
+                                longitude = longitude
+                            )
+                        }
                         isSubmitting = false
                         res.fold(
-                            onSuccess = { onListingCreated() },
-                            onFailure = { submitError = it.localizedMessage ?: "Could not publish piece." }
+                            onSuccess = {
+                                if (isEditMode) onListingUpdated() else onListingCreated()
+                            },
+                            onFailure = {
+                                submitError = it.localizedMessage ?: if (isEditMode) {
+                                    "Could not save changes."
+                                } else {
+                                    "Could not publish piece."
+                                }
+                            }
                         )
                     }
                 },
@@ -847,6 +1228,33 @@ fun CreateListingScreen(
                 testTag = "publish_listing_button"
             )
         }
+    }
+
+    if (showDeleteConfirm && editingItem != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            containerColor = PaperPureWhite,
+            titleContentColor = InkCharcoal,
+            textContentColor = InkSecondary,
+            title = { Text("Delete this piece?", style = LoopType.HeadlineMedium.copy(fontSize = 18.sp)) },
+            text = { Text("This listing will be permanently removed from your catalog.", style = LoopType.BodyMedium) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        RentalRepository.deleteListing(editingItem.id)
+                        showDeleteConfirm = false
+                        onListingDeleted()
+                    }
+                ) {
+                    Text("Delete", color = AlertCrimson, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel", color = InkCharcoal)
+                }
+            }
+        )
     }
 
     // Full-Screen Interactive Photo Editor Modal (Auto-opens on pick & via Edit button)

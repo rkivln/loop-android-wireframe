@@ -23,6 +23,7 @@ data class CommunityEventEntity(
     val longitude: Double? = null,
     val authorId: String = "",
     val authorName: String = "",
+    val imageUrl: String? = null,
     val isSynced: Boolean = true
 )
 
@@ -51,7 +52,8 @@ fun CommunityEventEntity.toUserCommunityPost(): UserCommunityPost {
         latitude = latitude,
         longitude = longitude,
         authorId = authorId,
-        authorName = authorName
+        authorName = authorName,
+        imageUrl = imageUrl
     )
 }
 
@@ -71,6 +73,7 @@ fun UserCommunityPost.toEntity(isSynced: Boolean = true): CommunityEventEntity {
         longitude = longitude,
         authorId = authorId,
         authorName = authorName,
+        imageUrl = imageUrl,
         isSynced = isSynced
     )
 }

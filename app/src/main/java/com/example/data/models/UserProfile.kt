@@ -97,5 +97,6 @@ data class UserCommunityPost(
     val longitude: Double? = null,
     val authorId: String = "",
     val authorName: String = "",
+    val imageUrl: String? = null,
     val createdAtEpoch: Long = System.currentTimeMillis()
 )

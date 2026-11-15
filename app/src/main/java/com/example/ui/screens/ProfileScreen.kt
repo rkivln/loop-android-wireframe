@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.Manifest
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,6 +36,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -58,7 +61,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -66,6 +71,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,6 +87,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -99,9 +106,13 @@ import com.example.data.models.UserActivityItem
 import com.example.data.models.UserActivityType
 import com.example.data.models.UserCommunityPost
 import com.example.data.models.UserProfile
+import com.example.ui.components.ListingPhoto
+import com.example.ui.components.PhotoBitmapProcessor
 import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.SecondaryCTA
 import com.example.ui.components.SectionLabel
+import com.example.update.AppUpdateCoordinator
+import com.example.update.AppUpdateUiState
 import com.example.ui.theme.AccentBeigeOat
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
@@ -120,8 +131,10 @@ import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
 import com.example.ui.theme.PaperWarm
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class ProfileTab(val label: String, val emoji: String) {
     OVERVIEW("Overview & Bio", "👤"),
@@ -141,10 +154,14 @@ fun ProfileScreen(
     val userActivities by RentalRepository.userActivityFlow.collectAsStateWithLifecycle()
     val userPosts by RentalRepository.userCommunityPostsFlow.collectAsStateWithLifecycle()
     val bookings by RentalRepository.bookingsFlow.collectAsStateWithLifecycle()
+    val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
+    val availableUpdateTag = (updateState as? AppUpdateUiState.UpdateAvailable)?.release?.tagName
 
     var selectedTab by remember { mutableStateOf(ProfileTab.OVERVIEW) }
     var isEditingProfile by remember { mutableStateOf(false) }
     var isCreatingPost by remember { mutableStateOf(false) }
+    var editingPost by remember { mutableStateOf<UserCommunityPost?>(null) }
+    var pendingDeletePost by remember { mutableStateOf<UserCommunityPost?>(null) }
     var isShowingBookings by remember { mutableStateOf(false) }
     var selectedPostFilter by remember { mutableStateOf<CommunityPostType?>(null) }
     var saveSuccessMessage by remember { mutableStateOf<String?>(null) }
@@ -249,10 +266,26 @@ fun ProfileScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings",
+                                contentDescription = if (availableUpdateTag != null) {
+                                    "Settings, update $availableUpdateTag available"
+                                } else {
+                                    "Settings"
+                                },
                                 tint = InkCharcoal,
                                 modifier = Modifier.size(20.dp)
                             )
+                            if (availableUpdateTag != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(10.dp)
+                                        .size(9.dp)
+                                        .clip(CircleShape)
+                                        .background(AccentForestGreen)
+                                        .border(1.5.dp, PaperPureWhite, CircleShape)
+                                        .testTag("profile_settings_update_dot")
+                                )
+                            }
                         }
                     }
                 }
@@ -569,7 +602,11 @@ fun ProfileScreen(
                             EditorialMenuRow(
                                 icon = Icons.Default.Security,
                                 title = "Settings & Privacy",
-                                badge = userProfile.settings.profileVisibility.label,
+                                badge = if (availableUpdateTag != null) {
+                                    "Update $availableUpdateTag"
+                                } else {
+                                    userProfile.settings.profileVisibility.label
+                                },
                                 onClick = onOpenSettings
                             )
                         }
@@ -742,13 +779,13 @@ fun ProfileScreen(
                         items(displayedPosts, key = { it.id }) { post ->
                             CommunityPostCard(
                                 post = post,
+                                onEdit = { editingPost = post },
                                 onToggleStatus = {
                                     RentalRepository.toggleCommunityPostStatus(post.id)
                                     showFeedback("Status updated for '${post.title}'.")
                                 },
                                 onDelete = {
-                                    RentalRepository.deleteCommunityPost(post.id)
-                                    showFeedback("Post '${post.title}' removed.")
+                                    pendingDeletePost = post
                                 }
                             )
                         }
@@ -821,15 +858,19 @@ fun ProfileScreen(
             )
         }
 
-        // Create Community Event / Help Request Modal Sheet
+        // Create or Edit Community Event / Help Request Modal Sheet
         AnimatedVisibility(
-            visible = isCreatingPost,
+            visible = isCreatingPost || editingPost != null,
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut()
         ) {
-            BackHandler { isCreatingPost = false }
+            BackHandler {
+                isCreatingPost = false
+                editingPost = null
+            }
             CreateCommunityPostModalSheet(
-                onPostCreated = { title, type, desc, loc, dt, lat, lng ->
+                editingPost = editingPost,
+                onPostCreated = { title, type, desc, loc, dt, lat, lng, imageUrl ->
                     RentalRepository.createCommunityPost(
                         title = title,
                         type = type,
@@ -837,13 +878,26 @@ fun ProfileScreen(
                         location = loc,
                         dateTime = dt,
                         latitude = lat,
-                        longitude = lng
+                        longitude = lng,
+                        imageUrl = imageUrl
                     )
                     isCreatingPost = false
                     selectedTab = ProfileTab.MY_POSTS
                     showFeedback("Community ${type.title} published!")
                 },
-                onDismiss = { isCreatingPost = false }
+                onPostUpdated = { updated ->
+                    RentalRepository.updateCommunityPost(updated)
+                    editingPost = null
+                    showFeedback("Updated '${updated.title}'.")
+                },
+                onPostDeleted = { toDelete ->
+                    editingPost = null
+                    pendingDeletePost = toDelete
+                },
+                onDismiss = {
+                    isCreatingPost = false
+                    editingPost = null
+                }
             )
         }
 
@@ -862,12 +916,55 @@ fun ProfileScreen(
                 onDismiss = { isShowingBookings = false }
             )
         }
+
+        pendingDeletePost?.let { postToDelete ->
+            AlertDialog(
+                onDismissRequest = { pendingDeletePost = null },
+                containerColor = PaperPureWhite,
+                titleContentColor = InkCharcoal,
+                textContentColor = InkSecondary,
+                title = {
+                    Text(
+                        text = "Delete community post?",
+                        style = LoopType.HeadlineMedium.copy(fontSize = 18.sp)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "'${postToDelete.title}' will be permanently removed from your profile and the neighborhood feed.",
+                        style = LoopType.BodyMedium
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            RentalRepository.deleteCommunityPost(postToDelete.id)
+                            pendingDeletePost = null
+                            showFeedback("Post '${postToDelete.title}' removed.")
+                        },
+                        modifier = Modifier.testTag("confirm_delete_post_btn")
+                    ) {
+                        Text(
+                            text = "Delete",
+                            color = AlertCrimson,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDeletePost = null }) {
+                        Text("Cancel", color = InkCharcoal)
+                    }
+                }
+            )
+        }
     }
 }
 
 @Composable
 private fun CommunityPostCard(
     post: UserCommunityPost,
+    onEdit: () -> Unit,
     onToggleStatus: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -939,11 +1036,11 @@ private fun CommunityPostCard(
                 Box {
                     IconButton(
                         onClick = { menuExpanded = true },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Options",
+                            contentDescription = "Post Options",
                             tint = InkSecondary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -954,6 +1051,28 @@ private fun CommunityPostCard(
                         onDismissRequest = { menuExpanded = false },
                         modifier = Modifier.background(PaperPureWhite)
                     ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Edit Post",
+                                    style = LoopType.BodySmall,
+                                    color = InkCharcoal
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = InkCharcoal,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onEdit()
+                            }
+                        )
+
                         DropdownMenuItem(
                             text = {
                                 Text(
@@ -999,6 +1118,20 @@ private fun CommunityPostCard(
                         )
                     }
                 }
+            }
+
+            if (!post.imageUrl.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                ListingPhoto(
+                    imageUrl = post.imageUrl,
+                    fallbackRes = 0,
+                    contentDescription = post.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(148.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -1052,18 +1185,53 @@ private fun CommunityPostCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Quick Status Toggle Action Button
+            // Quick Edit & Status Toggle Action Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(100.dp))
+                        .background(PaperIvory)
+                        .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
+                        .clickable(onClick = onEdit)
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .testTag("edit_profile_post_${post.id}"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Post",
+                            tint = InkCharcoal,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "Edit",
+                            style = LoopType.Metadata.copy(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = InkCharcoal
+                            )
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(100.dp))
                         .background(if (isCompleted) PaperPureWhite else AccentForestGreen)
                         .border(1.dp, if (isCompleted) PaperBorder else AccentForestGreen, RoundedCornerShape(100.dp))
                         .clickable(onClick = onToggleStatus)
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (isCompleted) "Reopen" else "✓ Mark Resolved",
@@ -1551,6 +1719,7 @@ fun EditProfileModalSheet(
 
 @Composable
 fun CreateCommunityPostModalSheet(
+    editingPost: UserCommunityPost? = null,
     onPostCreated: (
         title: String,
         type: CommunityPostType,
@@ -1558,21 +1727,59 @@ fun CreateCommunityPostModalSheet(
         loc: String,
         dt: String,
         lat: Double?,
-        lng: Double?
-    ) -> Unit,
+        lng: Double?,
+        imageUrl: String?
+    ) -> Unit = { _, _, _, _, _, _, _, _ -> },
+    onPostUpdated: (UserCommunityPost) -> Unit = {},
+    onPostDeleted: ((UserCommunityPost) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
+    val isEditMode = editingPost != null
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var title by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(CommunityPostType.EVENT) }
-    var description by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var dateTime by remember { mutableStateOf("") }
-    var latitude by remember { mutableStateOf<Double?>(null) }
-    var longitude by remember { mutableStateOf<Double?>(null) }
+    var title by remember(editingPost?.id) { mutableStateOf(editingPost?.title ?: "") }
+    var selectedType by remember(editingPost?.id) {
+        mutableStateOf(editingPost?.type ?: CommunityPostType.EVENT)
+    }
+    var description by remember(editingPost?.id) { mutableStateOf(editingPost?.description ?: "") }
+    var location by remember(editingPost?.id) { mutableStateOf(editingPost?.location ?: "") }
+    var dateTime by remember(editingPost?.id) { mutableStateOf(editingPost?.dateTime ?: "") }
+    var latitude by remember(editingPost?.id) { mutableStateOf(editingPost?.latitude) }
+    var longitude by remember(editingPost?.id) { mutableStateOf(editingPost?.longitude) }
+    var status by remember(editingPost?.id) {
+        mutableStateOf(editingPost?.status ?: CommunityPostStatus.ACTIVE)
+    }
+    var imageUrl by remember(editingPost?.id) { mutableStateOf(editingPost?.imageUrl) }
+    var isProcessingPhoto by remember { mutableStateOf(false) }
     var isLocatingGps by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val coverPhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            isProcessingPhoto = true
+            coroutineScope.launch {
+                val encoded = withContext(Dispatchers.IO) {
+                    val bmp = PhotoBitmapProcessor.loadOrientedSourceBitmap(
+                        context = context,
+                        uri = uri,
+                        maxEdge = 768
+                    )
+                    bmp?.let {
+                        PhotoBitmapProcessor.bitmapToBase64DataUri(it, targetMaxBytes = 140_000)
+                    }
+                }
+                if (encoded != null) {
+                    imageUrl = encoded
+                    errorMessage = null
+                } else {
+                    errorMessage = "Could not load selected photo. Please try another image."
+                }
+                isProcessingPhoto = false
+            }
+        }
+    }
 
     val detectPostGps: (Boolean) -> Unit = { overwriteManual ->
         isLocatingGps = true
@@ -1601,8 +1808,9 @@ fun CreateCommunityPostModalSheet(
 
     val userSettings by RentalRepository.userSettingsFlow.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        if (userSettings.locationSharing != LocationSharingPreference.HIDDEN &&
+    LaunchedEffect(editingPost?.id) {
+        if (editingPost == null &&
+            userSettings.locationSharing != LocationSharingPreference.HIDDEN &&
             LocationHelper.hasLocationPermission(context)
         ) {
             detectPostGps(false)
@@ -1619,20 +1827,24 @@ fun CreateCommunityPostModalSheet(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = 680.dp)
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .background(PaperPureWhite)
                 .clickable(enabled = false) {}
-                .padding(horizontal = 22.dp, vertical = 22.dp)
+                .padding(horizontal = 22.dp, vertical = 20.dp)
                 .navigationBarsPadding()
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "New Community Initiative",
+                        text = if (isEditMode) "Edit Community Initiative" else "New Community Initiative",
                         style = LoopType.HeadlineMedium,
                         color = InkCharcoal
                     )
@@ -1656,11 +1868,12 @@ fun CreateCommunityPostModalSheet(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
+                                .heightIn(min = 48.dp)
                                 .clip(RoundedCornerShape(100.dp))
                                 .background(if (isSelected) InkCharcoal else PaperIvory)
                                 .border(1.dp, if (isSelected) InkCharcoal else PaperBorder, RoundedCornerShape(100.dp))
                                 .clickable { selectedType = type }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -1671,6 +1884,171 @@ fun CreateCommunityPostModalSheet(
                                 ),
                                 color = if (isSelected) InkWhite else InkCharcoal
                             )
+                        }
+                    }
+                }
+
+                // Status toggle in Edit Mode
+                if (isEditMode) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "POST STATUS",
+                            style = LoopType.EditorialTag,
+                            color = InkSecondary
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                CommunityPostStatus.ACTIVE to "Active / Open",
+                                CommunityPostStatus.COMPLETED to "Resolved"
+                            ).forEach { (candidateStatus, label) ->
+                                val isSelected = status == candidateStatus
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 48.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (isSelected) AccentMint else PaperIvory)
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) AccentForestGreen else PaperBorder,
+                                            RoundedCornerShape(14.dp)
+                                        )
+                                        .clickable { status = candidateStatus }
+                                        .testTag("post_status_${candidateStatus.name}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = LoopType.Metadata.copy(
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        color = if (isSelected) AccentForestGreen else InkCharcoal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Optional Cover Photo Picker
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "COVER PHOTO (OPTIONAL)",
+                        style = LoopType.EditorialTag,
+                        color = InkSecondary
+                    )
+                    if (!imageUrl.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(PaperIvory)
+                                .border(1.dp, PaperBorderSubtle, RoundedCornerShape(14.dp))
+                                .padding(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                ListingPhoto(
+                                    imageUrl = imageUrl,
+                                    fallbackRes = 0,
+                                    contentDescription = "Community cover photo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = if (isProcessingPhoto) "Optimizing image..." else "Cover photo attached",
+                                        style = LoopType.BodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = InkCharcoal
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .heightIn(min = 48.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(PaperPureWhite)
+                                                .border(1.dp, PaperBorder, RoundedCornerShape(10.dp))
+                                                .clickable(enabled = !isProcessingPhoto) {
+                                                    coverPhotoPickerLauncher.launch(
+                                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                    )
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                                .testTag("post_replace_photo_btn"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Replace",
+                                                style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
+                                                color = InkCharcoal
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .heightIn(min = 48.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(PaperPureWhite)
+                                                .border(1.dp, AlertCrimson.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                                .clickable { imageUrl = null }
+                                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                                .testTag("post_remove_photo_btn"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Remove",
+                                                style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
+                                                color = AlertCrimson
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(PaperIvory)
+                                .border(1.dp, PaperBorder, RoundedCornerShape(14.dp))
+                                .clickable(enabled = !isProcessingPhoto) {
+                                    coverPhotoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                                .testTag("post_add_photo_btn"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AddPhotoAlternate,
+                                    contentDescription = "Add Cover Photo",
+                                    tint = AccentForestGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = if (isProcessingPhoto) "Processing photo..." else "Add Cover Photo",
+                                    style = LoopType.Metadata.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+                                    color = InkCharcoal
+                                )
+                            }
                         }
                     }
                 }
@@ -1699,7 +2077,7 @@ fun CreateCommunityPostModalSheet(
                         }
                         BasicTextField(
                             value = title,
-                            onValueChange = { title = it },
+                            onValueChange = { title = it; errorMessage = null },
                             textStyle = TextStyle(fontSize = 14.sp, color = InkCharcoal),
                             cursorBrush = SolidColor(InkCharcoal),
                             modifier = Modifier.fillMaxWidth()
@@ -1839,10 +2217,25 @@ fun CreateCommunityPostModalSheet(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 PrimaryCTA(
-                    text = "Publish to Community Feed",
+                    text = if (isEditMode) "Save Changes" else "Publish to Community Feed",
+                    enabled = !isProcessingPhoto,
                     onClick = {
                         if (title.isBlank()) {
                             errorMessage = "Please enter an initiative title."
+                        } else if (editingPost != null) {
+                            onPostUpdated(
+                                editingPost.copy(
+                                    title = title.trim(),
+                                    type = selectedType,
+                                    description = description.trim(),
+                                    location = location.trim(),
+                                    dateTime = dateTime.trim(),
+                                    status = status,
+                                    latitude = latitude,
+                                    longitude = longitude,
+                                    imageUrl = imageUrl
+                                )
+                            )
                         } else {
                             onPostCreated(
                                 title.trim(),
@@ -1851,12 +2244,38 @@ fun CreateCommunityPostModalSheet(
                                 location.trim(),
                                 dateTime.trim(),
                                 latitude,
-                                longitude
+                                longitude,
+                                imageUrl
                             )
                         }
                     },
                     testTag = "publish_community_post_btn"
                 )
+
+                if (editingPost != null && onPostDeleted != null) {
+                    OutlinedButton(
+                        onClick = { onPostDeleted(editingPost) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AlertCrimson
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("delete_community_post_modal_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Delete Post",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Delete Post",
+                            style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                    }
+                }
             }
         }
     }

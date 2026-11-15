@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -68,9 +69,12 @@ import com.example.data.models.RentalItem
 import com.example.ui.components.CategoryTile
 import com.example.ui.components.CommunityPhotowalksSheet
 import com.example.ui.components.EditorialPhotoCard
+import com.example.ui.components.HomeUpdateBanner
 import com.example.ui.components.ListingPhoto
 import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.SectionLabel
+import com.example.update.AppUpdateCoordinator
+import com.example.update.AppUpdateUiState
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
 import com.example.ui.theme.AccentPeach
@@ -98,6 +102,7 @@ fun HomeScreen(
 ) {
     val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
     val syncError by RentalRepository.syncErrorFlow.collectAsStateWithLifecycle()
+    val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
     var showEventsSheet by remember { mutableStateOf(false) }
 
     val featuredItem = allItems.firstOrNull()
@@ -198,6 +203,22 @@ fun HomeScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                         }
+                    }
+                }
+            }
+
+            // Top GitHub App Update Banner
+            val availableUpdate = (updateState as? AppUpdateUiState.UpdateAvailable)?.takeIf {
+                !it.isBannerDismissedForSession && !it.isVersionSkipped
+            }
+            item {
+                AnimatedVisibility(visible = availableUpdate != null) {
+                    if (availableUpdate != null) {
+                        HomeUpdateBanner(
+                            state = availableUpdate,
+                            onUpdateNow = { AppUpdateCoordinator.openReleaseNotesDialog() },
+                            onDismiss = { AppUpdateCoordinator.dismissBannerForSession() }
+                        )
                     }
                 }
             }

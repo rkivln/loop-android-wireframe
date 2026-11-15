@@ -36,6 +36,9 @@ import com.example.ui.auth.WelcomeScreen
 import com.example.ui.components.BottomNavBar
 import com.example.ui.components.LocationPermissionPromptDialog
 import com.example.ui.components.LoopTab
+import com.example.ui.components.ReleaseNotesDialog
+import com.example.update.AppUpdateCoordinator
+import com.example.update.AppUpdateUiState
 import com.example.ui.screens.BookingScreen
 import com.example.ui.screens.CreateListingScreen
 import com.example.ui.screens.EditProfileScreen
@@ -57,8 +60,9 @@ sealed class ScreenState {
     data class ItemDetails(val item: RentalItem) : ScreenState()
     data class Booking(val item: RentalItem) : ScreenState()
     object CreateListing : ScreenState()
+    data class EditListing(val item: RentalItem, val returnToSettings: Boolean = false) : ScreenState()
     object EditProfile : ScreenState()
-    object Settings : ScreenState()
+    data class Settings(val openMyPosts: Boolean = false) : ScreenState()
 }
 
 @Composable
@@ -143,7 +147,11 @@ fun LoopMainContent(
         if (status == LocationAccessState.PromptNeeded) {
             showPermissionDialog = true
         }
+        AppUpdateCoordinator.initializeAndCheckOnStartup(context)
     }
+
+    val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
+    val showReleaseNotesDialog by AppUpdateCoordinator.showReleaseNotesDialog.collectAsStateWithLifecycle()
 
     var currentScreen by remember { mutableStateOf<ScreenState>(ScreenState.Main) }
     var currentTab by remember { mutableStateOf(LoopTab.CATALOG) }
@@ -203,6 +211,32 @@ fun LoopMainContent(
                     }
                 )
             }
+            is ScreenState.EditListing -> {
+                CreateListingScreen(
+                    editingItem = screen.item,
+                    onBack = {
+                        currentScreen = if (screen.returnToSettings) {
+                            ScreenState.Settings(openMyPosts = true)
+                        } else {
+                            ScreenState.Main
+                        }
+                    },
+                    onListingUpdated = {
+                        currentScreen = if (screen.returnToSettings) {
+                            ScreenState.Settings(openMyPosts = true)
+                        } else {
+                            ScreenState.Main
+                        }
+                    },
+                    onListingDeleted = {
+                        currentScreen = if (screen.returnToSettings) {
+                            ScreenState.Settings(openMyPosts = true)
+                        } else {
+                            ScreenState.Main
+                        }
+                    }
+                )
+            }
             is ScreenState.EditProfile -> {
                 EditProfileScreen(
                     onNavigateBack = { currentScreen = ScreenState.Main }
@@ -210,9 +244,13 @@ fun LoopMainContent(
             }
             is ScreenState.Settings -> {
                 SettingsScreen(
+                    initialOpenMyPosts = screen.openMyPosts,
                     onBack = { currentScreen = ScreenState.Main },
                     onOpenItem = { selectedItem ->
                         currentScreen = ScreenState.ItemDetails(selectedItem)
+                    },
+                    onEditItem = { selectedItem ->
+                        currentScreen = ScreenState.EditListing(selectedItem, returnToSettings = true)
                     },
                     onCreateListing = {
                         currentScreen = ScreenState.CreateListing
@@ -313,7 +351,7 @@ fun LoopMainContent(
                                     currentScreen = ScreenState.EditProfile
                                 },
                                 onOpenSettings = {
-                                    currentScreen = ScreenState.Settings
+                                    currentScreen = ScreenState.Settings()
                                 },
                                 onSignOut = {
                                     AuthManager.signOut(
@@ -347,6 +385,31 @@ fun LoopMainContent(
                 onDismiss = {
                     locationPermissionManager.dismissPrompt()
                     showPermissionDialog = false
+                }
+            )
+        }
+
+        val currentAvailableUpdate = updateState as? AppUpdateUiState.UpdateAvailable
+        if (showReleaseNotesDialog && currentAvailableUpdate != null) {
+            ReleaseNotesDialog(
+                state = currentAvailableUpdate,
+                onOpenGitHubRelease = {
+                    val opened = AppUpdateCoordinator.openReleaseInBrowser(
+                        context = context,
+                        url = currentAvailableUpdate.release.htmlUrl
+                    )
+                    AppUpdateCoordinator.closeReleaseNotesDialog()
+                    if (!opened) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("No browser app found to open the GitHub Release page.")
+                        }
+                    }
+                },
+                onSkipVersion = {
+                    AppUpdateCoordinator.skipVersion(context, currentAvailableUpdate.release.tagName)
+                },
+                onDismiss = {
+                    AppUpdateCoordinator.closeReleaseNotesDialog()
                 }
             )
         }

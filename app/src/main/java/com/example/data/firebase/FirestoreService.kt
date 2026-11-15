@@ -114,6 +114,7 @@ class FirestoreService(
                         memberSince = snapshot.getString("memberSince") ?: "",
                         badges = badgesList,
                         favoriteItemIds = favoritesList,
+                        legacyResetVersion = snapshot.getLong("legacyResetVersion")?.toInt() ?: 0,
                         settings = parsedSettings
                     )
                 } else {
@@ -143,14 +144,21 @@ class FirestoreService(
         return try {
             val snapshot = docRef.get().await()
             val isNew = !snapshot.exists()
+            val resolvedEmail = profile.email.ifBlank {
+                auth.currentUser?.email?.takeIf { it.isNotBlank() } ?: "${uid}@loop.local"
+            }
+            val resolvedDisplayName = profile.displayName.ifBlank {
+                auth.currentUser?.displayName?.takeIf { it.isNotBlank() }
+                    ?: resolvedEmail.substringBefore("@").ifBlank { "Loop Member" }
+            }
 
             val data = mutableMapOf<String, Any?>(
                 "userId" to uid,
-                "displayName" to profile.displayName.ifBlank { auth.currentUser?.displayName ?: "" },
-                "email" to profile.email.ifBlank { auth.currentUser?.email ?: "" },
-                "phone" to profile.phone.ifBlank { null },
-                "bio" to profile.bio.ifBlank { null },
-                "location" to profile.location.ifBlank { "" },
+                "displayName" to resolvedDisplayName,
+                "email" to resolvedEmail,
+                "phone" to profile.phone,
+                "bio" to profile.bio,
+                "location" to profile.location,
                 "avatarPresetIndex" to profile.avatarPresetIndex,
                 "customAvatarUri" to profile.customAvatarUri,
                 "rating" to profile.rating.toDouble(),
@@ -162,6 +170,7 @@ class FirestoreService(
                 "memberSince" to profile.memberSince,
                 "badges" to profile.badges,
                 "favoriteItemIds" to profile.favoriteItemIds,
+                "legacyResetVersion" to profile.legacyResetVersion,
                 "appearanceMode" to profile.settings.appearanceMode.name,
                 "profileVisibility" to profile.settings.profileVisibility.name,
                 "locationSharing" to profile.settings.locationSharing.name,
@@ -181,7 +190,7 @@ class FirestoreService(
                 "updatedAt" to FieldValue.serverTimestamp()
             )
 
-            if (isNew) {
+            if (isNew || !snapshot.contains("createdAt")) {
                 data["createdAt"] = FieldValue.serverTimestamp()
             }
 
@@ -421,6 +430,78 @@ class FirestoreService(
         }
     }
 
+    suspend fun updateListing(item: RentalItem): Result<RentalItem> {
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val docRef = firestore.collection("items").document(item.id)
+        return try {
+            val ownerName = item.owner.name.ifBlank { auth.currentUser?.displayName ?: "Community Member" }
+            val initials = item.owner.initials.ifBlank {
+                ownerName.trim().split(" ").filter { it.isNotBlank() }
+                    .take(2).joinToString("") { it.take(1).uppercase() }.ifBlank { "U" }
+            }
+            val normalizedGallery = item.imageUrls
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .take(4)
+                .ifEmpty { listOfNotNull(item.imageUrl?.takeIf { it.isNotBlank() }) }
+            val coverUrl = normalizedGallery.firstOrNull() ?: item.imageUrl?.takeIf { it.isNotBlank() }
+
+            val updates = mutableMapOf<String, Any?>(
+                "title" to item.title,
+                "categoryName" to item.category.name,
+                "pricePerDay" to item.pricePerDay,
+                "securityDeposit" to item.securityDeposit,
+                "location" to item.location,
+                "description" to item.description,
+                "imageUrl" to coverUrl,
+                "imageUrls" to normalizedGallery,
+                "imageCount" to normalizedGallery.size,
+                "ownerName" to ownerName,
+                "ownerInitials" to initials,
+                "availableToday" to item.availableToday,
+                "latitude" to item.latitude,
+                "longitude" to item.longitude,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            docRef.update(updates).await()
+            Result.success(
+                item.copy(
+                    imageUrl = coverUrl,
+                    imageUrls = normalizedGallery,
+                    imageCount = normalizedGallery.size,
+                    owner = item.owner.copy(id = uid, name = ownerName, initials = initials)
+                )
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateListingAvailability(itemId: String, availableToday: Boolean): Result<Unit> {
+        val docRef = firestore.collection("items").document(itemId)
+        return try {
+            docRef.update(
+                mapOf(
+                    "availableToday" to availableToday,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteListing(itemId: String): Result<Unit> {
         val docRef = firestore.collection("items").document(itemId)
         return try {
@@ -472,7 +553,8 @@ class FirestoreService(
                             latitude = doc.getDouble("latitude"),
                             longitude = doc.getDouble("longitude"),
                             authorId = doc.getString("authorId") ?: "",
-                            authorName = doc.getString("authorName") ?: "Community Member"
+                            authorName = doc.getString("authorName") ?: "Community Member",
+                            imageUrl = doc.getString("imageUrl")?.takeIf { it.isNotBlank() }
                         )
                     } catch (_: Exception) {
                         null
@@ -511,6 +593,7 @@ class FirestoreService(
                 "authorName" to authorName,
                 "latitude" to post.latitude,
                 "longitude" to post.longitude,
+                "imageUrl" to post.imageUrl?.takeIf { it.isNotBlank() },
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
@@ -522,6 +605,32 @@ class FirestoreService(
             throw e
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.CREATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateCommunityPost(post: UserCommunityPost): Result<UserCommunityPost> {
+        val docRef = firestore.collection("community_posts").document(post.id)
+        return try {
+            val updates = mutableMapOf<String, Any?>(
+                "title" to post.title,
+                "typeStr" to post.type.name,
+                "categoryName" to post.categoryName,
+                "description" to post.description,
+                "location" to post.location,
+                "dateTime" to post.dateTime,
+                "statusStr" to post.status.name,
+                "latitude" to post.latitude,
+                "longitude" to post.longitude,
+                "imageUrl" to post.imageUrl?.takeIf { it.isNotBlank() },
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            docRef.update(updates).await()
+            Result.success(post)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
             Result.failure(e)
         }
     }
@@ -631,7 +740,7 @@ class FirestoreService(
                                     rating = 0f,
                                     reviewCount = 0,
                                     description = "",
-                                    primaryImageRes = R.drawable.img_cafe,
+                                    primaryImageRes = 0,
                                     features = emptyList(),
                                     owner = host
                                 )
@@ -866,7 +975,7 @@ class FirestoreService(
                         rating = 0f,
                         reviewCount = 0,
                         description = "",
-                        primaryImageRes = R.drawable.img_cafe,
+                        primaryImageRes = 0,
                         features = emptyList(),
                         owner = RentalOwner(id = hostId, name = hostName)
                     )
@@ -954,6 +1063,49 @@ class FirestoreService(
             throw e
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun purgeAllItemsAndCommunityPosts(): Result<Pair<Int, Int>> {
+        try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        var deletedItems = 0
+        var deletedPosts = 0
+        val itemsCol = firestore.collection("items")
+        val postsCol = firestore.collection("community_posts")
+        return try {
+            val itemDocs = itemsCol.get().await().documents
+            for (doc in itemDocs) {
+                try {
+                    doc.reference.delete().await()
+                    deletedItems++
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    handleFirestoreError(e, OperationType.DELETE, doc.reference.path)
+                }
+            }
+
+            val postDocs = postsCol.get().await().documents
+            for (doc in postDocs) {
+                try {
+                    doc.reference.delete().await()
+                    deletedPosts++
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    handleFirestoreError(e, OperationType.DELETE, doc.reference.path)
+                }
+            }
+            Result.success(deletedItems to deletedPosts)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.LIST, "items|community_posts")
             Result.failure(e)
         }
     }

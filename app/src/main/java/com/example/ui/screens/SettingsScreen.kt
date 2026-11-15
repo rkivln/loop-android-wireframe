@@ -5,6 +5,11 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,10 +47,14 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Policy
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Source
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
@@ -73,12 +82,18 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.BuildConfig
 import com.example.data.RentalRepository
 import com.example.data.ThemePreferencesStore
 import com.example.data.models.AVATAR_PRESETS
 import com.example.data.models.AppearanceMode
 import com.example.data.models.RentalItem
+import com.example.data.models.UserCommunityPost
 import com.example.ui.components.EditorialTopBar
+import com.example.ui.components.GitHubRepoConfigDialog
+import com.example.update.AppUpdateCoordinator
+import com.example.update.AppUpdateUiState
+import com.example.update.UpdatePreferencesStore
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
 import com.example.ui.theme.AccentPeach
@@ -107,8 +122,10 @@ private enum class SettingsSubScreen {
 
 @Composable
 fun SettingsScreen(
+    initialOpenMyPosts: Boolean = false,
     onBack: () -> Unit,
     onOpenItem: (RentalItem) -> Unit,
+    onEditItem: (RentalItem) -> Unit = {},
     onCreateListing: () -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -122,14 +139,22 @@ fun SettingsScreen(
     val savedItems by RentalRepository.savedItemsFlow.collectAsStateWithLifecycle()
     val userActivities by RentalRepository.userActivityFlow.collectAsStateWithLifecycle()
 
-    var activeSubScreen by remember { mutableStateOf(SettingsSubScreen.HOME) }
+    var activeSubScreen by remember(initialOpenMyPosts) {
+        mutableStateOf(if (initialOpenMyPosts) SettingsSubScreen.MY_POSTS else SettingsSubScreen.HOME)
+    }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showRepoConfigDialog by remember { mutableStateOf(false) }
     var pendingDeleteItemId by remember { mutableStateOf<String?>(null) }
     var pendingDeletePostId by remember { mutableStateOf<String?>(null) }
+    var pendingEditPost by remember { mutableStateOf<UserCommunityPost?>(null) }
     var notificationStatusHint by remember { mutableStateOf<String?>(null) }
     var isOsNotificationGranted by remember {
         mutableStateOf(ThemePreferencesStore.isNotificationPermissionGranted(context))
     }
+
+    val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
+    val effectiveRepo by AppUpdateCoordinator.effectiveRepoFlow.collectAsStateWithLifecycle()
+    val hasCustomRepoOverride by AppUpdateCoordinator.hasCustomRepoOverrideFlow.collectAsStateWithLifecycle()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -187,14 +212,18 @@ fun SettingsScreen(
         }
     }
 
-    when (activeSubScreen) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (activeSubScreen) {
         SettingsSubScreen.MY_POSTS -> {
             MyPostsSubScreen(
                 myItems = myPublishedItems,
                 myCommunityPosts = myCommunityPosts,
                 onBack = { activeSubScreen = SettingsSubScreen.HOME },
                 onOpenItem = onOpenItem,
+                onEditItem = onEditItem,
+                onToggleItemAvailability = { RentalRepository.toggleListingAvailability(it) },
                 onDeleteItem = { pendingDeleteItemId = it },
+                onEditPost = { pendingEditPost = it },
                 onTogglePostStatus = { RentalRepository.toggleCommunityPostStatus(it) },
                 onDeletePost = { pendingDeletePostId = it },
                 onCreateListing = onCreateListing
@@ -686,6 +715,134 @@ fun SettingsScreen(
                         }
                     }
 
+                    // 5. APP UPDATES
+                    item {
+                        SettingsGroupHeader("APP UPDATES")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(PaperPureWhite)
+                                .border(1.dp, PaperBorderSubtle, RoundedCornerShape(22.dp))
+                        ) {
+                            val currentUpdateState = updateState
+                            val statusSubtitle = when (currentUpdateState) {
+                                is AppUpdateUiState.NotConfigured -> "Set a GitHub owner/repo below to enable release checks"
+                                is AppUpdateUiState.Checking -> "Checking ${currentUpdateState.configuredRepo}..."
+                                is AppUpdateUiState.UpToDate -> {
+                                    val latestNote = currentUpdateState.latestTag?.let { " · Latest $it" } ?: ""
+                                    "Up to date$latestNote · ${currentUpdateState.lastCheckedLabel}"
+                                }
+                                is AppUpdateUiState.UpdateAvailable -> {
+                                    "${currentUpdateState.release.tagName} available (${currentUpdateState.release.publishedAtLabel})"
+                                }
+                                is AppUpdateUiState.Error -> currentUpdateState.message
+                            }
+                            val statusBadge = when (currentUpdateState) {
+                                is AppUpdateUiState.UpdateAvailable -> "Update ${currentUpdateState.release.tagName}"
+                                is AppUpdateUiState.Checking -> "Checking"
+                                is AppUpdateUiState.UpToDate -> "Current"
+                                is AppUpdateUiState.NotConfigured -> "Setup"
+                                is AppUpdateUiState.Error -> "Retry"
+                            }
+
+                            SettingsNavRow(
+                                icon = Icons.Default.SystemUpdate,
+                                title = "Loop v${BuildConfig.VERSION_NAME}",
+                                subtitle = statusSubtitle,
+                                badgeText = statusBadge,
+                                showChevron = currentUpdateState is AppUpdateUiState.UpdateAvailable ||
+                                    currentUpdateState is AppUpdateUiState.NotConfigured,
+                                onClick = {
+                                    when (currentUpdateState) {
+                                        is AppUpdateUiState.UpdateAvailable -> AppUpdateCoordinator.openReleaseNotesDialog()
+                                        is AppUpdateUiState.NotConfigured -> showRepoConfigDialog = true
+                                        else -> AppUpdateCoordinator.checkForUpdates(context, isManual = true)
+                                    }
+                                },
+                                testTag = "settings_update_status_row"
+                            )
+                            SettingsDivider()
+                            SettingsNavRow(
+                                icon = Icons.Default.Source,
+                                title = "GitHub repository",
+                                subtitle = effectiveRepo.ifBlank { "Tap to enter owner/repo" },
+                                badgeText = when {
+                                    hasCustomRepoOverride -> "Custom"
+                                    effectiveRepo.isNotBlank() -> "Default"
+                                    else -> null
+                                },
+                                onClick = { showRepoConfigDialog = true },
+                                testTag = "settings_github_repo_row"
+                            )
+                            SettingsDivider()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 58.dp)
+                                    .clickable(enabled = currentUpdateState !is AppUpdateUiState.Checking) {
+                                        when {
+                                            effectiveRepo.isBlank() -> showRepoConfigDialog = true
+                                            currentUpdateState is AppUpdateUiState.UpdateAvailable &&
+                                                currentUpdateState.isVersionSkipped -> {
+                                                AppUpdateCoordinator.clearSkippedVersionAndReopen(context)
+                                            }
+                                            else -> AppUpdateCoordinator.checkForUpdates(context, isManual = true)
+                                        }
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .testTag("settings_check_updates_btn"),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(PaperIvory),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (currentUpdateState is AppUpdateUiState.Checking) {
+                                        CircularProgressIndicator(
+                                            strokeWidth = 2.dp,
+                                            color = AccentForestGreen,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            tint = InkCharcoal,
+                                            modifier = Modifier.size(19.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = when {
+                                            currentUpdateState is AppUpdateUiState.Checking -> "Checking GitHub Releases..."
+                                            currentUpdateState is AppUpdateUiState.UpdateAvailable &&
+                                                currentUpdateState.isVersionSkipped -> "Review skipped release ${currentUpdateState.release.tagName}"
+                                            else -> "Check for updates"
+                                        },
+                                        style = LoopType.TitleMedium.copy(fontSize = 15.sp),
+                                        color = InkCharcoal
+                                    )
+                                    Text(
+                                        text = if (effectiveRepo.isBlank()) {
+                                            "Configure a repository first"
+                                        } else {
+                                            "Inspect latest stable release on GitHub"
+                                        },
+                                        style = LoopType.BodySmall,
+                                        color = InkSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     item {
                         Spacer(modifier = Modifier.height(14.dp))
                     }
@@ -785,6 +942,44 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+
+        AnimatedVisibility(
+            visible = pendingEditPost != null,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut()
+        ) {
+            pendingEditPost?.let { postToEdit ->
+                BackHandler { pendingEditPost = null }
+                CreateCommunityPostModalSheet(
+                    editingPost = postToEdit,
+                    onPostUpdated = { updated ->
+                        RentalRepository.updateCommunityPost(updated)
+                        pendingEditPost = null
+                    },
+                    onPostDeleted = { toDelete ->
+                        pendingEditPost = null
+                        pendingDeletePostId = toDelete.id
+                    },
+                    onDismiss = { pendingEditPost = null }
+                )
+            }
+        }
+
+        if (showRepoConfigDialog) {
+            GitHubRepoConfigDialog(
+                currentRepo = effectiveRepo,
+                defaultBuildConfigRepo = UpdatePreferencesStore.defaultBuildConfigRepo,
+                hasCustomOverride = hasCustomRepoOverride,
+                onSave = { rawInput ->
+                    AppUpdateCoordinator.saveCustomRepository(context, rawInput)
+                },
+                onResetToDefault = {
+                    AppUpdateCoordinator.resetRepositoryToDefault(context)
+                },
+                onDismiss = { showRepoConfigDialog = false }
+            )
+        }
     }
 }
 

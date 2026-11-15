@@ -156,10 +156,26 @@ test("Authenticated user: can create and update rental item they own, but not so
     title: "Alice Hacked Scooter",
     updatedAt: new Date(),
   }));
+
+  // Non-owner cannot delete another user's active item
+  await assertFails(aliceDb.collection("items").doc("bob_item").delete());
+
+  // Legacy seeded item (pre-cutoff or seed_ owner) can be purged by signed-in user
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().collection("items").doc("seed_item_1").set({
+      id: "seed_item_1",
+      title: "Legacy Seed Item",
+      categoryName: "ELECTRONICS",
+      pricePerDay: 500,
+      ownerId: "seed_vikram",
+      createdAt: new Date("2026-11-10T10:00:00Z"),
+    });
+  });
+  await assertSucceeds(aliceDb.collection("items").doc("seed_item_1").delete());
 });
 
 // 4. Community posts
-test("Authenticated user: can create community post and another member can RSVP", async () => {
+test("Authenticated user: can create community post, another member can RSVP, non-author cannot delete", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
   await assertSucceeds(aliceDb.collection("community_posts").doc("post_1").set({
     id: "post_1",
@@ -176,11 +192,25 @@ test("Authenticated user: can create community post and another member can RSVP"
     updatedAt: new Date(),
   }));
 
-  // Non-author cannot alter title
+  // Non-author cannot alter title or delete active post
   await assertFails(bobDb.collection("community_posts").doc("post_1").update({
     title: "Hacked Post",
     updatedAt: new Date(),
   }));
+  await assertFails(bobDb.collection("community_posts").doc("post_1").delete());
+
+  // Legacy seeded post can be purged
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().collection("community_posts").doc("seed_post_1").set({
+      id: "seed_post_1",
+      title: "Legacy Seed Photowalk",
+      typeStr: "EVENT",
+      statusStr: "ACTIVE",
+      authorId: "seed_host",
+      createdAt: new Date("2026-11-10T10:00:00Z"),
+    });
+  });
+  await assertSucceeds(bobDb.collection("community_posts").doc("seed_post_1").delete());
 });
 
 // 5. Conversations & Messages (participant-scoped)

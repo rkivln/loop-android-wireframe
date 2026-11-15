@@ -31,6 +31,7 @@ interface ICommunityEventRepository {
     fun getEventById(id: String): Flow<UserCommunityPost?>
     suspend fun getEventByIdOnce(id: String): UserCommunityPost?
     suspend fun createEvent(post: UserCommunityPost): Result<UserCommunityPost>
+    suspend fun updateEvent(post: UserCommunityPost): Result<UserCommunityPost>
     suspend fun updateEventStatus(id: String, status: CommunityPostStatus): Result<Unit>
     suspend fun rsvpToEvent(id: String): Result<String>
     suspend fun deleteEvent(id: String): Result<Unit>
@@ -80,6 +81,16 @@ class CommunityEventRepository(
         syncJob = null
     }
 
+    suspend fun clearLocalCache() = withContext(ioDispatcher) {
+        try {
+            eventDao.clearEvents()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to clear local community events cache: ${e.message}", e)
+        }
+    }
+
     override fun getEventById(id: String): Flow<UserCommunityPost?> =
         eventDao.getEventById(id).map { it?.toUserCommunityPost() }
 
@@ -103,6 +114,24 @@ class CommunityEventRepository(
             throw e
         } catch (e: Exception) {
             Log.e(tag, "Failed to create community event: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateEvent(post: UserCommunityPost): Result<UserCommunityPost> = withContext(ioDispatcher) {
+        try {
+            eventDao.insertEvent(post.toEntity(isSynced = false))
+            val cloudResult = firestoreService.updateCommunityPost(post)
+            cloudResult.onSuccess { syncedPost ->
+                eventDao.insertEvent(syncedPost.toEntity(isSynced = true))
+            }.onFailure { error ->
+                Log.e(tag, "Failed to sync updated event to Firestore: ${error.message}")
+            }
+            Result.success(cloudResult.getOrDefault(post))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to update community event: ${e.message}", e)
             Result.failure(e)
         }
     }
