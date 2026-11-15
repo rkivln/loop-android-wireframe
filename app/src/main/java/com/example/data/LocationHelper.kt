@@ -4,22 +4,24 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import java.util.Locale
+import kotlin.coroutines.resume
 
 object LocationHelper {
     private const val TAG = "LocationHelper"
-    const val DEFAULT_LAT = 11.9338
-    const val DEFAULT_LNG = 79.8350
 
-    fun fetchCurrentLocation(
-        context: Context,
-        onLocationReceived: (lat: Double, lng: Double) -> Unit
-    ) {
+    fun hasLocationPermission(context: Context): Boolean {
         val hasFine = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
@@ -28,9 +30,16 @@ object LocationHelper {
             context,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+        return hasFine || hasCoarse
+    }
 
-        if (!hasFine && !hasCoarse) {
-            onLocationReceived(DEFAULT_LAT, DEFAULT_LNG)
+    fun fetchCurrentLocation(
+        context: Context,
+        onLocationReceived: (lat: Double, lng: Double) -> Unit,
+        onLocationUnavailable: () -> Unit = {}
+    ) {
+        if (!hasLocationPermission(context)) {
+            onLocationUnavailable()
             return
         }
 
@@ -46,20 +55,54 @@ object LocationHelper {
                             if (lastLoc != null) {
                                 onLocationReceived(lastLoc.latitude, lastLoc.longitude)
                             } else {
-                                onLocationReceived(DEFAULT_LAT, DEFAULT_LNG)
+                                onLocationUnavailable()
                             }
                         }.addOnFailureListener {
-                            onLocationReceived(DEFAULT_LAT, DEFAULT_LNG)
+                            onLocationUnavailable()
                         }
                     }
                 }
                 .addOnFailureListener { e ->
                     Log.w(TAG, "Unable to fetch GPS location: ${e.message}")
-                    onLocationReceived(DEFAULT_LAT, DEFAULT_LNG)
+                    onLocationUnavailable()
                 }
         } catch (se: SecurityException) {
             Log.w(TAG, "Location permission missing: ${se.message}")
-            onLocationReceived(DEFAULT_LAT, DEFAULT_LNG)
+            onLocationUnavailable()
+        }
+    }
+
+    suspend fun reverseGeocodeLocation(
+        context: Context,
+        latitude: Double,
+        longitude: Double
+    ): String? = withContext(Dispatchers.IO) {
+        if (!Geocoder.isPresent()) return@withContext null
+        try {
+            val geocoder = Geocoder(context, Locale.getDefault())
+            val addresses = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                suspendCancellableCoroutine { cont ->
+                    geocoder.getFromLocation(latitude, longitude, 1) { list ->
+                        if (cont.isActive) cont.resume(list)
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                geocoder.getFromLocation(latitude, longitude, 1) ?: emptyList()
+            }
+            val addr = addresses.firstOrNull() ?: return@withContext null
+            val parts = listOfNotNull(
+                addr.subLocality?.takeIf { it.isNotBlank() },
+                addr.locality?.takeIf { it.isNotBlank() } ?: addr.subAdminArea?.takeIf { it.isNotBlank() }
+            ).distinct()
+            when {
+                parts.isNotEmpty() -> parts.joinToString(", ")
+                !addr.adminArea.isNullOrBlank() -> addr.adminArea
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Reverse geocode failed: ${e.message}")
+            null
         }
     }
 

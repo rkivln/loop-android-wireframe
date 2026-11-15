@@ -17,12 +17,12 @@ data class CommunityEventEntity(
     val dateTime: String,
     val attendeesOrResponses: String,
     val status: String = "ACTIVE",
-    val createdAt: String = "Today",
+    val createdAt: String = "",
     val categoryName: String = "CREATIVE_PHOTO",
-    val latitude: Double = 11.9340,
-    val longitude: Double = 79.8330,
-    val authorId: String = "user_me",
-    val authorName: String = "Organizer",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val authorName: String = "",
     val isSynced: Boolean = true
 )
 

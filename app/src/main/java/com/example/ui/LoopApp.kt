@@ -24,6 +24,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
+import com.example.data.ThemePreferencesStore
+import com.example.data.models.AppearanceMode
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
 import com.example.location.LocationAccessState
@@ -42,6 +44,7 @@ import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.ItemDetailsScreen
 import com.example.ui.screens.MessagesScreen
 import com.example.ui.screens.ProfileScreen
+import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.LoopTheme
 import com.example.ui.theme.PaperIvory
 import com.google.firebase.Firebase
@@ -55,11 +58,16 @@ sealed class ScreenState {
     data class Booking(val item: RentalItem) : ScreenState()
     object CreateListing : ScreenState()
     object EditProfile : ScreenState()
+    object Settings : ScreenState()
 }
 
 @Composable
 fun LoopApp() {
-    LoopTheme {
+    val context = LocalContext.current
+    val appearanceMode by ThemePreferencesStore.observeAppearanceMode(context)
+        .collectAsStateWithLifecycle(initialValue = AppearanceMode.SYSTEM)
+
+    LoopTheme(appearanceMode = appearanceMode) {
         val auth = Firebase.auth
         var currentUser by remember { mutableStateOf(auth.currentUser) }
         var showWelcome by remember { mutableStateOf(true) }
@@ -200,6 +208,28 @@ fun LoopMainContent(
                     onNavigateBack = { currentScreen = ScreenState.Main }
                 )
             }
+            is ScreenState.Settings -> {
+                SettingsScreen(
+                    onBack = { currentScreen = ScreenState.Main },
+                    onOpenItem = { selectedItem ->
+                        currentScreen = ScreenState.ItemDetails(selectedItem)
+                    },
+                    onCreateListing = {
+                        currentScreen = ScreenState.CreateListing
+                    },
+                    onSignOut = {
+                        AuthManager.signOut(
+                            context = context,
+                            credentialManager = credentialManager,
+                            onSignOutComplete = {
+                                RentalRepository.clearSession()
+                                onSignedOut()
+                            },
+                            scope = coroutineScope
+                        )
+                    }
+                )
+            }
             is ScreenState.Main -> {
                 Scaffold(
                     containerColor = PaperIvory,
@@ -240,6 +270,12 @@ fun LoopMainContent(
                                 onPromptLocation = {
                                     showPermissionDialog = true
                                 },
+                                onPublishClick = {
+                                    currentScreen = ScreenState.CreateListing
+                                },
+                                onCreateCommunityPostClick = {
+                                    currentTab = LoopTab.PROFILE
+                                },
                                 isLocationGranted = isFineLocationGranted,
                                 modifier = Modifier.padding(innerPadding)
                             )
@@ -255,6 +291,9 @@ fun LoopMainContent(
                                 onBackToCatalog = {
                                     openExploreInMapMode = false
                                     currentTab = LoopTab.CATALOG
+                                },
+                                onPublishClick = {
+                                    currentScreen = ScreenState.CreateListing
                                 },
                                 initialShowMap = openExploreInMapMode,
                                 onMapModeChange = { openExploreInMapMode = it },
@@ -272,6 +311,9 @@ fun LoopMainContent(
                             ProfileScreen(
                                 onEditProfile = {
                                     currentScreen = ScreenState.EditProfile
+                                },
+                                onOpenSettings = {
+                                    currentScreen = ScreenState.Settings
                                 },
                                 onSignOut = {
                                     AuthManager.signOut(

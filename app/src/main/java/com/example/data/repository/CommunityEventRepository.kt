@@ -55,27 +55,13 @@ class CommunityEventRepository(
         .map { entities -> entities.map { it.toUserCommunityPost() } }
         .distinctUntilChanged()
 
-    init {
-        repositoryScope.launch {
-            try {
-                if (eventDao.getCount() == 0) {
-                    val initialEntities = RentalRepository.initialCommunityPosts.map { post ->
-                        post.toEntity(isSynced = false)
-                    }
-                    eventDao.insertEvents(initialEntities)
-                }
-            } catch (e: Exception) {
-                Log.e(tag, "Error seeding Room database: ${e.message}")
-            }
-        }
-    }
-
     fun startAuthenticatedSync() {
         if (Firebase.auth.currentUser == null) return
         if (syncJob?.isActive == true) return
         syncJob = repositoryScope.launch {
             try {
                 firestoreService.listenToCommunityPosts().collect { cloudPosts ->
+                    eventDao.clearEvents()
                     if (cloudPosts.isNotEmpty()) {
                         val entities = cloudPosts.map { it.toEntity(isSynced = true) }
                         eventDao.insertEvents(entities)

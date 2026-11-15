@@ -76,10 +76,10 @@ object GeminiAiService {
         }
 
         val prompt = buildString {
-            appendLine("You are an equipment appraiser for Loop Puducherry, a peer-to-peer creative gear and mobility sharing community in India.")
+            appendLine("You are an equipment and item appraiser for Loop, a peer-to-peer community sharing marketplace.")
             appendLine("Evaluate this listing and recommend fair pricing in Indian Rupees (INR):")
             appendLine("Title: $gearTitle")
-            appendLine("Description: ${description.ifBlank { "Standard creator condition" }}")
+            appendLine("Description: ${description.ifBlank { "Standard user condition" }}")
         }
 
         return try {
@@ -93,7 +93,7 @@ object GeminiAiService {
             val dailyRate = json.optInt("suggestedDailyRateInr", 0).coerceAtLeast(50)
             val deposit = json.optInt("recommendedDepositInr", 0).coerceAtLeast(200)
             val summary = json.optString("valuationSummary", "").ifBlank {
-                "Fair local creator rate calibrated for Puducherry demand."
+                "Fair daily rate calibrated for local community sharing."
             }
             val accJson = json.optJSONArray("compatibleAccessories")
             val accessories = buildList {

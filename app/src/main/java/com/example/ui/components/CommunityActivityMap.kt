@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +53,8 @@ import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
+import com.example.ui.theme.AccentPeach
+import com.example.ui.theme.AccentPowderBlue
 import com.example.ui.theme.AccentWarmYellow
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkWhite
@@ -91,12 +94,13 @@ enum class CommunityMapFilter(val label: String, val emoji: String) {
 @Composable
 fun CommunityActivityMap(
     modifier: Modifier = Modifier,
-    activityPoints: List<DiscoveryPinItem> = RentalRepository.discoveryPins,
-    initialCenter: LatLng = LatLng(11.9338, 79.8350), // White Town Promenade, Puducherry
+    activityPoints: List<DiscoveryPinItem> = emptyList(),
+    initialCenter: LatLng? = null,
     initialZoom: Float = 15.2f,
     onPointSelected: (DiscoveryPinItem) -> Unit = {},
     onDirectionsClick: (DiscoveryPinItem) -> Unit = {},
     onRsvpClick: (DiscoveryPinItem) -> Unit = {},
+    onRecenterMissingGps: () -> Unit = {},
     showFilterRow: Boolean = true
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -106,7 +110,20 @@ fun CommunityActivityMap(
     var isSatelliteView by remember { mutableStateOf(false) }
 
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(initialCenter, initialZoom)
+        position = if (initialCenter != null) {
+            CameraPosition.fromLatLngZoom(initialCenter, initialZoom)
+        } else {
+            CameraPosition.fromLatLngZoom(LatLng(20.0, 0.0), 2f)
+        }
+    }
+
+    LaunchedEffect(initialCenter) {
+        if (initialCenter != null) {
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(initialCenter, initialZoom),
+                600
+            )
+        }
     }
 
     val mapProperties = remember(isSatelliteView) {
@@ -154,14 +171,16 @@ fun CommunityActivityMap(
                 selectedPin = null
             }
         ) {
-            // Walkable Neighborhood Activity Radius Circle (500m)
-            Circle(
-                center = initialCenter,
-                radius = 500.0,
-                fillColor = AccentMint.copy(alpha = 0.22f),
-                strokeColor = AccentForestGreen.copy(alpha = 0.5f),
-                strokeWidth = 3f
-            )
+            // Walkable Nearby Radius Circle (500m) centered on user's live GPS
+            if (initialCenter != null) {
+                Circle(
+                    center = initialCenter,
+                    radius = 500.0,
+                    fillColor = AccentMint.copy(alpha = 0.22f),
+                    strokeColor = AccentForestGreen.copy(alpha = 0.5f),
+                    strokeWidth = 3f
+                )
+            }
 
             // Dynamic Custom Activity Markers
             filteredPoints.forEach { point ->
@@ -263,7 +282,11 @@ fun CommunityActivityMap(
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "● ${filteredPoints.size} Community Points in 500m Walkable Zone",
+                        text = if (initialCenter != null) {
+                            "● ${filteredPoints.size} Points in 500m Nearby Zone"
+                        } else {
+                            "● ${filteredPoints.size} Community Points"
+                        },
                         style = LoopType.Metadata.copy(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -282,10 +305,10 @@ fun CommunityActivityMap(
                 .padding(top = 64.dp, end = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Recenter to Neighborhood Center
+            // Recenter to User's Live GPS Position
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(48.dp)
                     .shadow(6.dp, CircleShape)
                     .clip(CircleShape)
                     .background(PaperPureWhite)
@@ -293,11 +316,15 @@ fun CommunityActivityMap(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = true),
                         onClick = {
-                            coroutineScope.launch {
-                                cameraPositionState.animate(
-                                    CameraUpdateFactory.newLatLngZoom(initialCenter, initialZoom),
-                                    600
-                                )
+                            if (initialCenter != null) {
+                                coroutineScope.launch {
+                                    cameraPositionState.animate(
+                                        CameraUpdateFactory.newLatLngZoom(initialCenter, initialZoom),
+                                        600
+                                    )
+                                }
+                            } else {
+                                onRecenterMissingGps()
                             }
                         }
                     )
@@ -376,9 +403,9 @@ private fun CommunityActivityMapMarker(
     val emoji: String
     when (point.type) {
         DiscoveryPinType.COMMUNITY_EVENT -> { bgColor = AccentWarmYellow; emoji = "📸" }
-        DiscoveryPinType.HELP_REQUEST -> { bgColor = Color(0xFFF0A288); emoji = "🤝" }
+        DiscoveryPinType.HELP_REQUEST -> { bgColor = AccentPeach; emoji = "🤝" }
         DiscoveryPinType.STUDY_GROUP -> { bgColor = AccentMint; emoji = "📚" }
-        DiscoveryPinType.PICKUP_HUB -> { bgColor = Color(0xFFD6E3E9); emoji = "🔒" }
+        DiscoveryPinType.PICKUP_HUB -> { bgColor = AccentPowderBlue; emoji = "🔒" }
         DiscoveryPinType.USER_HOST -> { bgColor = PaperPureWhite; emoji = "🛠️" }
         DiscoveryPinType.RENTAL_ITEM -> { bgColor = AccentMint; emoji = "📦" }
     }

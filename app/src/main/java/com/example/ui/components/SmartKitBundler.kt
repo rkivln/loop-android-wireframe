@@ -62,21 +62,15 @@ data class CompatibleAccessory(
 @Composable
 fun SmartKitBundler(
     baseItemTitle: String,
+    accessories: List<CompatibleAccessory> = emptyList(),
     onBundlePriceChanged: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val accessories = remember {
-        listOf(
-            CompatibleAccessory("acc_lens", "50mm f/1.8 Portrait Prime", 200, Icons.Default.ZoomIn, "Creamy bokeh portraits"),
-            CompatibleAccessory("acc_mic", "Røde VideoMic GO II", 150, Icons.Default.Mic, "Directional shotgun audio"),
-            CompatibleAccessory("acc_batt", "Dual LP-E17 + USB Hub", 80, Icons.Default.BatteryChargingFull, "Full-day shoot power"),
-            CompatibleAccessory("acc_sd", "128GB Extreme Pro V30", 50, Icons.Default.SdCard, "4K 60fps recording ready")
-        )
-    }
+    if (accessories.isEmpty()) return
 
-    val selectedMap = remember { mutableStateMapOf<String, Boolean>("acc_lens" to true) }
+    val selectedMap = remember(accessories) { mutableStateMapOf<String, Boolean>() }
 
-    val addedTotal = remember(selectedMap) {
+    val addedTotal = remember(selectedMap, accessories) {
         accessories.filter { selectedMap[it.id] == true }.sumOf { it.pricePerDay }
     }
 

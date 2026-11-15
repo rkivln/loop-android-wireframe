@@ -15,13 +15,13 @@ data class UserProfileEntity(
     val location: String,
     val avatarPresetIndex: Int = 0,
     val customAvatarUri: String? = null,
-    val rating: Float = 5.0f,
+    val rating: Float = 0f,
     val reviewCount: Int = 0,
     val rentalsCompleted: Int = 0,
     val listingsCount: Int = 0,
     val earnedAmount: Int = 0,
-    val isVerified: Boolean = true,
-    val memberSince: String = "Member since 2026"
+    val isVerified: Boolean = false,
+    val memberSince: String = ""
 )
 
 fun UserProfileEntity.toDomain(): UserProfile {

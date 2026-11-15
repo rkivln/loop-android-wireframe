@@ -40,7 +40,18 @@ service cloud.firestore {
              (!('isVerified' in data) || data.isVerified is bool) &&
              (!('memberSince' in data) || (data.memberSince is string && data.memberSince.size() <= 50)) &&
              (!('badges' in data) || (data.badges is list && data.badges.size() <= 20)) &&
-             (!('favoriteItemIds' in data) || (data.favoriteItemIds is list && data.favoriteItemIds.size() <= 200));
+             (!('favoriteItemIds' in data) || (data.favoriteItemIds is list && data.favoriteItemIds.size() <= 200)) &&
+             (!('legacyResetVersion' in data) || data.legacyResetVersion is int) &&
+             (!('appearanceMode' in data) || (data.appearanceMode is string && data.appearanceMode in ['LIGHT', 'DARK', 'SYSTEM'])) &&
+             (!('profileVisibility' in data) || (data.profileVisibility is string && data.profileVisibility in ['PUBLIC', 'COMMUNITY_ONLY', 'PRIVATE'])) &&
+             (!('locationSharing' in data) || (data.locationSharing is string && data.locationSharing in ['PRECISE', 'NEIGHBORHOOD_ONLY', 'HIDDEN'])) &&
+             (!('notifyPush' in data) || data.notifyPush is bool) &&
+             (!('notifyNewPosts' in data) || data.notifyNewPosts is bool) &&
+             (!('notifyCommentReplies' in data) || data.notifyCommentReplies is bool) &&
+             (!('notifyLikes' in data) || data.notifyLikes is bool) &&
+             (!('notifyAnnouncements' in data) || data.notifyAnnouncements is bool) &&
+             (!('blockedUserIds' in data) || (data.blockedUserIds is list && data.blockedUserIds.size() <= 200)) &&
+             (!('blockedUsers' in data) || (data.blockedUsers is list && data.blockedUsers.size() <= 200));
     }
 
     function isValidRentalItem(data) {
@@ -52,6 +63,11 @@ service cloud.firestore {
              (!('securityDeposit' in data) || (data.securityDeposit is int && data.securityDeposit >= 0 && data.securityDeposit <= 2000000)) &&
              (!('location' in data) || (data.location is string && data.location.size() <= 120)) &&
              (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 400000)) &&
+             (!('imageUrls' in data) || (data.imageUrls is list && data.imageUrls.size() <= 4)) &&
+             (!('imageCount' in data) || (data.imageCount is int && data.imageCount >= 0 && data.imageCount <= 4)) &&
+             (!('latitude' in data) || data.latitude == null || data.latitude is number) &&
+             (!('longitude' in data) || data.longitude == null || data.longitude is number) &&
              (!('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 100)) &&
              (!('ownerInitials' in data) || (data.ownerInitials is string && data.ownerInitials.size() <= 10)) &&
              (!('rating' in data) || data.rating is number) &&
@@ -160,7 +176,10 @@ service cloud.firestore {
                          'displayName', 'phone', 'bio', 'location', 'avatarPresetIndex',
                          'customAvatarUri', 'rating', 'reviewCount', 'rentalsCompleted',
                          'listingsCount', 'earnedAmount', 'isVerified', 'memberSince',
-                         'badges', 'favoriteItemIds', 'updatedAt'
+                         'badges', 'favoriteItemIds', 'legacyResetVersion', 'appearanceMode', 'profileVisibility',
+                         'locationSharing', 'notifyPush', 'notifyNewPosts', 'notifyCommentReplies',
+                         'notifyLikes', 'notifyAnnouncements', 'blockedUserIds', 'blockedUsers',
+                         'updatedAt'
                        ]);
       allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
     }
@@ -182,7 +201,8 @@ service cloud.firestore {
                        isValidRentalItem(incoming()) &&
                        incoming().diff(existing()).affectedKeys().hasOnly([
                          'title', 'categoryName', 'pricePerDay', 'securityDeposit', 'location',
-                         'rating', 'reviewCount', 'description', 'ownerName', 'ownerInitials',
+                         'rating', 'reviewCount', 'description', 'imageUrl', 'imageUrls', 'imageCount',
+                         'latitude', 'longitude', 'ownerName', 'ownerInitials',
                          'isPopular', 'isFavorite', 'availableToday', 'features', 'updatedAt'
                        ]);
       allow delete: if isSignedIn() && isValidId(itemId) && existing().ownerId == request.auth.uid;

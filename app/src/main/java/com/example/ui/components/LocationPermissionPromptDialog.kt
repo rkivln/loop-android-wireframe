@@ -56,7 +56,7 @@ fun LocationPermissionPromptDialog(
         },
         title = {
             Text(
-                text = "Discover Gear & Events Nearby",
+                text = "Discover Items & Posts Nearby",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -64,7 +64,7 @@ fun LocationPermissionPromptDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Allow Loop to use your location to highlight nearby White Town and Auroville creators, pickup lockboxes, and community photowalks.",
+                    text = "Allow Loop to use your live GPS location to center the map on you and highlight nearby listings and community posts.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

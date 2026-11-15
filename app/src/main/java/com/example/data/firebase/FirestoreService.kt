@@ -2,11 +2,16 @@ package com.example.data.firebase
 
 import android.content.Context
 import com.example.R
+import com.example.data.models.AppearanceMode
+import com.example.data.models.BlockedUserEntry
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
+import com.example.data.models.LocationSharingPreference
 import com.example.data.models.MessageStatus
+import com.example.data.models.NotificationPreferences
+import com.example.data.models.ProfileVisibility
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalMessage
@@ -15,6 +20,7 @@ import com.example.data.models.SpecFeature
 import com.example.data.models.UserCommunityPost
 import com.example.data.models.UserProfile
 import com.example.data.models.UserRentalBooking
+import com.example.data.models.UserSettings
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FieldValue
@@ -55,35 +61,65 @@ class FirestoreService(
                 if (snapshot.exists()) {
                     val rawDisplayName = snapshot.getString("displayName")
                         ?: auth.currentUser?.displayName
-                        ?: "Loop Member"
+                        ?: ""
                     val badgesList = (snapshot.get("badges") as? List<*>)?.mapNotNull { it?.toString() }
-                        ?: listOf("✓ ID Verified", "★ Community Member")
+                        ?: emptyList()
                     val favoritesList = (snapshot.get("favoriteItemIds") as? List<*>)?.mapNotNull { it?.toString() }
                         ?: emptyList()
+
+                    @Suppress("UNCHECKED_CAST")
+                    val rawBlocked = snapshot.get("blockedUsers") as? List<Map<String, Any?>>
+                    val blockedList = rawBlocked?.mapNotNull { entry ->
+                        val bUid = (entry["userId"] as? String).orEmpty()
+                        if (bUid.isBlank()) null
+                        else BlockedUserEntry(
+                            userId = bUid,
+                            displayName = (entry["displayName"] as? String).orEmpty().ifBlank { "Community Member" },
+                            blockedAtLabel = (entry["blockedAtLabel"] as? String).orEmpty()
+                        )
+                    } ?: (snapshot.get("blockedUserIds") as? List<*>)
+                        ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+                        ?.map { id -> BlockedUserEntry(userId = id, displayName = "Blocked Member") }
+                        ?: emptyList()
+
+                    val parsedSettings = UserSettings(
+                        appearanceMode = AppearanceMode.fromNameOrDefault(snapshot.getString("appearanceMode")),
+                        profileVisibility = ProfileVisibility.fromNameOrDefault(snapshot.getString("profileVisibility")),
+                        locationSharing = LocationSharingPreference.fromNameOrDefault(snapshot.getString("locationSharing")),
+                        notifications = NotificationPreferences(
+                            pushEnabled = snapshot.getBoolean("notifyPush") ?: true,
+                            newNeighbourhoodPosts = snapshot.getBoolean("notifyNewPosts") ?: true,
+                            repliesToComments = snapshot.getBoolean("notifyCommentReplies") ?: true,
+                            likesAndInteractions = snapshot.getBoolean("notifyLikes") ?: true,
+                            announcements = snapshot.getBoolean("notifyAnnouncements") ?: true
+                        ),
+                        blockedUsers = blockedList
+                    )
 
                     UserProfile(
                         uid = snapshot.id,
                         displayName = rawDisplayName,
                         email = snapshot.getString("email") ?: (auth.currentUser?.email ?: ""),
                         phone = snapshot.getString("phone") ?: "",
-                        bio = snapshot.getString("bio") ?: "Creator & gear enthusiast in Puducherry.",
-                        location = snapshot.getString("location") ?: "White Town, Puducherry",
+                        bio = snapshot.getString("bio") ?: "",
+                        location = snapshot.getString("location") ?: "",
                         avatarPresetIndex = snapshot.getLong("avatarPresetIndex")?.toInt() ?: 0,
                         customAvatarUri = snapshot.getString("customAvatarUri"),
-                        rating = (snapshot.getDouble("rating") ?: 5.0).toFloat(),
+                        rating = (snapshot.getDouble("rating") ?: 0.0).toFloat(),
                         reviewCount = snapshot.getLong("reviewCount")?.toInt() ?: 0,
                         rentalsCompleted = snapshot.getLong("rentalsCompleted")?.toInt() ?: 0,
                         listingsCount = snapshot.getLong("listingsCount")?.toInt() ?: 0,
                         earnedAmount = snapshot.getLong("earnedAmount")?.toInt() ?: 0,
-                        isVerified = snapshot.getBoolean("isVerified") ?: true,
-                        memberSince = snapshot.getString("memberSince") ?: "Joined 2026",
+                        isVerified = snapshot.getBoolean("isVerified") ?: false,
+                        memberSince = snapshot.getString("memberSince") ?: "",
                         badges = badgesList,
-                        favoriteItemIds = favoritesList
+                        favoriteItemIds = favoritesList,
+                        settings = parsedSettings
                     )
                 } else {
                     UserProfile(
                         uid = uid,
-                        displayName = auth.currentUser?.displayName ?: "Loop Member",
+                        displayName = auth.currentUser?.displayName ?: "",
                         email = auth.currentUser?.email ?: ""
                     )
                 }
@@ -110,11 +146,11 @@ class FirestoreService(
 
             val data = mutableMapOf<String, Any?>(
                 "userId" to uid,
-                "displayName" to profile.displayName.ifBlank { auth.currentUser?.displayName ?: "Loop Member" },
-                "email" to profile.email.ifBlank { auth.currentUser?.email ?: "member@loop.in" },
+                "displayName" to profile.displayName.ifBlank { auth.currentUser?.displayName ?: "" },
+                "email" to profile.email.ifBlank { auth.currentUser?.email ?: "" },
                 "phone" to profile.phone.ifBlank { null },
                 "bio" to profile.bio.ifBlank { null },
-                "location" to profile.location.ifBlank { "White Town, Puducherry" },
+                "location" to profile.location.ifBlank { "" },
                 "avatarPresetIndex" to profile.avatarPresetIndex,
                 "customAvatarUri" to profile.customAvatarUri,
                 "rating" to profile.rating.toDouble(),
@@ -126,6 +162,22 @@ class FirestoreService(
                 "memberSince" to profile.memberSince,
                 "badges" to profile.badges,
                 "favoriteItemIds" to profile.favoriteItemIds,
+                "appearanceMode" to profile.settings.appearanceMode.name,
+                "profileVisibility" to profile.settings.profileVisibility.name,
+                "locationSharing" to profile.settings.locationSharing.name,
+                "notifyPush" to profile.settings.notifications.pushEnabled,
+                "notifyNewPosts" to profile.settings.notifications.newNeighbourhoodPosts,
+                "notifyCommentReplies" to profile.settings.notifications.repliesToComments,
+                "notifyLikes" to profile.settings.notifications.likesAndInteractions,
+                "notifyAnnouncements" to profile.settings.notifications.announcements,
+                "blockedUserIds" to profile.settings.blockedUsers.map { it.userId }.take(200),
+                "blockedUsers" to profile.settings.blockedUsers.take(200).map {
+                    mapOf(
+                        "userId" to it.userId,
+                        "displayName" to it.displayName,
+                        "blockedAtLabel" to it.blockedAtLabel
+                    )
+                },
                 "updatedAt" to FieldValue.serverTimestamp()
             )
 
@@ -141,6 +193,51 @@ class FirestoreService(
             throw e
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.WRITE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Persist Settings (Appearance, Notifications, Privacy & Security, Blocked Users) on /users/{uid}.
+     */
+    suspend fun updateUserSettings(settings: UserSettings, fallbackProfile: UserProfile): Result<Unit> {
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val docRef = firestore.collection("users").document(uid)
+        return try {
+            val snapshot = docRef.get().await()
+            if (!snapshot.exists()) {
+                return saveUserProfile(fallbackProfile.copy(uid = uid, settings = settings))
+            }
+            docRef.update(
+                mapOf(
+                    "appearanceMode" to settings.appearanceMode.name,
+                    "profileVisibility" to settings.profileVisibility.name,
+                    "locationSharing" to settings.locationSharing.name,
+                    "notifyPush" to settings.notifications.pushEnabled,
+                    "notifyNewPosts" to settings.notifications.newNeighbourhoodPosts,
+                    "notifyCommentReplies" to settings.notifications.repliesToComments,
+                    "notifyLikes" to settings.notifications.likesAndInteractions,
+                    "notifyAnnouncements" to settings.notifications.announcements,
+                    "blockedUserIds" to settings.blockedUsers.map { it.userId }.take(200),
+                    "blockedUsers" to settings.blockedUsers.take(200).map {
+                        mapOf(
+                            "userId" to it.userId,
+                            "displayName" to it.displayName,
+                            "blockedAtLabel" to it.blockedAtLabel
+                        )
+                    },
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
             Result.failure(e)
         }
     }
@@ -195,35 +292,53 @@ class FirestoreService(
 
                         @Suppress("UNCHECKED_CAST")
                         val rawFeatures = doc.get("features") as? List<Map<String, Any>>
-                        val featuresList = rawFeatures?.map { f ->
-                            SpecFeature(
+                        val featuresList = rawFeatures?.mapNotNull { f ->
+                            val label = (f["label"] as? String).orEmpty()
+                            if (label.isBlank()) null
+                            else SpecFeature(
                                 iconType = f["iconType"] as? String ?: "CAMERA",
-                                label = f["label"] as? String ?: ""
+                                label = label
                             )
-                        } ?: listOf(SpecFeature("CAMERA", "Verified Gear"))
+                        } ?: emptyList()
+
+                        val ownerName = doc.getString("ownerName") ?: "Community Member"
+                        val ownerInitials = doc.getString("ownerInitials")
+                            ?: ownerName.trim().split(" ").filter { it.isNotBlank() }
+                                .take(2).joinToString("") { it.take(1).uppercase() }.ifBlank { "U" }
+                        val rawImageUrls = (doc.get("imageUrls") as? List<*>)
+                            ?.mapNotNull { it?.toString()?.takeIf { url -> url.isNotBlank() } }
+                            ?.take(4)
+                            ?: emptyList()
+                        val coverUrl = doc.getString("imageUrl")?.takeIf { it.isNotBlank() }
+                            ?: rawImageUrls.firstOrNull()
+                        val resolvedUrls = if (rawImageUrls.isNotEmpty()) rawImageUrls else listOfNotNull(coverUrl)
 
                         RentalItem(
                             id = doc.id,
-                            title = doc.getString("title") ?: "Equipment",
+                            title = doc.getString("title") ?: "",
                             category = category,
-                            pricePerDay = doc.getLong("pricePerDay")?.toInt() ?: 500,
-                            location = doc.getString("location") ?: "Puducherry",
-                            rating = (doc.getDouble("rating") ?: 4.9).toFloat(),
-                            reviewCount = doc.getLong("reviewCount")?.toInt() ?: 1,
+                            pricePerDay = doc.getLong("pricePerDay")?.toInt() ?: 0,
+                            location = doc.getString("location") ?: "",
+                            rating = (doc.getDouble("rating") ?: 0.0).toFloat(),
+                            reviewCount = doc.getLong("reviewCount")?.toInt() ?: 0,
                             description = doc.getString("description") ?: "",
-                            primaryImageRes = imageRes,
-                            imageUrl = doc.getString("imageUrl"),
+                            primaryImageRes = 0,
+                            imageUrl = coverUrl,
+                            imageUrls = resolvedUrls,
+                            imageCount = doc.getLong("imageCount")?.toInt() ?: resolvedUrls.size,
                             features = featuresList,
                             owner = RentalOwner(
                                 id = doc.getString("ownerId") ?: "",
-                                name = doc.getString("ownerName") ?: "Host",
-                                badge = "Top Owner",
-                                initials = doc.getString("ownerInitials") ?: "H"
+                                name = ownerName,
+                                badge = doc.getString("ownerBadge") ?: "Community Member",
+                                initials = ownerInitials
                             ),
                             isPopular = doc.getBoolean("isPopular") ?: false,
                             isFavorite = doc.getBoolean("isFavorite") ?: false,
                             availableToday = doc.getBoolean("availableToday") ?: true,
-                            securityDeposit = doc.getLong("securityDeposit")?.toInt() ?: 0
+                            securityDeposit = doc.getLong("securityDeposit")?.toInt() ?: 0,
+                            latitude = doc.getDouble("latitude"),
+                            longitude = doc.getDouble("longitude")
                         )
                     } catch (_: Exception) {
                         null
@@ -247,12 +362,19 @@ class FirestoreService(
         }
         val docRef = firestore.collection("items").document(item.id)
         return try {
-            val ownerName = item.owner.name.ifBlank { auth.currentUser?.displayName ?: "Loop Host" }
+            val ownerName = item.owner.name.ifBlank { auth.currentUser?.displayName ?: "Community Member" }
             val initials = item.owner.initials.ifBlank {
                 ownerName.trim().split(" ").filter { it.isNotBlank() }
-                    .take(2).joinToString("") { it.take(1).uppercase() }.ifBlank { "LH" }
+                    .take(2).joinToString("") { it.take(1).uppercase() }.ifBlank { "U" }
             }
-            val itemData = mapOf<String, Any>(
+            val normalizedGallery = item.imageUrls
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .take(4)
+                .ifEmpty { listOfNotNull(item.imageUrl?.takeIf { it.isNotBlank() }) }
+            val coverUrl = normalizedGallery.firstOrNull() ?: item.imageUrl?.takeIf { it.isNotBlank() }
+
+            val itemData = mutableMapOf<String, Any?>(
                 "id" to item.id,
                 "title" to item.title,
                 "categoryName" to item.category.name,
@@ -262,13 +384,18 @@ class FirestoreService(
                 "rating" to item.rating.toDouble(),
                 "reviewCount" to item.reviewCount,
                 "description" to item.description,
-                "imageUrl" to (item.imageUrl ?: ""),
+                "imageUrl" to coverUrl,
+                "imageUrls" to normalizedGallery,
+                "imageCount" to normalizedGallery.size,
                 "ownerId" to uid,
                 "ownerName" to ownerName,
                 "ownerInitials" to initials,
+                "ownerBadge" to item.owner.badge,
                 "isPopular" to item.isPopular,
                 "isFavorite" to false,
                 "availableToday" to item.availableToday,
+                "latitude" to item.latitude,
+                "longitude" to item.longitude,
                 "features" to item.features.map {
                     mapOf("iconType" to it.iconType, "label" to it.label)
                 },
@@ -276,9 +403,13 @@ class FirestoreService(
                 "updatedAt" to FieldValue.serverTimestamp()
             )
 
-            docRef.set(itemData).await()
+            @Suppress("UNCHECKED_CAST")
+            docRef.set(itemData.filterValues { it != null } as Map<String, Any>).await()
             Result.success(
                 item.copy(
+                    imageUrl = coverUrl,
+                    imageUrls = normalizedGallery,
+                    imageCount = normalizedGallery.size,
                     owner = item.owner.copy(id = uid, name = ownerName, initials = initials)
                 )
             )
@@ -286,6 +417,19 @@ class FirestoreService(
             throw e
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.CREATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteListing(itemId: String): Result<Unit> {
+        val docRef = firestore.collection("items").document(itemId)
+        return try {
+            docRef.delete().await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, docRef.path)
             Result.failure(e)
         }
     }
@@ -319,16 +463,16 @@ class FirestoreService(
                             type = type,
                             categoryName = doc.getString("categoryName") ?: "CREATIVE_PHOTO",
                             description = doc.getString("description") ?: "",
-                            location = doc.getString("location") ?: "Puducherry",
-                            dateTime = doc.getString("dateTime") ?: "Upcoming",
+                            location = doc.getString("location") ?: "",
+                            dateTime = doc.getString("dateTime") ?: "",
                             attendeesOrResponses = doc.getString("attendeesOrResponses") ?: "0 participating",
                             status = status,
-                            createdAt = "Recently",
+                            createdAt = "",
                             createdAtEpoch = doc.getTimestamp("createdAt")?.toDate()?.time ?: System.currentTimeMillis(),
-                            latitude = doc.getDouble("latitude") ?: 11.9340,
-                            longitude = doc.getDouble("longitude") ?: 79.8330,
+                            latitude = doc.getDouble("latitude"),
+                            longitude = doc.getDouble("longitude"),
                             authorId = doc.getString("authorId") ?: "",
-                            authorName = doc.getString("authorName") ?: "Organizer"
+                            authorName = doc.getString("authorName") ?: "Community Member"
                         )
                     } catch (_: Exception) {
                         null
@@ -353,7 +497,7 @@ class FirestoreService(
         val docRef = firestore.collection("community_posts").document(post.id)
         return try {
             val authorName = post.authorName.ifBlank { auth.currentUser?.displayName ?: "Community Member" }
-            val data = mapOf<String, Any>(
+            val data = mutableMapOf<String, Any?>(
                 "id" to post.id,
                 "title" to post.title,
                 "typeStr" to post.type.name,
@@ -371,7 +515,8 @@ class FirestoreService(
                 "updatedAt" to FieldValue.serverTimestamp()
             )
 
-            docRef.set(data).await()
+            @Suppress("UNCHECKED_CAST")
+            docRef.set(data.filterValues { it != null } as Map<String, Any>).await()
             Result.success(post.copy(authorId = uid, authorName = authorName))
         } catch (e: CancellationException) {
             throw e
@@ -453,7 +598,7 @@ class FirestoreService(
                         val host = RentalOwner(
                             id = if (uid == hostId && renterId.isNotBlank()) renterId else hostId,
                             name = displayOtherName,
-                            badge = doc.getString("hostBadge") ?: "Top Owner",
+                            badge = doc.getString("hostBadge") ?: "Community Member",
                             initials = hostInitials,
                             phone = doc.getString("hostPhone") ?: ""
                         )
@@ -482,8 +627,8 @@ class FirestoreService(
                                     title = title,
                                     category = RentalCategory.ELECTRONICS,
                                     pricePerDay = doc.getLong("itemPricePerDay")?.toInt() ?: 0,
-                                    location = "Puducherry",
-                                    rating = 5.0f,
+                                    location = "",
+                                    rating = 0f,
                                     reviewCount = 0,
                                     description = "",
                                     primaryImageRes = R.drawable.img_cafe,
@@ -717,8 +862,8 @@ class FirestoreService(
                         title = itemTitle,
                         category = RentalCategory.ELECTRONICS,
                         pricePerDay = pricePerDay,
-                        location = "Puducherry",
-                        rating = 5.0f,
+                        location = "",
+                        rating = 0f,
                         reviewCount = 0,
                         description = "",
                         primaryImageRes = R.drawable.img_cafe,
@@ -738,7 +883,7 @@ class FirestoreService(
                         daysRemaining = doc.getLong("daysCount")?.toInt() ?: 1,
                         totalPaid = doc.getLong("totalAmount")?.toInt() ?: 0,
                         status = status,
-                        handoverOtp = doc.getString("handoverOtp") ?: "8492",
+                        handoverOtp = doc.getString("handoverOtp") ?: "",
                         deliveryOption = doc.getString("deliveryOption") ?: "Self Pickup",
                         isCompleted = status.equals("Completed", ignoreCase = true) ||
                             status.equals("Cancelled", ignoreCase = true)
@@ -814,14 +959,7 @@ class FirestoreService(
     }
 
     private fun imageResForCategory(category: RentalCategory): Int {
-        return when (category) {
-            RentalCategory.ELECTRONICS -> R.drawable.img_cafe
-            RentalCategory.STUDY_OFFICE -> R.drawable.img_synth
-            RentalCategory.VEHICLES -> R.drawable.img_ebike
-            RentalCategory.FURNITURE, RentalCategory.HOME_LIVING -> R.drawable.img_street
-            RentalCategory.EVENTS -> R.drawable.img_street
-            RentalCategory.TOOLS -> R.drawable.img_synth
-        }
+        return 0
     }
 
     companion object {

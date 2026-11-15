@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
+import android.Manifest
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -47,9 +50,11 @@ import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -63,6 +68,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +81,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -82,10 +89,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.LocationHelper
 import com.example.data.RentalRepository
 import com.example.data.models.AVATAR_PRESETS
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
+import com.example.data.models.LocationSharingPreference
 import com.example.data.models.UserActivityItem
 import com.example.data.models.UserActivityType
 import com.example.data.models.UserCommunityPost
@@ -100,6 +109,7 @@ import com.example.ui.theme.AccentPeach
 import com.example.ui.theme.AccentPowderBlue
 import com.example.ui.theme.AccentWarmYellow
 import com.example.ui.theme.AccentYellowSoft
+import com.example.ui.theme.AlertCrimson
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
@@ -123,6 +133,7 @@ enum class ProfileTab(val label: String, val emoji: String) {
 fun ProfileScreen(
     onNavigateBookings: () -> Unit = {},
     onEditProfile: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     onSignOut: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -168,7 +179,7 @@ fun ProfileScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Studio Shelf",
                             style = LoopType.HeroDisplayLarge.copy(fontSize = 28.sp),
@@ -177,37 +188,70 @@ fun ProfileScreen(
                         Text(
                             text = "Creator identity, posted requests & activity ledger",
                             style = LoopType.Metadata,
-                            color = InkSecondary
+                            color = InkSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    // Edit Profile CTA Pill
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(PaperPureWhite)
-                            .border(1.dp, PaperBorder, RoundedCornerShape(20.dp))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(bounded = true),
-                                onClick = { isEditingProfile = true }
-                            )
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                            .testTag("profile_edit_btn"),
-                        contentAlignment = Alignment.Center
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Edit Profile CTA Pill
+                        Box(
+                            modifier = Modifier
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(PaperPureWhite)
+                                .border(1.dp, PaperBorder, RoundedCornerShape(24.dp))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(bounded = true),
+                                    onClick = { isEditingProfile = true }
+                                )
+                                .padding(horizontal = 14.dp)
+                                .testTag("profile_edit_btn"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = InkCharcoal,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Edit Bio",
+                                    style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
+                                    color = InkCharcoal
+                                )
+                            }
+                        }
+
+                        // Settings Icon Button
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(PaperPureWhite)
+                                .border(1.dp, PaperBorder, CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(bounded = true),
+                                    onClick = onOpenSettings
+                                )
+                                .testTag("profile_settings_btn"),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = null,
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
                                 tint = InkCharcoal,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Edit Bio",
-                                style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
-                                color = InkCharcoal
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -273,7 +317,7 @@ fun ProfileScreen(
                             Text(
                                 text = userProfile.initials,
                                 style = LoopType.HeadlineMedium.copy(fontSize = 22.sp),
-                                color = InkWhite
+                                color = Color.White
                             )
                         }
 
@@ -282,23 +326,25 @@ fun ProfileScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = userProfile.displayName.ifBlank { "Loop Member" },
+                                    text = userProfile.displayName.ifBlank { "Community Member" },
                                     style = LoopType.HeadlineMedium.copy(fontSize = 19.sp),
                                     color = InkCharcoal
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.Default.VerifiedUser,
-                                    contentDescription = "Verified Identity",
-                                    tint = AccentForestGreen,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                if (userProfile.isVerified) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.VerifiedUser,
+                                        contentDescription = "Verified Identity",
+                                        tint = AccentForestGreen,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(2.dp))
 
                             Text(
-                                text = userProfile.location,
+                                text = userProfile.location.ifBlank { "Location not set" },
                                 style = LoopType.BodySmall,
                                 color = InkSecondary
                             )
@@ -318,22 +364,28 @@ fun ProfileScreen(
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "${userProfile.rating} (${userProfile.reviewCount})",
+                                        text = if (userProfile.reviewCount > 0 && userProfile.rating > 0f) {
+                                            "${userProfile.rating} (${userProfile.reviewCount})"
+                                        } else {
+                                            "No reviews yet"
+                                        },
                                         style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold, color = InkCharcoal)
                                     )
                                 }
 
-                                Text(
-                                    text = "·",
-                                    style = LoopType.Metadata,
-                                    color = InkMuted
-                                )
+                                if (userProfile.memberSince.isNotBlank()) {
+                                    Text(
+                                        text = "·",
+                                        style = LoopType.Metadata,
+                                        color = InkMuted
+                                    )
 
-                                Text(
-                                    text = userProfile.memberSince,
-                                    style = LoopType.Metadata.copy(fontSize = 11.sp),
-                                    color = InkSecondary
-                                )
+                                    Text(
+                                        text = userProfile.memberSince,
+                                        style = LoopType.Metadata.copy(fontSize = 11.sp),
+                                        color = InkSecondary
+                                    )
+                                }
                             }
                         }
                     }
@@ -424,29 +476,31 @@ fun ProfileScreen(
                     }
 
                     // Community Trust Badges
-                    item {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        SectionLabel(title = "Community Verification")
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 22.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            userProfile.badges.forEach { badge ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(100.dp))
-                                        .background(PaperPureWhite)
-                                        .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
-                                        .padding(horizontal = 14.dp, vertical = 7.dp)
-                                ) {
-                                    Text(
-                                        text = badge,
-                                        style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
-                                        color = InkCharcoal
-                                    )
+                    if (userProfile.badges.isNotEmpty()) {
+                        item {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            SectionLabel(title = "Community Verification")
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 22.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                userProfile.badges.forEach { badge ->
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(PaperPureWhite)
+                                            .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
+                                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                                    ) {
+                                        Text(
+                                            text = badge,
+                                            style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
+                                            color = InkCharcoal
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -514,8 +568,9 @@ fun ProfileScreen(
                             )
                             EditorialMenuRow(
                                 icon = Icons.Default.Security,
-                                title = "Saved Favorites",
-                                badge = "${userProfile.favoriteItemIds.size} saved"
+                                title = "Settings & Privacy",
+                                badge = userProfile.settings.profileVisibility.label,
+                                onClick = onOpenSettings
                             )
                         }
 
@@ -525,7 +580,7 @@ fun ProfileScreen(
                             onClick = onSignOut,
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFB91C1C)
+                                contentColor = AlertCrimson
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -774,8 +829,16 @@ fun ProfileScreen(
         ) {
             BackHandler { isCreatingPost = false }
             CreateCommunityPostModalSheet(
-                onPostCreated = { title, type, desc, loc, dt ->
-                    RentalRepository.createCommunityPost(title, type, desc, loc, dt)
+                onPostCreated = { title, type, desc, loc, dt, lat, lng ->
+                    RentalRepository.createCommunityPost(
+                        title = title,
+                        type = type,
+                        description = desc,
+                        location = loc,
+                        dateTime = dt,
+                        latitude = lat,
+                        longitude = lng
+                    )
                     isCreatingPost = false
                     selectedTab = ProfileTab.MY_POSTS
                     showFeedback("Community ${type.title} published!")
@@ -918,14 +981,14 @@ private fun CommunityPostCard(
                                 Text(
                                     text = "Delete Post",
                                     style = LoopType.BodySmall,
-                                    color = Color(0xFFDC2626)
+                                    color = AlertCrimson
                                 )
                             },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.DeleteOutline,
                                     contentDescription = null,
-                                    tint = Color(0xFFDC2626),
+                                    tint = AlertCrimson,
                                     modifier = Modifier.size(17.dp)
                                 )
                             },
@@ -1205,10 +1268,37 @@ fun EditProfileModalSheet(
     onSave: (UserProfile) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var displayName by remember { mutableStateOf(currentProfile.displayName) }
     var bio by remember { mutableStateOf(currentProfile.bio) }
     var location by remember { mutableStateOf(currentProfile.location) }
     var selectedAvatarIndex by remember { mutableIntStateOf(currentProfile.avatarPresetIndex) }
+    var isLocatingGps by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val detectLocation: () -> Unit = {
+        isLocatingGps = true
+        LocationHelper.fetchCurrentLocation(
+            context = context,
+            onLocationReceived = { lat, lng ->
+                coroutineScope.launch {
+                    val resolved = LocationHelper.reverseGeocodeLocation(context, lat, lng)
+                    if (!resolved.isNullOrBlank()) {
+                        location = resolved
+                    }
+                    isLocatingGps = false
+                }
+            },
+            onLocationUnavailable = { isLocatingGps = false }
+        )
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) detectLocation()
+    }
 
     Box(
         modifier = Modifier
@@ -1265,7 +1355,7 @@ fun EditProfileModalSheet(
                             val isSelected = selectedAvatarIndex == preset.id
                             Box(
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(48.dp)
                                     .clip(CircleShape)
                                     .background(Color(preset.bgHex1))
                                     .border(
@@ -1301,9 +1391,15 @@ fun EditProfileModalSheet(
                             .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
+                        if (displayName.isEmpty()) {
+                            Text(
+                                text = "Your full name",
+                                style = TextStyle(fontSize = 14.sp, color = InkMuted)
+                            )
+                        }
                         BasicTextField(
                             value = displayName,
-                            onValueChange = { displayName = it },
+                            onValueChange = { displayName = it; errorMessage = null },
                             textStyle = TextStyle(fontSize = 14.sp, color = InkCharcoal),
                             cursorBrush = SolidColor(InkCharcoal),
                             modifier = Modifier.fillMaxWidth()
@@ -1312,11 +1408,45 @@ fun EditProfileModalSheet(
                 }
 
                 Column {
-                    Text(
-                        text = "LOCATION / QUARTER",
-                        style = LoopType.EditorialTag,
-                        color = InkSecondary
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "LOCATION / NEIGHBORHOOD",
+                            style = LoopType.EditorialTag,
+                            color = InkSecondary
+                        )
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(AccentMint)
+                                .clickable {
+                                    if (LocationHelper.hasLocationPermission(context)) {
+                                        detectLocation()
+                                    } else {
+                                        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                    }
+                                }
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .testTag("edit_profile_gps_btn"),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MyLocation,
+                                contentDescription = "Detect GPS",
+                                tint = AccentForestGreen,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = if (isLocatingGps) "Locating..." else "Use GPS",
+                                style = LoopType.Metadata.copy(fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold),
+                                color = AccentForestGreen
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(6.dp))
                     Box(
                         modifier = Modifier
@@ -1327,6 +1457,12 @@ fun EditProfileModalSheet(
                             .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
+                        if (location.isEmpty()) {
+                            Text(
+                                text = "Neighborhood or city",
+                                style = TextStyle(fontSize = 14.sp, color = InkMuted)
+                            )
+                        }
                         BasicTextField(
                             value = location,
                             onValueChange = { location = it },
@@ -1363,6 +1499,12 @@ fun EditProfileModalSheet(
                             .padding(14.dp),
                         contentAlignment = Alignment.TopStart
                     ) {
+                        if (bio.isEmpty()) {
+                            Text(
+                                text = "Share what you create, lend, or explore...",
+                                style = TextStyle(fontSize = 13.5.sp, color = InkMuted, lineHeight = 19.sp)
+                            )
+                        }
                         BasicTextField(
                             value = bio,
                             onValueChange = { if (it.length <= 250) bio = it },
@@ -1373,14 +1515,25 @@ fun EditProfileModalSheet(
                     }
                 }
 
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage ?: "",
+                        style = LoopType.Metadata.copy(color = AlertCrimson)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(4.dp))
 
                 PrimaryCTA(
                     text = "Save Bio & Profile",
                     onClick = {
-                        val sanitizedName = displayName.trim().take(60).ifBlank { "Jaya Nandhini G" }
+                        val sanitizedName = displayName.trim().take(60)
+                        if (sanitizedName.isBlank()) {
+                            errorMessage = "Please enter your display name."
+                            return@PrimaryCTA
+                        }
                         val sanitizedBio = bio.trim().take(250)
-                        val sanitizedLocation = location.trim().take(80).ifBlank { "White Town, Puducherry" }
+                        val sanitizedLocation = location.trim().take(80)
                         val updated = currentProfile.copy(
                             displayName = sanitizedName,
                             bio = sanitizedBio,
@@ -1398,15 +1551,63 @@ fun EditProfileModalSheet(
 
 @Composable
 fun CreateCommunityPostModalSheet(
-    onPostCreated: (title: String, type: CommunityPostType, desc: String, loc: String, dt: String) -> Unit,
+    onPostCreated: (
+        title: String,
+        type: CommunityPostType,
+        desc: String,
+        loc: String,
+        dt: String,
+        lat: Double?,
+        lng: Double?
+    ) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var title by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(CommunityPostType.EVENT) }
     var description by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("White Town, Puducherry") }
-    var dateTime by remember { mutableStateOf("Today · 5:00 PM") }
+    var location by remember { mutableStateOf("") }
+    var dateTime by remember { mutableStateOf("") }
+    var latitude by remember { mutableStateOf<Double?>(null) }
+    var longitude by remember { mutableStateOf<Double?>(null) }
+    var isLocatingGps by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val detectPostGps: (Boolean) -> Unit = { overwriteManual ->
+        isLocatingGps = true
+        LocationHelper.fetchCurrentLocation(
+            context = context,
+            onLocationReceived = { lat, lng ->
+                latitude = lat
+                longitude = lng
+                coroutineScope.launch {
+                    val resolved = LocationHelper.reverseGeocodeLocation(context, lat, lng)
+                    if (!resolved.isNullOrBlank() && (overwriteManual || location.isBlank())) {
+                        location = resolved
+                    }
+                    isLocatingGps = false
+                }
+            },
+            onLocationUnavailable = { isLocatingGps = false }
+        )
+    }
+
+    val postLocationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) detectPostGps(true)
+    }
+
+    val userSettings by RentalRepository.userSettingsFlow.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        if (userSettings.locationSharing != LocationSharingPreference.HIDDEN &&
+            LocationHelper.hasLocationPermission(context)
+        ) {
+            detectPostGps(false)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -1484,12 +1685,18 @@ fun CreateCommunityPostModalSheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
+                            .height(48.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(PaperIvory)
                             .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
+                        if (title.isEmpty()) {
+                            Text(
+                                text = "e.g. Weekend Repair Circle or Tripod Needed",
+                                style = TextStyle(fontSize = 13.5.sp, color = InkMuted)
+                            )
+                        }
                         BasicTextField(
                             value = title,
                             onValueChange = { title = it },
@@ -1516,6 +1723,12 @@ fun CreateCommunityPostModalSheet(
                             .padding(12.dp),
                         contentAlignment = Alignment.TopStart
                     ) {
+                        if (description.isEmpty()) {
+                            Text(
+                                text = "Share details, needed items, or meeting instructions...",
+                                style = TextStyle(fontSize = 13.sp, color = InkMuted)
+                            )
+                        }
                         BasicTextField(
                             value = description,
                             onValueChange = { description = it },
@@ -1531,21 +1744,47 @@ fun CreateCommunityPostModalSheet(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "LOCATION",
-                            style = LoopType.EditorialTag,
-                            color = InkSecondary
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "LOCATION",
+                                style = LoopType.EditorialTag,
+                                color = InkSecondary
+                            )
+                            Text(
+                                text = if (isLocatingGps) "GPS..." else "Use GPS",
+                                style = LoopType.Metadata.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                                color = AccentForestGreen,
+                                modifier = Modifier
+                                    .clickable {
+                                        if (LocationHelper.hasLocationPermission(context)) {
+                                            detectPostGps(true)
+                                        } else {
+                                            postLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                        }
+                                    }
+                                    .testTag("post_detect_gps_btn")
+                            )
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp)
+                                .height(48.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(PaperIvory)
                                 .padding(horizontal = 12.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
+                            if (location.isEmpty()) {
+                                Text(
+                                    text = "Neighborhood or GPS",
+                                    style = TextStyle(fontSize = 13.sp, color = InkMuted)
+                                )
+                            }
                             BasicTextField(
                                 value = location,
                                 onValueChange = { location = it },
@@ -1566,12 +1805,18 @@ fun CreateCommunityPostModalSheet(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp)
+                                .height(48.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(PaperIvory)
                                 .padding(horizontal = 12.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
+                            if (dateTime.isEmpty()) {
+                                Text(
+                                    text = "e.g. Today · 5:00 PM",
+                                    style = TextStyle(fontSize = 13.sp, color = InkMuted)
+                                )
+                            }
                             BasicTextField(
                                 value = dateTime,
                                 onValueChange = { dateTime = it },
@@ -1586,7 +1831,7 @@ fun CreateCommunityPostModalSheet(
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage ?: "",
-                        style = LoopType.Metadata.copy(color = Color(0xFFDC2626)),
+                        style = LoopType.Metadata.copy(color = AlertCrimson),
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
@@ -1599,7 +1844,15 @@ fun CreateCommunityPostModalSheet(
                         if (title.isBlank()) {
                             errorMessage = "Please enter an initiative title."
                         } else {
-                            onPostCreated(title.trim(), selectedType, description.trim(), location.trim(), dateTime.trim())
+                            onPostCreated(
+                                title.trim(),
+                                selectedType,
+                                description.trim(),
+                                location.trim(),
+                                dateTime.trim(),
+                                latitude,
+                                longitude
+                            )
                         }
                     },
                     testTag = "publish_community_post_btn"

@@ -110,7 +110,7 @@ fun AuthScreen(
                         .padding(horizontal = 14.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "MEMBER ACCESS · PUDUCHERRY",
+                        text = "MEMBER ACCESS · GOOGLE VERIFIED",
                         style = LoopType.EditorialTag.copy(fontSize = 10.sp),
                         color = InkSecondary
                     )
@@ -131,7 +131,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "The Living Catalog · Issue 08",
+                    text = "The Living Community Catalog",
                     style = LoopType.EditorialTag,
                     color = AccentForestGreen
                 )
@@ -139,7 +139,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "Sign in to reserve curated cameras, studio setups, and coastal e-bikes across White Town and Auroville.",
+                    text = "Sign in with Google to publish items, share local posts, and reserve gear from neighbors near you.",
                     style = LoopType.BodyEditorial,
                     color = InkSecondary,
                     textAlign = TextAlign.Center,
@@ -160,14 +160,14 @@ fun AuthScreen(
                 EditorialFeatureRow(
                     icon = Icons.Default.CameraAlt,
                     badgeColor = AccentPowderBlue,
-                    title = "Verified Creative Gear",
-                    subtitle = "35mm optics, audio desks & coastal mobility"
+                    title = "Community Marketplace",
+                    subtitle = "Cameras, tools, electronics, furniture & mobility"
                 )
                 EditorialFeatureRow(
                     icon = Icons.Default.Groups,
                     badgeColor = AccentPeach,
-                    title = "Community Photowalks",
-                    subtitle = "French Quarter walks & local studio circles"
+                    title = "Local Events & Meetups",
+                    subtitle = "Neighborhood meetups, skill shares & study circles"
                 )
                 EditorialFeatureRow(
                     icon = Icons.Default.CheckCircle,

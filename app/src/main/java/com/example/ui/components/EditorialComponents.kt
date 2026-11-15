@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import android.graphics.BitmapFactory
+import android.util.Base64
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
@@ -50,10 +53,13 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -231,7 +237,7 @@ fun PrimaryCTA(
             .clickable(
                 enabled = enabled,
                 interactionSource = interactionSource,
-                indication = ripple(color = Color.White.copy(alpha = 0.25f)),
+                indication = ripple(color = contentColor.copy(alpha = 0.25f)),
                 onClick = onClick
             )
             .testTag(testTag),
@@ -456,6 +462,97 @@ fun PhotoCollage(
     }
 }
 
+@Composable
+fun ListingPhoto(
+    imageUrl: String?,
+    @DrawableRes fallbackRes: Int,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop
+) {
+    val decodedBitmap: ImageBitmap? = remember(imageUrl) {
+        if (!imageUrl.isNullOrBlank() && imageUrl.startsWith("data:image", ignoreCase = true)) {
+            try {
+                val base64Part = imageUrl.substringAfter("base64,", missingDelimiterValue = "")
+                if (base64Part.isNotBlank()) {
+                    val bytes = Base64.decode(base64Part, Base64.DEFAULT)
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                } else {
+                    null
+                }
+            } catch (_: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    val safeFallbackRes = fallbackRes
+
+    when {
+        decodedBitmap != null -> {
+            Image(
+                bitmap = decodedBitmap,
+                contentDescription = contentDescription,
+                contentScale = contentScale,
+                modifier = modifier
+            )
+        }
+        !imageUrl.isNullOrBlank() &&
+            (imageUrl.startsWith("http://", ignoreCase = true) ||
+                imageUrl.startsWith("https://", ignoreCase = true) ||
+                imageUrl.startsWith("content://", ignoreCase = true) ||
+                imageUrl.startsWith("file://", ignoreCase = true)) -> {
+            if (safeFallbackRes != 0) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = contentDescription,
+                    contentScale = contentScale,
+                    placeholder = painterResource(id = safeFallbackRes),
+                    error = painterResource(id = safeFallbackRes),
+                    modifier = modifier
+                )
+            } else {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = contentDescription,
+                    contentScale = contentScale,
+                    modifier = modifier
+                )
+            }
+        }
+        safeFallbackRes != 0 -> {
+            Image(
+                painter = painterResource(id = safeFallbackRes),
+                contentDescription = contentDescription,
+                contentScale = contentScale,
+                modifier = modifier
+            )
+        }
+        else -> {
+            Box(
+                modifier = modifier
+                    .background(com.example.ui.theme.PaperWarm)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = contentDescription,
+                        tint = com.example.ui.theme.InkMuted,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
  * Editorial Photo Card for Feeds and Discovery (Section 19)
  * Dominant photography, restrained metadata, tactile feel
@@ -497,8 +594,9 @@ fun EditorialPhotoCard(
                 .height(if (isLarge) 240.dp else 190.dp)
                 .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
         ) {
-            Image(
-                painter = painterResource(id = item.primaryImageRes),
+            ListingPhoto(
+                imageUrl = item.imageUrl,
+                fallbackRes = item.primaryImageRes,
                 contentDescription = item.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
@@ -545,26 +643,28 @@ fun EditorialPhotoCard(
             }
 
             // Location tag bottom left
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(12.dp)
-                    .clip(RoundedCornerShape(100.dp))
-                    .background(InkCharcoal.copy(alpha = 0.75f))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = InkWhite,
-                    modifier = Modifier.size(11.dp)
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                Text(
-                    text = item.location,
-                    style = LoopType.Metadata.copy(fontSize = 10.sp, color = InkWhite)
-                )
+            if (item.location.isNotBlank()) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(12.dp)
+                        .clip(RoundedCornerShape(100.dp))
+                        .background(Color.Black.copy(alpha = 0.72f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(11.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = item.location,
+                        style = LoopType.Metadata.copy(fontSize = 10.sp, color = Color.White)
+                    )
+                }
             }
         }
 
@@ -589,29 +689,38 @@ fun EditorialPhotoCard(
                 )
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = null,
-                        tint = AccentWarmYellow,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "%.1f".format(item.rating),
-                        style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold, color = InkCharcoal)
-                    )
+                    if (item.reviewCount > 0 && item.rating > 0f) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = AccentWarmYellow,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "%.1f".format(item.rating),
+                            style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold, color = InkCharcoal)
+                        )
+                    } else {
+                        Text(
+                            text = "New",
+                            style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold, color = AccentForestGreen)
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            if (item.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = item.description,
-                style = LoopType.BodySmall,
-                color = InkSecondary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+                Text(
+                    text = item.description,
+                    style = LoopType.BodySmall,
+                    color = InkSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -621,7 +730,7 @@ fun EditorialPhotoCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Hosted by ${item.owner.name}",
+                    text = "Hosted by ${item.owner.name.ifBlank { "Community Member" }}",
                     style = LoopType.Metadata,
                     color = InkMuted
                 )

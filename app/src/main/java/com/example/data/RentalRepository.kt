@@ -5,6 +5,8 @@ import android.util.Log
 import com.example.R
 import com.example.data.firebase.FirestoreBooking
 import com.example.data.firebase.FirestoreService
+import com.example.data.models.AppearanceMode
+import com.example.data.models.BlockedUserEntry
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
 import com.example.data.models.CommunityEvent
@@ -13,8 +15,10 @@ import com.example.data.models.CommunityPostType
 import com.example.data.models.CuratedWalkingRoute
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
+import com.example.data.models.LocationSharingPreference
 import com.example.data.models.MapCategoryFilter
 import com.example.data.models.MessageStatus
+import com.example.data.models.ProfileVisibility
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalMessage
@@ -25,6 +29,7 @@ import com.example.data.models.UserActivityType
 import com.example.data.models.UserCommunityPost
 import com.example.data.models.UserProfile
 import com.example.data.models.UserRentalBooking
+import com.example.data.models.UserSettings
 import com.example.data.repository.CommunityEventRepository
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
@@ -53,54 +58,6 @@ object RentalRepository {
     private var syncJobs = mutableListOf<Job>()
     private var messageListenerJob: Job? = null
 
-    val defaultOwner = RentalOwner(
-        id = "owner_1",
-        name = "Rakesh Kumar",
-        badge = "Top Maker",
-        initials = "RK",
-        memberSince = "Host since 2024",
-        rating = 4.9f,
-        totalRentals = 48,
-        responseTime = "< 10 mins",
-        phone = "+91 98401 22345"
-    )
-
-    val ownerPriya = RentalOwner(
-        id = "owner_2",
-        name = "Priya Sharma",
-        badge = "Verified Creator",
-        initials = "PS",
-        memberSince = "Host since 2024",
-        rating = 4.8f,
-        totalRentals = 22,
-        responseTime = "< 5 mins",
-        phone = "+91 97890 54321"
-    )
-
-    val ownerVikram = RentalOwner(
-        id = "owner_3",
-        name = "Vikram David",
-        badge = "Studio Superhost",
-        initials = "VD",
-        memberSince = "Host since 2023",
-        rating = 4.9f,
-        totalRentals = 64,
-        responseTime = "< 15 mins",
-        phone = "+91 94432 19876"
-    )
-
-    val ownerAnanya = RentalOwner(
-        id = "owner_4",
-        name = "Ananya Nair",
-        badge = "Curator",
-        initials = "AN",
-        memberSince = "Host since 2024",
-        rating = 4.9f,
-        totalRentals = 35,
-        responseTime = "< 10 mins",
-        phone = "+91 99520 87654"
-    )
-
     val items: List<RentalItem> = emptyList()
 
     val initialConversations: List<ChatConversation> = emptyList()
@@ -110,30 +67,41 @@ object RentalRepository {
 
     val curatedRoutes: List<CuratedWalkingRoute> = emptyList()
 
-    val initialUserProfile = UserProfile(
-        uid = "",
-        displayName = "Loop Member",
-        email = "",
-        phone = "",
-        bio = "Creator and photographer in Puducherry.",
-        location = "White Town, Puducherry",
-        avatarPresetIndex = 0,
-        rating = 5.0f,
-        reviewCount = 0,
-        rentalsCompleted = 0,
-        listingsCount = 0,
-        earnedAmount = 0,
-        isVerified = true,
-        memberSince = "Joined 2026",
-        badges = listOf("✓ Google Verified", "★ Loop Member")
-    )
+    val initialUserProfile = UserProfile()
 
     val initialUserActivities: List<UserActivityItem> = emptyList()
 
     val initialCommunityPosts: List<UserCommunityPost> = emptyList()
 
-    private val _itemsFlow = MutableStateFlow(items)
-    val itemsFlow: StateFlow<List<RentalItem>> = _itemsFlow.asStateFlow()
+    private val _rawItemsFlow = MutableStateFlow(items)
+    private val _userProfileFlow = MutableStateFlow(initialUserProfile)
+    val userProfileFlow: StateFlow<UserProfile> = _userProfileFlow.asStateFlow()
+
+    val userSettingsFlow: StateFlow<UserSettings> = _userProfileFlow
+        .map { it.settings }
+        .stateIn(repositoryScope, SharingStarted.Eagerly, UserSettings())
+
+    val itemsFlow: StateFlow<List<RentalItem>> = combine(
+        _rawItemsFlow,
+        _userProfileFlow
+    ) { rawItems, profile ->
+        val favIds = profile.favoriteItemIds.toSet()
+        val blockedIds = profile.settings.blockedUserIds
+        rawItems
+            .filter { it.owner.id !in blockedIds }
+            .map { it.copy(isFavorite = it.id in favIds) }
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, items)
+
+    val savedItemsFlow: StateFlow<List<RentalItem>> = itemsFlow
+        .map { all -> all.filter { it.isFavorite } }
+        .stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
+
+    val myPublishedItemsFlow: StateFlow<List<RentalItem>> = combine(
+        itemsFlow,
+        _userProfileFlow
+    ) { all, profile ->
+        if (profile.uid.isBlank()) emptyList() else all.filter { it.owner.id == profile.uid }
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -142,7 +110,7 @@ object RentalRepository {
     val selectedCategory: StateFlow<RentalCategory?> = _selectedCategory.asStateFlow()
 
     val filteredItems: StateFlow<List<RentalItem>> = combine(
-        _itemsFlow,
+        itemsFlow,
         _searchQuery,
         _selectedCategory
     ) { allItems, query, cat ->
@@ -164,8 +132,14 @@ object RentalRepository {
         _selectedCategory.value = cat
     }
 
-    private val _conversationsFlow = MutableStateFlow<List<ChatConversation>>(emptyList())
-    val conversationsFlow: StateFlow<List<ChatConversation>> = _conversationsFlow.asStateFlow()
+    private val _rawConversationsFlow = MutableStateFlow<List<ChatConversation>>(emptyList())
+    val conversationsFlow: StateFlow<List<ChatConversation>> = combine(
+        _rawConversationsFlow,
+        _userProfileFlow
+    ) { rawConvs, profile ->
+        val blockedIds = profile.settings.blockedUserIds
+        rawConvs.filter { it.owner.id !in blockedIds }
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
 
     private val _activeConversationMessagesFlow = MutableStateFlow<Map<String, List<RentalMessage>>>(emptyMap())
     val activeConversationMessagesFlow: StateFlow<Map<String, List<RentalMessage>>> =
@@ -174,35 +148,167 @@ object RentalRepository {
     private val _bookingsFlow = MutableStateFlow<List<UserRentalBooking>>(emptyList())
     val bookingsFlow: StateFlow<List<UserRentalBooking>> = _bookingsFlow.asStateFlow()
 
-    private val _discoveryPinsFlow = MutableStateFlow(discoveryPins)
-    val discoveryPinsFlow: StateFlow<List<DiscoveryPinItem>> = _discoveryPinsFlow.asStateFlow()
+    private val _rsvpIdsFlow = MutableStateFlow<Set<String>>(emptySet())
+    val rsvpIdsFlow: StateFlow<Set<String>> = _rsvpIdsFlow.asStateFlow()
 
-    private val _userProfileFlow = MutableStateFlow(initialUserProfile)
-    val userProfileFlow: StateFlow<UserProfile> = _userProfileFlow.asStateFlow()
+    private val _rawCommunityPostsFlow = MutableStateFlow(initialCommunityPosts)
+    val userCommunityPostsFlow: StateFlow<List<UserCommunityPost>> = combine(
+        _rawCommunityPostsFlow,
+        _userProfileFlow
+    ) { rawPosts, profile ->
+        val blockedIds = profile.settings.blockedUserIds
+        rawPosts.filter { it.authorId !in blockedIds }
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, initialCommunityPosts)
 
-    private val _userActivityFlow = MutableStateFlow<List<UserActivityItem>>(emptyList())
-    val userActivityFlow: StateFlow<List<UserActivityItem>> = _userActivityFlow.asStateFlow()
+    val myCommunityPostsFlow: StateFlow<List<UserCommunityPost>> = combine(
+        userCommunityPostsFlow,
+        _userProfileFlow
+    ) { posts, profile ->
+        if (profile.uid.isBlank()) emptyList() else posts.filter { it.authorId == profile.uid }
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
 
-    private val _userCommunityPostsFlow = MutableStateFlow(initialCommunityPosts)
-    val userCommunityPostsFlow: StateFlow<List<UserCommunityPost>> = _userCommunityPostsFlow.asStateFlow()
+    val userActivityFlow: StateFlow<List<UserActivityItem>> = combine(
+        _bookingsFlow,
+        myPublishedItemsFlow,
+        myCommunityPostsFlow
+    ) { bookings, myItems, myPosts ->
+        val bookingActivities = bookings.map { booking ->
+            UserActivityItem(
+                id = "act_book_${booking.id}",
+                title = "${booking.item.title} (${booking.status})",
+                subtitle = "Host: ${booking.hostName} · ₹${booking.totalPaid} · OTP #${booking.handoverOtp}",
+                type = UserActivityType.RESERVATION,
+                timestamp = "${booking.startDate} – ${booking.endDate}",
+                statusBadge = booking.status,
+                iconEmoji = "📦",
+                relatedId = booking.id
+            )
+        }
+        val itemActivities = myItems.map { item ->
+            UserActivityItem(
+                id = "act_item_${item.id}",
+                title = "Published: ${item.title}",
+                subtitle = "${item.category.title} · ₹${item.pricePerDay}/day · ${item.location.ifBlank { "Marketplace" }}",
+                type = UserActivityType.LISTING_PUBLISHED,
+                timestamp = if (item.availableToday) "Active listing" else "Paused",
+                statusBadge = if (item.availableToday) "Live" else "Paused",
+                iconEmoji = item.category.iconEmoji,
+                relatedId = item.id
+            )
+        }
+        val postActivities = myPosts.map { post ->
+            UserActivityItem(
+                id = "act_post_${post.id}",
+                title = post.title,
+                subtitle = "${post.type.title} · ${post.location.ifBlank { "Neighborhood" }}",
+                type = when (post.type) {
+                    CommunityPostType.EVENT -> UserActivityType.COMMUNITY_EVENT
+                    CommunityPostType.HELP_REQUEST -> UserActivityType.HELP_REQUEST
+                    CommunityPostType.STUDY_GROUP -> UserActivityType.STUDY_GROUP
+                },
+                timestamp = post.dateTime.ifBlank { "Community post" },
+                statusBadge = post.status.label,
+                iconEmoji = post.type.emoji,
+                relatedId = post.id
+            )
+        }
+        bookingActivities + itemActivities + postActivities
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
+
+    val discoveryPinsFlow: StateFlow<List<DiscoveryPinItem>> = combine(
+        itemsFlow,
+        userCommunityPostsFlow,
+        _rsvpIdsFlow
+    ) { itemsList, postsList, rsvpIds ->
+        val itemPins = itemsList.mapNotNull { item ->
+            val lat = item.latitude
+            val lng = item.longitude
+            if (lat != null && lng != null) {
+                DiscoveryPinItem(
+                    id = item.id,
+                    title = item.title,
+                    subtitle = "Hosted by ${item.owner.name}",
+                    type = DiscoveryPinType.RENTAL_ITEM,
+                    latitude = lat,
+                    longitude = lng,
+                    rating = item.rating,
+                    distance = item.location.ifBlank { "Nearby" },
+                    tag = item.category.title,
+                    dateOrAvailability = if (item.availableToday) "Available" else "Unavailable",
+                    locationName = item.location,
+                    priceOrAttendees = "₹${item.pricePerDay}/day",
+                    description = item.description,
+                    owner = item.owner,
+                    rentalItem = item,
+                    imageUrl = item.imageUrl,
+                    category = item.category,
+                    filterCategory = MapCategoryFilter.MAKERS,
+                    neighborhood = item.location
+                )
+            } else {
+                null
+            }
+        }
+        val postPins = postsList.mapNotNull { post ->
+            val lat = post.latitude
+            val lng = post.longitude
+            if (lat != null && lng != null) {
+                val pinType = when (post.type) {
+                    CommunityPostType.EVENT -> DiscoveryPinType.COMMUNITY_EVENT
+                    CommunityPostType.HELP_REQUEST -> DiscoveryPinType.HELP_REQUEST
+                    CommunityPostType.STUDY_GROUP -> DiscoveryPinType.STUDY_GROUP
+                }
+                val filterCat = when (post.type) {
+                    CommunityPostType.EVENT -> MapCategoryFilter.LOCAL_EVENTS
+                    CommunityPostType.HELP_REQUEST -> MapCategoryFilter.HELP_NEEDED
+                    CommunityPostType.STUDY_GROUP -> MapCategoryFilter.STUDY_GROUPS
+                }
+                DiscoveryPinItem(
+                    id = post.id,
+                    title = post.title,
+                    subtitle = post.authorName.ifBlank { "Community Member" },
+                    type = pinType,
+                    latitude = lat,
+                    longitude = lng,
+                    tag = post.type.title,
+                    dateOrAvailability = post.dateTime,
+                    locationName = post.location,
+                    priceOrAttendees = post.attendeesOrResponses,
+                    description = post.description,
+                    isAttending = post.id in rsvpIds,
+                    filterCategory = filterCat,
+                    neighborhood = post.location
+                )
+            } else {
+                null
+            }
+        }
+        itemPins + postPins
+    }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
 
     private val _syncErrorFlow = MutableStateFlow<String?>(null)
     val syncErrorFlow: StateFlow<String?> = _syncErrorFlow.asStateFlow()
 
-    val communityEventsFlow: StateFlow<List<CommunityEvent>> = _userCommunityPostsFlow.map { posts ->
-        posts.map { post ->
-            CommunityEvent(
-                id = post.id,
-                title = post.title,
-                description = post.description,
-                category = post.categoryName,
-                locationName = post.location,
-                latitude = post.latitude,
-                longitude = post.longitude,
-                timeString = post.dateTime,
-                organizerName = post.authorName,
-                participantCount = Regex("(\\d+)").find(post.attendeesOrResponses)?.value?.toIntOrNull() ?: 1
-            )
+    val communityEventsFlow: StateFlow<List<CommunityEvent>> = userCommunityPostsFlow.map { posts ->
+        posts.mapNotNull { post ->
+            val lat = post.latitude
+            val lng = post.longitude
+            if (lat != null && lng != null) {
+                CommunityEvent(
+                    id = post.id,
+                    title = post.title,
+                    description = post.description,
+                    category = post.categoryName,
+                    locationName = post.location,
+                    latitude = lat,
+                    longitude = lng,
+                    timeString = post.dateTime,
+                    organizerName = post.authorName,
+                    participantCount = Regex("(\\d+)").find(post.attendeesOrResponses)?.value?.toIntOrNull() ?: 1
+                )
+            } else {
+                null
+            }
         }
     }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
 
@@ -220,14 +326,13 @@ object RentalRepository {
         communityRepo = cRepo
         cRepo.startAuthenticatedSync()
 
-        // Ensure user's profile doc exists in Firestore
+        // Ensure user's profile doc exists in Firestore with zeroed starter stats and legacy reset version 2
         repositoryScope.launch {
             val starterProfile = UserProfile(
                 uid = uid,
-                displayName = currentUser.displayName ?: "Loop Member",
-                email = currentUser.email ?: "member@loop.in",
-                location = "White Town, Puducherry",
-                memberSince = "Joined 2026"
+                displayName = currentUser.displayName ?: "",
+                email = currentUser.email ?: "",
+                legacyResetVersion = 2
             )
             val existingDoc = try {
                 service.firestore.collection("users").document(uid).get().await()
@@ -236,7 +341,32 @@ object RentalRepository {
             }
             if (existingDoc == null || !existingDoc.exists()) {
                 service.saveUserProfile(starterProfile)
+            } else {
+                val currentVersion = existingDoc.getLong("legacyResetVersion")?.toInt() ?: 0
+                val storedEarned = existingDoc.getLong("earnedAmount")?.toInt() ?: 0
+                val storedLocation = existingDoc.getString("location").orEmpty()
+                if (currentVersion < 2 || storedEarned > 0 || storedLocation.contains("White Town", ignoreCase = true)) {
+                    service.saveUserProfile(starterProfile)
+                }
             }
+
+            // Also purge any legacy seeded items from the global /items collection
+            try {
+                val legacySeeds = service.firestore.collection("items")
+                    .whereIn("title", listOf(
+                        "Coastal Cruiser Electric E-Bike",
+                        "Canon EOS & 35mm Glass",
+                        "Scandinavian Linen Armchair",
+                        "Leica M6 & 35mm Summicron",
+                        "Marantz Studio Reference Rig",
+                        "Eames Lounge Chair & Ottoman"
+                    ))
+                    .get()
+                    .await()
+                for (doc in legacySeeds.documents) {
+                    doc.reference.delete().await()
+                }
+            } catch (_: Exception) {}
         }
 
         // 1. User Profile real-time sync
@@ -244,10 +374,7 @@ object RentalRepository {
             try {
                 service.listenToUserProfile(uid).collect { cloudProfile ->
                     _userProfileFlow.value = cloudProfile
-                    val favIds = cloudProfile.favoriteItemIds.toSet()
-                    _itemsFlow.value = _itemsFlow.value.map { item ->
-                        item.copy(isFavorite = item.id in favIds)
-                    }
+                    ThemePreferencesStore.saveAppearanceMode(context, cloudProfile.settings.appearanceMode)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -261,17 +388,13 @@ object RentalRepository {
         syncJobs += repositoryScope.launch {
             try {
                 service.listenToItems().collect { cloudItems ->
-                    val favIds = _userProfileFlow.value.favoriteItemIds.toSet()
-                    val merged = cloudItems.map { item ->
-                        item.copy(isFavorite = item.id in favIds)
-                    }
-                    _itemsFlow.value = merged
+                    _rawItemsFlow.value = cloudItems
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Items sync error: ${e.message}", e)
-                _syncErrorFlow.value = "Gear catalog sync error: ${e.localizedMessage}"
+                _syncErrorFlow.value = "Catalog sync error: ${e.localizedMessage}"
             }
         }
 
@@ -279,9 +402,7 @@ object RentalRepository {
         syncJobs += repositoryScope.launch {
             try {
                 cRepo.allEvents.collect { events ->
-                    if (events.isNotEmpty()) {
-                        _userCommunityPostsFlow.value = events
-                    }
+                    _rawCommunityPostsFlow.value = events
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -293,9 +414,9 @@ object RentalRepository {
         // 4. Participant-scoped Conversations sync
         syncJobs += repositoryScope.launch {
             try {
-                service.listenToConversations(uid, _itemsFlow.value).collect { cloudConvs ->
+                service.listenToConversations(uid, _rawItemsFlow.value).collect { cloudConvs ->
                     val currentMap = _activeConversationMessagesFlow.value
-                    _conversationsFlow.value = cloudConvs.map { conv ->
+                    _rawConversationsFlow.value = cloudConvs.map { conv ->
                         val cachedMsgs = currentMap[conv.id]
                         if (!cachedMsgs.isNullOrEmpty()) conv.copy(messages = cachedMsgs) else conv
                     }
@@ -311,21 +432,8 @@ object RentalRepository {
         // 5. Bookings real-time sync (renter or host)
         syncJobs += repositoryScope.launch {
             try {
-                service.listenToBookings(uid, _itemsFlow.value).collect { cloudBookings ->
+                service.listenToBookings(uid, _rawItemsFlow.value).collect { cloudBookings ->
                     _bookingsFlow.value = cloudBookings
-                    val bookingActivities = cloudBookings.map { booking ->
-                        UserActivityItem(
-                            id = "act_${booking.id}",
-                            title = "${booking.item.title} (${booking.status})",
-                            subtitle = "Host: ${booking.hostName} · ₹${booking.totalPaid} · OTP #${booking.handoverOtp}",
-                            type = UserActivityType.RESERVATION,
-                            timestamp = "${booking.startDate} – ${booking.endDate}",
-                            statusBadge = booking.status,
-                            iconEmoji = "📦",
-                            relatedId = booking.id
-                        )
-                    }
-                    _userActivityFlow.value = bookingActivities
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -345,7 +453,7 @@ object RentalRepository {
                 service.listenToMessages(conversationId).collect { msgs ->
                     _activeConversationMessagesFlow.value =
                         _activeConversationMessagesFlow.value + (conversationId to msgs)
-                    _conversationsFlow.value = _conversationsFlow.value.map { conv ->
+                    _rawConversationsFlow.value = _rawConversationsFlow.value.map { conv ->
                         if (conv.id == conversationId) conv.copy(messages = msgs, unreadCount = 0) else conv
                     }
                 }
@@ -365,12 +473,12 @@ object RentalRepository {
         messageListenerJob = null
         communityRepo?.stopSync()
         activeSessionUid = null
-        _conversationsFlow.value = emptyList()
+        _rawConversationsFlow.value = emptyList()
         _activeConversationMessagesFlow.value = emptyMap()
         _bookingsFlow.value = emptyList()
-        _userActivityFlow.value = emptyList()
+        _rawCommunityPostsFlow.value = initialCommunityPosts
         _userProfileFlow.value = initialUserProfile
-        _itemsFlow.value = items
+        _rawItemsFlow.value = items
         _syncErrorFlow.value = null
     }
 
@@ -394,6 +502,36 @@ object RentalRepository {
                 _syncErrorFlow.value = "Failed to save profile: ${it.localizedMessage}"
             }
         }
+    }
+
+    fun updateUserSettings(context: Context, updatedSettings: UserSettings) {
+        val currentProfile = _userProfileFlow.value
+        val updatedProfile = currentProfile.copy(settings = updatedSettings)
+        _userProfileFlow.value = updatedProfile
+        repositoryScope.launch {
+            ThemePreferencesStore.saveAppearanceMode(context, updatedSettings.appearanceMode)
+            firestoreService?.updateUserSettings(updatedSettings, updatedProfile)?.onFailure {
+                _syncErrorFlow.value = "Failed to save settings: ${it.localizedMessage}"
+            }
+        }
+    }
+
+    fun blockUser(context: Context, userId: String, displayName: String) {
+        if (userId.isBlank() || userId == _userProfileFlow.value.uid) return
+        val current = _userProfileFlow.value.settings
+        if (current.blockedUsers.any { it.userId == userId }) return
+        val newEntry = BlockedUserEntry(
+            userId = userId,
+            displayName = displayName.ifBlank { "Community Member" },
+            blockedAtLabel = "Blocked recently"
+        )
+        updateUserSettings(context, current.copy(blockedUsers = current.blockedUsers + newEntry))
+    }
+
+    fun unblockUser(context: Context, userId: String) {
+        val current = _userProfileFlow.value.settings
+        val remaining = current.blockedUsers.filterNot { it.userId == userId }
+        updateUserSettings(context, current.copy(blockedUsers = remaining))
     }
 
     fun sendMessage(
@@ -431,56 +569,75 @@ object RentalRepository {
         title: String,
         price: Int,
         deposit: Int = 0,
-        location: String = "White Town, Puducherry",
+        location: String = "",
         category: RentalCategory,
         desc: String,
-        imageUrl: String? = null
+        imageUrl: String? = null,
+        imageUrls: List<String> = emptyList(),
+        latitude: Double? = null,
+        longitude: Double? = null
     ): Result<RentalItem> {
         val service = firestoreService
-            ?: return Result.failure(IllegalStateException("Sign in required to publish gear."))
+            ?: return Result.failure(IllegalStateException("Sign in required to publish listing."))
         val uid = Firebase.auth.currentUser?.uid
             ?: return Result.failure(IllegalStateException("Sign in required."))
 
         val profile = _userProfileFlow.value
+        val ownerName = profile.displayName.ifBlank { Firebase.auth.currentUser?.displayName ?: "Community Member" }
+        val galleryUrls = imageUrls.filter { it.isNotBlank() }.take(4).ifEmpty {
+            listOfNotNull(imageUrl?.takeIf { it.isNotBlank() })
+        }
+        val coverUrl = galleryUrls.firstOrNull()
+        val locShare = profile.settings.locationSharing
+        val effectiveLocation = if (locShare == LocationSharingPreference.HIDDEN && location.isBlank()) {
+            ""
+        } else {
+            location.trim()
+        }
+        val effectiveLat = if (locShare == LocationSharingPreference.PRECISE) latitude else null
+        val effectiveLng = if (locShare == LocationSharingPreference.PRECISE) longitude else null
+
         val newItem = RentalItem(
             id = "item_${System.currentTimeMillis()}",
             title = title.trim(),
             category = category,
             pricePerDay = price.coerceAtLeast(1),
-            location = location.trim().ifBlank { "White Town, Puducherry" },
-            rating = 5.0f,
-            reviewCount = 1,
-            description = desc.trim().ifBlank { "Curated creator equipment available in Puducherry." },
-            primaryImageRes = when (category) {
-                RentalCategory.ELECTRONICS -> R.drawable.img_cafe
-                RentalCategory.STUDY_OFFICE -> R.drawable.img_synth
-                RentalCategory.FURNITURE, RentalCategory.HOME_LIVING -> R.drawable.img_street
-                RentalCategory.VEHICLES -> R.drawable.img_ebike
-                RentalCategory.EVENTS -> R.drawable.img_street
-                RentalCategory.TOOLS -> R.drawable.img_synth
-            },
-            imageUrl = imageUrl,
-            imageCount = 3,
-            features = listOf(
-                SpecFeature("CAMERA", "Verified Object"),
-                SpecFeature("BAG", "Accessories Included")
-            ),
+            location = effectiveLocation,
+            rating = 0f,
+            reviewCount = 0,
+            description = desc.trim(),
+            primaryImageRes = 0,
+            imageUrl = coverUrl,
+            imageUrls = galleryUrls,
+            imageCount = galleryUrls.size,
+            features = emptyList(),
             owner = RentalOwner(
                 id = uid,
-                name = profile.displayName.ifBlank { "Loop Host" },
-                badge = "Loop Host",
+                name = ownerName,
+                badge = "Community Member",
                 initials = profile.initials
             ),
-            isPopular = true,
+            isPopular = false,
             isFavorite = false,
             availableToday = true,
-            securityDeposit = deposit.coerceAtLeast(0)
+            securityDeposit = deposit.coerceAtLeast(0),
+            latitude = effectiveLat,
+            longitude = effectiveLng
         )
 
         return service.createListing(newItem).onSuccess { savedItem ->
-            _itemsFlow.value = listOf(savedItem) + _itemsFlow.value.filterNot { it.id == savedItem.id }
+            _rawItemsFlow.value = listOf(savedItem) + _rawItemsFlow.value.filterNot { it.id == savedItem.id }
         }.onFailure {
             _syncErrorFlow.value = "Failed to publish listing: ${it.localizedMessage}"
+        }
+    }
+
+    fun deleteListing(itemId: String) {
+        _rawItemsFlow.value = _rawItemsFlow.value.filterNot { it.id == itemId }
+        repositoryScope.launch {
+            firestoreService?.deleteListing(itemId)?.onFailure {
+                _syncErrorFlow.value = "Failed to delete listing: ${it.localizedMessage}"
+            }
         }
     }
 
@@ -504,13 +661,13 @@ object RentalRepository {
         val booking = FirestoreBooking(
             id = "book_${System.currentTimeMillis()}",
             renterId = uid,
-            renterName = profile.displayName.ifBlank { "Loop Member" },
+            renterName = profile.displayName.ifBlank { Firebase.auth.currentUser?.displayName ?: "Member" },
             hostId = item.owner.id.ifBlank { uid },
-            hostName = item.owner.name.ifBlank { "Loop Host" },
+            hostName = item.owner.name.ifBlank { "Host" },
             itemId = item.id,
             itemTitle = item.title,
-            startDate = startDate.ifBlank { "Oct 20, 2026" },
-            endDate = endDate.ifBlank { "Oct 23, 2026" },
+            startDate = startDate,
+            endDate = endDate,
             daysCount = daysCount.coerceAtLeast(1),
             pricePerDay = item.pricePerDay,
             totalAmount = total,
@@ -537,29 +694,37 @@ object RentalRepository {
         type: CommunityPostType,
         description: String,
         location: String,
-        dateTime: String
+        dateTime: String,
+        latitude: Double? = null,
+        longitude: Double? = null
     ): UserCommunityPost {
-        val uid = Firebase.auth.currentUser?.uid ?: "member"
+        val uid = Firebase.auth.currentUser?.uid ?: ""
         val profile = _userProfileFlow.value
+        val locShare = profile.settings.locationSharing
+        val effectiveLat = if (locShare == LocationSharingPreference.PRECISE) latitude else null
+        val effectiveLng = if (locShare == LocationSharingPreference.PRECISE) longitude else null
+
         val newPost = UserCommunityPost(
             id = "post_${System.currentTimeMillis()}",
-            title = title,
+            title = title.trim(),
             type = type,
-            description = description,
-            location = location.ifBlank { "White Town, Puducherry" },
-            dateTime = dateTime.ifBlank { "Upcoming · Scheduled" },
+            description = description.trim(),
+            location = location.trim(),
+            dateTime = dateTime.trim(),
             attendeesOrResponses = when (type) {
-                CommunityPostType.EVENT -> "1 creator registered"
+                CommunityPostType.EVENT -> "1 attending"
                 CommunityPostType.HELP_REQUEST -> "Seeking assistance"
                 CommunityPostType.STUDY_GROUP -> "1 desk claimed"
             },
             status = CommunityPostStatus.ACTIVE,
             createdAt = "Just now",
+            latitude = effectiveLat,
+            longitude = effectiveLng,
             authorId = uid,
-            authorName = profile.displayName.ifBlank { "Community Member" }
+            authorName = profile.displayName.ifBlank { Firebase.auth.currentUser?.displayName ?: "Community Member" }
         )
 
-        _userCommunityPostsFlow.value = listOf(newPost) + _userCommunityPostsFlow.value
+        _rawCommunityPostsFlow.value = listOf(newPost) + _rawCommunityPostsFlow.value
 
         repositoryScope.launch {
             communityRepo?.createEvent(newPost) ?: firestoreService?.createCommunityPost(newPost)
@@ -568,13 +733,13 @@ object RentalRepository {
     }
 
     fun toggleCommunityPostStatus(postId: String) {
-        val current = _userCommunityPostsFlow.value.find { it.id == postId } ?: return
+        val current = _rawCommunityPostsFlow.value.find { it.id == postId } ?: return
         val newStatus = if (current.status == CommunityPostStatus.ACTIVE) {
             CommunityPostStatus.COMPLETED
         } else {
             CommunityPostStatus.ACTIVE
         }
-        _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.map { post ->
+        _rawCommunityPostsFlow.value = _rawCommunityPostsFlow.value.map { post ->
             if (post.id == postId) post.copy(status = newStatus) else post
         }
         repositoryScope.launch {
@@ -584,7 +749,7 @@ object RentalRepository {
     }
 
     fun deleteCommunityPost(postId: String) {
-        _userCommunityPostsFlow.value = _userCommunityPostsFlow.value.filterNot { it.id == postId }
+        _rawCommunityPostsFlow.value = _rawCommunityPostsFlow.value.filterNot { it.id == postId }
         repositoryScope.launch {
             communityRepo?.deleteEvent(postId)
                 ?: firestoreService?.deleteCommunityPost(postId)
@@ -600,21 +765,18 @@ object RentalRepository {
         }
         val updatedProfile = _userProfileFlow.value.copy(favoriteItemIds = currentFavs)
         _userProfileFlow.value = updatedProfile
-        _itemsFlow.value = _itemsFlow.value.map { item ->
-            if (item.id == itemId) item.copy(isFavorite = itemId in currentFavs) else item
-        }
         repositoryScope.launch {
             firestoreService?.updateFavoriteItems(currentFavs, updatedProfile)
         }
     }
 
     fun rsvpToCommunityPost(postId: String) {
-        _discoveryPinsFlow.value = _discoveryPinsFlow.value.map { pin ->
-            if (pin.id == postId) pin.copy(isAttending = !pin.isAttending) else pin
-        }
+        val currentSet = _rsvpIdsFlow.value
+        val nowAttending = postId !in currentSet
+        _rsvpIdsFlow.value = if (nowAttending) currentSet + postId else currentSet - postId
         repositoryScope.launch {
-            val matchingPost = _userCommunityPostsFlow.value.find { it.id == postId }
-            if (matchingPost != null) {
+            val matchingPost = _rawCommunityPostsFlow.value.find { it.id == postId }
+            if (matchingPost != null && nowAttending) {
                 communityRepo?.rsvpToEvent(postId)
             }
         }

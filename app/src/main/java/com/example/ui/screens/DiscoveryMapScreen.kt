@@ -80,23 +80,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.LocationHelper
 import com.example.data.RentalRepository
-import com.example.data.models.CuratedWalkingRoute
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
 import com.example.data.models.MapCategoryFilter
-import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
 import com.example.ui.components.CommunityActivityMap
 import com.example.ui.components.EventMapMarkerCallout
 import com.example.ui.components.MapLibreGLMapView
+import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.ProfileMarker
+import com.google.android.gms.maps.model.LatLng
 import com.example.ui.theme.AccentBeigeOat
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
@@ -107,6 +109,7 @@ import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
 import com.example.ui.theme.InkWhite
+import com.example.ui.theme.LoopTheme
 import com.example.ui.theme.LoopType
 import com.example.ui.theme.PaperBorder
 import com.example.ui.theme.PaperBorderSubtle
@@ -115,15 +118,16 @@ import com.example.ui.theme.PaperPureWhite
 import com.example.ui.theme.PaperWarm
 import kotlinx.coroutines.launch
 
-// Light Themed Architectural Map Palette
-private val MapGroundPaper = Color(0xFFF6F4ED)        // Warm ivory / parchment terrain
-private val MapWaterSeaside = Color(0xFFD6E4EB)       // Serene coastal watercolor wash
-private val MapWaterCoastline = Color(0xFFBFD2DC)     // Coastline shore border
-private val MapRoadPrimary = Color(0xFFE5DFD3)        // Warm stone avenue lines
-private val MapRoadSecondary = Color(0xFFEFECE3)      // Subtle cross street casing
-private val MapRouteTrack = Color(0xFFE5A93C)         // Warm ochre trail highlight
-private val MapHubRadiusFill = Color(0xFFE2EFE7)      // Soft mint pickup zone fill
-private val MapHubRadiusStroke = Color(0xFF2D5A43)    // Forest green dashed boundary
+// Light & Dark Themed Architectural Map Palette
+private val MapGroundPaperLight = Color(0xFFF6F4ED)
+private val MapRoadPrimaryLight = Color(0xFFE5DFD3)
+private val MapHubRadiusFillLight = Color(0xFFE2EFE7)
+private val MapHubRadiusStrokeLight = Color(0xFF2D5A43)
+
+private val MapGroundPaperDark = Color(0xFF141918)
+private val MapRoadPrimaryDark = Color(0xFF232B28)
+private val MapHubRadiusFillDark = Color(0xFF1A332B)
+private val MapHubRadiusStrokeDark = Color(0xFF5EEAD4)
 
 enum class MapEngineMode(val displayName: String, val emoji: String) {
     MAPLIBRE("MapLibre GL", "🗺️"),
@@ -136,26 +140,45 @@ fun DiscoveryMapScreen(
     onBackToCatalog: () -> Unit,
     onItemClick: (RentalItem) -> Unit,
     onContactOwner: (RentalOwner) -> Unit,
+    onPublishPiece: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val allPins = RentalRepository.discoveryPins
-    val allRoutes = RentalRepository.curatedRoutes
+    val allPins by RentalRepository.discoveryPinsFlow.collectAsStateWithLifecycle()
 
-    // Simple State-Based Category Filtering Logic
     var selectedCategoryFilter by remember { mutableStateOf(MapCategoryFilter.ALL) }
-    var selectedRoute by remember { mutableStateOf<CuratedWalkingRoute?>(null) }
-    var selectedPin by remember { mutableStateOf<DiscoveryPinItem?>(allPins.firstOrNull()) }
+    var selectedPin by remember { mutableStateOf<DiscoveryPinItem?>(null) }
 
-    var userLat by remember { mutableDoubleStateOf(LocationHelper.DEFAULT_LAT) }
-    var userLng by remember { mutableDoubleStateOf(LocationHelper.DEFAULT_LNG) }
+    var userLat by remember { mutableStateOf<Double?>(null) }
+    var userLng by remember { mutableStateOf<Double?>(null) }
+    var resolvedAreaLabel by remember { mutableStateOf<String?>(null) }
     var isGpsActive by remember { mutableStateOf(false) }
 
     // Interactive Pan & Zoom for Light Architectural Canvas Map
     var panOffsetX by remember { mutableFloatStateOf(0f) }
     var panOffsetY by remember { mutableFloatStateOf(0f) }
     var zoomScale by remember { mutableFloatStateOf(1f) }
+
+    val refreshLiveGps: () -> Unit = {
+        LocationHelper.fetchCurrentLocation(
+            context = context,
+            onLocationReceived = { lat, lng ->
+                userLat = lat
+                userLng = lng
+                isGpsActive = true
+                panOffsetX = 0f
+                panOffsetY = 0f
+                zoomScale = 1.2f
+                coroutineScope.launch {
+                    resolvedAreaLabel = LocationHelper.reverseGeocodeLocation(context, lat, lng)
+                }
+            },
+            onLocationUnavailable = {
+                isGpsActive = false
+            }
+        )
+    }
 
     // Pulse Animation for GPS Location Dot
     val infiniteTransition = rememberInfiniteTransition(label = "pulse_trans")
@@ -183,81 +206,61 @@ fun DiscoveryMapScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            isGpsActive = true
-            LocationHelper.fetchCurrentLocation(
-                context = context,
-                onLocationReceived = { lat, lng ->
-                    userLat = lat
-                    userLng = lng
-                    panOffsetX = 0f
-                    panOffsetY = 0f
-                    zoomScale = 1.3f
-                }
-            )
+            refreshLiveGps()
+        } else {
+            isGpsActive = false
         }
     }
 
     LaunchedEffect(Unit) {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (hasPermission) {
-            isGpsActive = true
-            LocationHelper.fetchCurrentLocation(
-                context = context,
-                onLocationReceived = { lat, lng ->
-                    userLat = lat
-                    userLng = lng
-                    panOffsetX = 0f
-                    panOffsetY = 0f
-                    zoomScale = 1.3f
-                }
-            )
+        if (LocationHelper.hasLocationPermission(context)) {
+            refreshLiveGps()
         }
     }
 
-    // Filter pins based on category chip group & active route using simple state-based logic
-    val filteredPins = remember(selectedCategoryFilter, selectedRoute, allPins) {
-        if (selectedRoute != null) {
-            allPins.filter { it.id in selectedRoute!!.pinIds }
-        } else {
-            when (selectedCategoryFilter) {
-                MapCategoryFilter.ALL -> allPins
-                MapCategoryFilter.STUDY_GROUPS -> allPins.filter {
-                    it.filterCategory == MapCategoryFilter.STUDY_GROUPS || it.type == DiscoveryPinType.STUDY_GROUP
-                }
-                MapCategoryFilter.HELP_NEEDED -> allPins.filter {
-                    it.filterCategory == MapCategoryFilter.HELP_NEEDED || it.type == DiscoveryPinType.HELP_REQUEST
-                }
-                MapCategoryFilter.LOCAL_EVENTS -> allPins.filter {
-                    it.filterCategory == MapCategoryFilter.LOCAL_EVENTS || it.type == DiscoveryPinType.COMMUNITY_EVENT
-                }
-                MapCategoryFilter.GEAR_HUBS -> allPins.filter {
-                    it.filterCategory == MapCategoryFilter.GEAR_HUBS || it.type == DiscoveryPinType.PICKUP_HUB
-                }
-                MapCategoryFilter.MAKERS -> allPins.filter {
-                    it.filterCategory == MapCategoryFilter.MAKERS || it.type == DiscoveryPinType.USER_HOST
-                }
+    // Filter pins based on category chip group
+    val filteredPins = remember(selectedCategoryFilter, allPins) {
+        when (selectedCategoryFilter) {
+            MapCategoryFilter.ALL -> allPins
+            MapCategoryFilter.STUDY_GROUPS -> allPins.filter {
+                it.filterCategory == MapCategoryFilter.STUDY_GROUPS || it.type == DiscoveryPinType.STUDY_GROUP
+            }
+            MapCategoryFilter.HELP_NEEDED -> allPins.filter {
+                it.filterCategory == MapCategoryFilter.HELP_NEEDED || it.type == DiscoveryPinType.HELP_REQUEST
+            }
+            MapCategoryFilter.LOCAL_EVENTS -> allPins.filter {
+                it.filterCategory == MapCategoryFilter.LOCAL_EVENTS || it.type == DiscoveryPinType.COMMUNITY_EVENT
+            }
+            MapCategoryFilter.GEAR_HUBS -> allPins.filter {
+                it.filterCategory == MapCategoryFilter.GEAR_HUBS || it.type == DiscoveryPinType.PICKUP_HUB
+            }
+            MapCategoryFilter.MAKERS -> allPins.filter {
+                it.filterCategory == MapCategoryFilter.MAKERS ||
+                    it.type == DiscoveryPinType.USER_HOST ||
+                    it.type == DiscoveryPinType.RENTAL_ITEM
             }
         }
     }
 
     // Auto-update selectedPin if filtered out
     LaunchedEffect(filteredPins) {
-        if (selectedPin == null || selectedPin !in filteredPins) {
-            selectedPin = filteredPins.firstOrNull()
+        if (selectedPin != null && selectedPin !in filteredPins) {
+            selectedPin = null
         }
     }
 
     val carouselState = rememberLazyListState()
     var mapMode by remember { mutableStateOf(MapEngineMode.MAPLIBRE) }
+    val isDarkTheme = LoopTheme.colors.isDark
+    val mapGroundColor = if (isDarkTheme) MapGroundPaperDark else MapGroundPaperLight
+    val mapRoadColor = if (isDarkTheme) MapRoadPrimaryDark else MapRoadPrimaryLight
+    val mapHubFillColor = if (isDarkTheme) MapHubRadiusFillDark else MapHubRadiusFillLight
+    val mapHubStrokeColor = if (isDarkTheme) MapHubRadiusStrokeDark else MapHubRadiusStrokeLight
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MapGroundPaper)
+            .background(mapGroundColor)
     ) {
         when (mapMode) {
             MapEngineMode.MAPLIBRE -> {
@@ -265,6 +268,8 @@ fun DiscoveryMapScreen(
                     modifier = Modifier.fillMaxSize(),
                     activityPoints = filteredPins,
                     selectedPin = selectedPin,
+                    centerLat = userLat,
+                    centerLng = userLng,
                     onPointSelected = { pin ->
                         selectedPin = pin
                         val pinIndex = filteredPins.indexOf(pin)
@@ -276,13 +281,26 @@ fun DiscoveryMapScreen(
                     },
                     onMapClick = {
                         selectedPin = null
+                    },
+                    onRequestGpsRecenter = {
+                        if (LocationHelper.hasLocationPermission(context)) {
+                            refreshLiveGps()
+                        } else {
+                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        }
                     }
                 )
             }
             MapEngineMode.GOOGLE_MAP -> {
+                val liveLatLng = if (userLat != null && userLng != null) {
+                    LatLng(userLat!!, userLng!!)
+                } else {
+                    null
+                }
                 CommunityActivityMap(
                     modifier = Modifier.fillMaxSize(),
                     activityPoints = filteredPins,
+                    initialCenter = liveLatLng,
                     onPointSelected = { pin ->
                         selectedPin = pin
                         val pinIndex = filteredPins.indexOf(pin)
@@ -298,152 +316,97 @@ fun DiscoveryMapScreen(
                     onRsvpClick = { pin ->
                         selectedPin = pin
                     },
+                    onRecenterMissingGps = {
+                        if (LocationHelper.hasLocationPermission(context)) {
+                            refreshLiveGps()
+                        } else {
+                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        }
+                    },
                     showFilterRow = false
                 )
             }
             MapEngineMode.CANVAS -> {
-                // Light Themed Architectural Map Canvas
+                // Light Architectural Grid Map Canvas
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                    .pointerInput(Unit) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        zoomScale = (zoomScale * zoom).coerceIn(0.8f, 2.2f)
-                        panOffsetX = (panOffsetX + pan.x).coerceIn(-400f, 400f)
-                        panOffsetY = (panOffsetY + pan.y).coerceIn(-400f, 400f)
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                zoomScale = (zoomScale * zoom).coerceIn(0.8f, 2.2f)
+                                panOffsetX = (panOffsetX + pan.x).coerceIn(-400f, 400f)
+                                panOffsetY = (panOffsetY + pan.y).coerceIn(-400f, 400f)
+                            }
+                        }
+                ) {
+                    Canvas(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        val width = size.width
+                        val height = size.height
+
+                        val centerX = width / 2f + panOffsetX
+                        val centerY = height / 2f + panOffsetY
+
+                        val roadColor = mapRoadColor
+                        val roadWidth = 2.6.dp.toPx() * zoomScale
+
+                        for (i in -2..2) {
+                            val vx = centerX + (width * 0.22f * i * zoomScale)
+                            drawLine(roadColor, Offset(vx, 0f), Offset(vx, height), roadWidth)
+                            val hy = centerY + (height * 0.18f * i * zoomScale)
+                            drawLine(roadColor, Offset(0f, hy), Offset(width, hy), roadWidth)
+                        }
+
+                        if (isGpsActive && userLat != null && userLng != null) {
+                            val userPos = Offset(centerX, centerY)
+
+                            drawCircle(
+                                color = mapHubFillColor.copy(alpha = 0.45f),
+                                radius = 90.dp.toPx() * zoomScale,
+                                center = userPos
+                            )
+                            drawCircle(
+                                color = mapHubStrokeColor,
+                                radius = 90.dp.toPx() * zoomScale,
+                                center = userPos,
+                                style = Stroke(width = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f))
+                            )
+                            drawCircle(
+                                color = Color(0xFF2563EB).copy(alpha = pulseAlpha),
+                                radius = pulseRadius * zoomScale,
+                                center = userPos
+                            )
+                            drawCircle(
+                                color = Color(0xFF2563EB),
+                                radius = 6.dp.toPx() * zoomScale,
+                                center = userPos
+                            )
+                            drawCircle(
+                                color = Color.White,
+                                radius = 6.dp.toPx() * zoomScale,
+                                center = userPos,
+                                style = Stroke(width = 2.5.dp.toPx())
+                            )
+                        }
                     }
-                }
-        ) {
-            Canvas(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                val width = size.width
-                val height = size.height
 
-                val centerX = width / 2f + panOffsetX
-                val centerY = height / 2f + panOffsetY
+                    // Dynamic Community & Listing Pins Layer
+                    val refLat = userLat ?: filteredPins.firstOrNull()?.latitude ?: 0.0
+                    val refLng = userLng ?: filteredPins.firstOrNull()?.longitude ?: 0.0
+                    filteredPins.forEachIndexed { index, pin ->
+                        val isSelected = selectedPin?.id == pin.id
+                        val deltaLng = ((pin.longitude - refLng) * 14000.0).toFloat().coerceIn(-120f, 120f)
+                        val deltaLat = ((refLat - pin.latitude) * 14000.0).toFloat().coerceIn(-140f, 140f)
+                        val baseX = (160f + deltaLng + ((index % 3) - 1) * 18f).dp
+                        val baseY = (290f + deltaLat + ((index / 3) * 18f)).dp
 
-                // East Bay of Bengal watercolor coastal wash
-                val coastX = centerX + (width * 0.28f * zoomScale)
-                drawRect(
-                    color = MapWaterSeaside,
-                    topLeft = Offset(coastX, 0f),
-                    size = androidx.compose.ui.geometry.Size(width - coastX, height)
-                )
+                        val renderedX = baseX + (panOffsetX * 0.4f).dp
+                        val renderedY = baseY + (panOffsetY * 0.4f).dp
 
-                // Coastline separation shore contour
-                drawLine(
-                    color = MapWaterCoastline,
-                    start = Offset(coastX, 0f),
-                    end = Offset(coastX, height),
-                    strokeWidth = 3.dp.toPx()
-                )
-
-                // French Quarter Avenues (Dumas, Romain Rolland, Suffren, Goubert)
-                val roadColor = MapRoadPrimary
-                val roadWidth = 3.2.dp.toPx() * zoomScale
-
-                val ave1 = centerX - (width * 0.32f * zoomScale)
-                val ave2 = centerX - (width * 0.12f * zoomScale)
-                val ave3 = centerX + (width * 0.08f * zoomScale)
-                val ave4 = centerX + (width * 0.24f * zoomScale)
-
-                drawLine(roadColor, Offset(ave1, 0f), Offset(ave1, height), roadWidth)
-                drawLine(roadColor, Offset(ave2, 0f), Offset(ave2, height), roadWidth)
-                drawLine(roadColor, Offset(ave3, 0f), Offset(ave3, height), roadWidth)
-                drawLine(roadColor, Offset(ave4, 0f), Offset(ave4, height), roadWidth)
-
-                // French Quarter Cross Streets (Rue Suffren, Rue De La Marine, Rue François Martin)
-                val st1 = centerY - (height * 0.28f * zoomScale)
-                val st2 = centerY - (height * 0.10f * zoomScale)
-                val st3 = centerY + (height * 0.08f * zoomScale)
-                val st4 = centerY + (height * 0.26f * zoomScale)
-
-                drawLine(roadColor, Offset(0f, st1), Offset(coastX, st1), roadWidth)
-                drawLine(roadColor, Offset(0f, st2), Offset(coastX, st2), roadWidth)
-                drawLine(roadColor, Offset(0f, st3), Offset(coastX, st3), roadWidth)
-                drawLine(roadColor, Offset(0f, st4), Offset(coastX, st4), roadWidth)
-
-                // Active Curated Walking Route Track (Warm ochre dash)
-                val routeTrackColor = if (selectedRoute != null) MapRouteTrack else MapRouteTrack.copy(alpha = 0.6f)
-                val routePoints = listOf(
-                    Offset(ave2, st1),
-                    Offset(ave3, st1),
-                    Offset(ave3, st3),
-                    Offset(ave4, st3),
-                    Offset(ave4, st4)
-                )
-
-                for (i in 0 until routePoints.size - 1) {
-                    drawLine(
-                        color = routeTrackColor,
-                        start = routePoints[i],
-                        end = routePoints[i + 1],
-                        strokeWidth = (if (selectedRoute != null) 4.5.dp else 2.8.dp).toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f, 12f), 0f)
-                    )
-                }
-
-                // Free Contactless Hub Delivery Radius Circle (Suffren Courtyard Hub)
-                val hubCenter = Offset(ave3, st2)
-                drawCircle(
-                    color = MapHubRadiusFill.copy(alpha = 0.5f),
-                    radius = 90.dp.toPx() * zoomScale,
-                    center = hubCenter
-                )
-                drawCircle(
-                    color = MapHubRadiusStroke,
-                    radius = 90.dp.toPx() * zoomScale,
-                    center = hubCenter,
-                    style = Stroke(width = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f))
-                )
-
-                // Live User GPS Location Indicator with Azure Blue Dot & Translucent Ripple
-                val userMarkerX = centerX - (width * 0.04f * zoomScale)
-                val userMarkerY = centerY - (height * 0.02f * zoomScale)
-                val userPos = Offset(userMarkerX, userMarkerY)
-
-                // Expanding translucent radar ring
-                drawCircle(
-                    color = Color(0xFF2563EB).copy(alpha = pulseAlpha),
-                    radius = pulseRadius * zoomScale,
-                    center = userPos
-                )
-                // Center solid blue dot with crisp white border
-                drawCircle(
-                    color = Color(0xFF2563EB),
-                    radius = 6.dp.toPx() * zoomScale,
-                    center = userPos
-                )
-                drawCircle(
-                    color = Color.White,
-                    radius = 6.dp.toPx() * zoomScale,
-                    center = userPos,
-                    style = Stroke(width = 2.5.dp.toPx())
-                )
-            }
-        }
-
-        // Custom Photographic Pins Layer
-        filteredPins.forEachIndexed { index, pin ->
-            val isSelected = selectedPin?.id == pin.id
-            val (baseX, baseY) = when (pin.id) {
-                "pin_hub_cafe" -> 160.dp to 220.dp
-                "pin_rakesh" -> 220.dp to 180.dp
-                "pin_vikram" -> 270.dp to 320.dp
-                "pin_priya" -> 80.dp to 300.dp
-                "pin_study_courtyard" -> 110.dp to 240.dp
-                "pin_help_darkroom" -> 180.dp to 340.dp
-                "pin_event_photowalk" -> 280.dp to 410.dp
-                else -> 140.dp to 450.dp
-            }
-
-            val renderedX = baseX + (panOffsetX * 0.4f).dp
-            val renderedY = baseY + (panOffsetY * 0.4f).dp
-
-            Box(
-                modifier = Modifier.offset(x = renderedX, y = renderedY)
-            ) {
+                        Box(
+                            modifier = Modifier.offset(x = renderedX, y = renderedY)
+                        ) {
                 when (pin.type) {
                     DiscoveryPinType.PICKUP_HUB -> {
                         // Smart Hub Badge Marker (Solid Forest Green)
@@ -592,10 +555,11 @@ fun DiscoveryMapScreen(
                 }
             }
         }
-    }
-}
+            }
+        }
+        }
 
-    // Top Navigation & Filter Bar (Light Themed)
+        // Top Navigation & Filter Bar (Light Themed)
     Column(
         modifier = Modifier
             .align(Alignment.TopCenter)
@@ -633,7 +597,7 @@ fun DiscoveryMapScreen(
                     )
                 }
 
-                // Neighborhood Tag & GPS Status Indicator
+                // Live GPS Location Indicator
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(100.dp))
@@ -646,13 +610,22 @@ fun DiscoveryMapScreen(
                             modifier = Modifier
                                 .size(7.dp)
                                 .clip(CircleShape)
-                                .background(if (isGpsActive) Color(0xFF2563EB) else AccentForestGreen)
+                                .background(if (isGpsActive && userLat != null) Color(0xFF2563EB) else InkMuted)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
+                        val gpsHeaderText = when {
+                            isGpsActive && userLat != null && userLng != null -> {
+                                resolvedAreaLabel?.let { "GPS LIVE · ${it.uppercase()}" }
+                                    ?: "GPS LIVE · %.3f, %.3f".format(userLat, userLng)
+                            }
+                            else -> "ENABLE GPS LOCATION"
+                        }
                         Text(
-                            text = if (isGpsActive) "GPS LIVE · WHITE TOWN" else "WHITE TOWN QUARTER",
+                            text = gpsHeaderText,
                             style = LoopType.EditorialTag.copy(fontSize = 10.sp),
-                            color = InkCharcoal
+                            color = InkCharcoal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -692,23 +665,16 @@ fun DiscoveryMapScreen(
                     // Locate Me GPS Action Button
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .background(if (isGpsActive) AccentMint else PaperPureWhite)
                             .border(1.dp, if (isGpsActive) AccentForestGreen else PaperBorder, CircleShape)
                             .clickable {
-                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                                isGpsActive = true
-                                LocationHelper.fetchCurrentLocation(
-                                    context = context,
-                                    onLocationReceived = { lat, lng ->
-                                        userLat = lat
-                                        userLng = lng
-                                        panOffsetX = 0f
-                                        panOffsetY = 0f
-                                        zoomScale = 1.3f
-                                    }
-                                )
+                                if (LocationHelper.hasLocationPermission(context)) {
+                                    refreshLiveGps()
+                                } else {
+                                    locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                }
                             }
                             .testTag("map_locate_me_btn"),
                         contentAlignment = Alignment.Center
@@ -723,7 +689,7 @@ fun DiscoveryMapScreen(
                 }
             }
 
-            // Category Filter Chip Group for Discovery Map (Simple state-based filtering logic)
+            // Category Filter Chip Group for Discovery Map
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -732,7 +698,7 @@ fun DiscoveryMapScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 MapCategoryFilter.values().forEach { filter ->
-                    val isSelected = selectedCategoryFilter == filter && selectedRoute == null
+                    val isSelected = selectedCategoryFilter == filter
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(100.dp))
@@ -743,7 +709,6 @@ fun DiscoveryMapScreen(
                                 RoundedCornerShape(100.dp)
                             )
                             .clickable {
-                                selectedRoute = null
                                 selectedCategoryFilter = filter
                             }
                             .padding(horizontal = 14.dp, vertical = 7.dp)
@@ -764,52 +729,57 @@ fun DiscoveryMapScreen(
                     }
                 }
             }
+        }
 
-            // Curated Walking Routes Quick Pills (Light Theme)
-            Row(
+        // Clean Empty State Overlay when no listings/posts exist on the map yet
+        if (filteredPins.isEmpty()) {
+            Column(
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(PaperPureWhite.copy(alpha = 0.96f))
+                    .border(1.dp, PaperBorderSubtle, RoundedCornerShape(22.dp))
+                    .padding(20.dp)
+                    .testTag("map_empty_state"),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                allRoutes.forEach { route ->
-                    val isRouteActive = selectedRoute?.id == route.id
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(100.dp))
-                            .background(if (isRouteActive) AccentForestGreen else PaperPureWhite)
-                            .border(
-                                1.dp,
-                                if (isRouteActive) AccentForestGreen else PaperBorder,
-                                RoundedCornerShape(100.dp)
-                            )
-                            .clickable {
-                                selectedRoute = if (isRouteActive) null else route
-                            }
-                            .padding(horizontal = 12.dp, vertical = 5.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Route,
-                                contentDescription = null,
-                                tint = if (isRouteActive) InkWhite else AccentWarmYellow,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = "${route.title} (${route.durationMin})",
-                                style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                                color = if (isRouteActive) InkWhite else InkCharcoal
-                            )
+                Text(
+                    text = if (allPins.isEmpty()) "No pieces mapped yet" else "No pins in this category",
+                    style = LoopType.HeadlineMedium.copy(fontSize = 17.sp),
+                    color = InkCharcoal,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = if (allPins.isEmpty()) {
+                        "Publish your first item or community post with GPS enabled to place it on the live map."
+                    } else {
+                        "Switch back to All to view available pins nearby."
+                    },
+                    style = LoopType.BodySmall,
+                    color = InkSecondary,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                PrimaryCTA(
+                    text = if (allPins.isEmpty()) "Publish Piece" else "Show All Pins",
+                    onClick = {
+                        if (allPins.isEmpty()) {
+                            onPublishPiece()
+                        } else {
+                            selectedCategoryFilter = MapCategoryFilter.ALL
                         }
-                    }
-                }
+                    },
+                    testTag = if (allPins.isEmpty()) "map_empty_publish_button" else "map_empty_reset_filter_button"
+                )
             }
         }
 
         // Bottom Discovery Marker Callout & Carousel Drawer for MapLibre & Canvas modes
-        if (mapMode != MapEngineMode.GOOGLE_MAP) {
+        if (mapMode != MapEngineMode.GOOGLE_MAP && filteredPins.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -851,7 +821,7 @@ fun DiscoveryMapScreen(
                     }
                 }
 
-                // Compact Neighborhood Marker Carousel when callout is dismissed or to quickly switch markers
+                // Compact Marker Carousel when callout is dismissed or to quickly switch markers
                 AnimatedVisibility(visible = selectedPin == null) {
                     LazyRow(
                         state = carouselState,

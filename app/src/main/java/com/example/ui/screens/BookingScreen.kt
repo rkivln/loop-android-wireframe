@@ -63,6 +63,16 @@ import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
 import kotlinx.coroutines.launch
 
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+
+private fun formatOffsetDays(offsetDays: Int): String {
+    val cal = Calendar.getInstance()
+    cal.add(Calendar.DAY_OF_YEAR, offsetDays)
+    return SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(cal.time)
+}
+
 @Composable
 fun BookingScreen(
     item: RentalItem,
@@ -72,9 +82,9 @@ fun BookingScreen(
     BackHandler(onBack = onBack)
 
     val coroutineScope = rememberCoroutineScope()
-    var startDate by remember { mutableStateOf("Nov 18, 2026") }
-    var endDate by remember { mutableStateOf("Nov 21, 2026") }
     var daysCount by remember { mutableIntStateOf(3) }
+    var startDate by remember { mutableStateOf(formatOffsetDays(0)) }
+    var endDate by remember { mutableStateOf(formatOffsetDays(3)) }
     var selectedDelivery by remember { mutableStateOf(DeliveryOptionType.SELF_PICKUP) }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -195,8 +205,13 @@ fun BookingScreen(
                         style = LoopType.HeadlineMedium,
                         color = InkCharcoal
                     )
+                    val hostText = item.owner.name.ifBlank { "Community Member" }
                     Text(
-                        text = "Hosted by ${item.owner.name} · ${item.location}",
+                        text = if (item.location.isNotBlank()) {
+                            "Hosted by $hostText · ${item.location}"
+                        } else {
+                            "Hosted by $hostText"
+                        },
                         style = LoopType.BodySmall,
                         color = InkSecondary
                     )

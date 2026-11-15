@@ -1,44 +1,48 @@
-# Loop: The Living Catalog & Creative Exchange
+# Loop — Real-Time Community Marketplace
 
-**Loop** is an editorial, real-time peer-to-peer sharing ecosystem for creators, photographers, designers, and local hosts in coastal neighborhoods like White Town and Auroville. Experience the joy of temporary ownership—accessing high-end 35mm cameras, analogue synthesizers, electric e-bikes, and artisanal design pieces without the burden of permanent ownership.
-
----
-
-## 🌟 Key Features
-
-### 1. Curated Living Catalog
-- **Real-Time Cloud Sync**: Powered by Cloud Firestore for instant synchronization across devices.
-- **Diverse Departments**: Browse or list items across *Electronics, Studio & Office, Vehicles, Furniture, Events, and Tools*.
-- **Transparent Pricing**: Daily circulation rates, security deposits, verified host badges, and condition notes.
-
-### 2. Live Discovery Map & GPS Navigation
-- **Real-Time GPS Tracking**: Auto-centers on your live location with radar pulse visualization.
-- **Interactive Map Modes**: Switch seamlessly between **MapLibre GL**, **Google Maps**, and the custom **Editorial Architectural Canvas**.
-- **Community Pins**: Discover 24/7 Smart Lockbox Hubs, quiet study verandas, darkroom help exchanges, and twilight photowalks.
-
-### 3. Studio Dispatch & Secure Messaging
-- **Direct Dialogue**: Chat in real-time with verified hosts and fellow creators.
-- **Secure Handover Verification**: Digital 4-digit OTP passcodes generated upon reservation confirmation for secure item pickup and return.
-
-### 4. Creator Shelf & Profile Management
-- **Verified Identity**: Google Sign-In integration via Jetpack Credential Manager.
-- **Activity Ledger**: Track active reservations, host earnings, community posts, and community verification badges.
-
-### 5. Editorial Aesthetics
-- **Warm Ivory & Ink Palette**: Crafted with Material Design 3 and custom typography inspired by high-end design folios.
-- **Exclusive Photography**: Zero vector illustrations—only rich photographic storytelling throughout the onboarding carousel and catalog.
+**Loop** is a real-time peer-to-peer neighborhood sharing and rental marketplace built with Kotlin, Jetpack Compose, and Firebase. Community members can publish listings with their own photography, discover nearby items and community posts on a live GPS map, message owners in real time, and manage reservations from a single unified workspace.
 
 ---
 
-## 📱 Technology Stack
-- **Architecture**: MVVM + Clean Architecture with Kotlin Flow & Coroutines
-- **UI Framework**: Jetpack Compose & Material Design 3
-- **Backend**: Firebase Cloud Firestore & Firebase Authentication
-- **Navigation**: Navigation Compose with Type-Safe Routing
+## Key Features
+
+### 1. Real-Time Community Marketplace
+- **Zero Pre-Stored Sample Data**: Every listing, community post, reservation, and conversation starts clean and comes exclusively from authenticated users in real time via Cloud Firestore.
+- **User-Uploaded Photography**: Attach real item photos via the zero-permission Android Photo Picker; images are compressed and synchronized directly through Firestore.
+- **Multiple Departments**: Publish or filter items across *Electronics, Furniture, Vehicles, Tools, Events, Study & Office, and Home & Living*.
+- **AI Rate & Deposit Appraisal**: Optional Gemini AI assistance estimates daily rates and refundable security deposits from your item title and notes.
+
+### 2. Live GPS Discovery Map
+- **Real-Time GPS Centering**: Automatically centers on your live coordinates and reverse-geocodes your neighborhood when location access is granted.
+- **Interactive Map Modes**: Switch between **MapLibre GL** and **Google Maps** to explore user-published listings and community posts nearby.
+- **Category Filters**: Filter active map pins across *Listings, Community Events, Help Requests, and Study Groups*.
+
+### 3. Real-Time Messaging & Reservations
+- **Direct Owner Chat**: Start real-time Firestore conversations with listing owners and share meeting coordinates.
+- **OTP Handover Confirmation**: Generates a 4-digit handover code when reservations are confirmed.
+- **Live Status Updates**: Track active bookings, pickup dates, and completion status in real time.
+
+### 4. Google Sign-In & Clean Member Profiles
+- **Credential Manager Authentication**: Gated behind Google Sign-In so every listing, booking, and message is tied to an authenticated account.
+- **Fresh Starter Profiles**: New accounts start with zero stats and zero unverified claims until activity accrues naturally.
+- **Community Board**: Publish local events, help requests, or study meetups tagged with live GPS or custom locations.
+
+### 5. Photography-First Material 3 UI
+- **Material Design 3 & Custom Typography**: Warm editorial palette with Playfair Display and Plus Jakarta Sans typography, edge-to-edge insets, and photography-only visual assets (no vector illustrations).
 
 ---
 
-## 🚀 Getting Started
-1. Launch the app and explore the editorial onboarding story.
-2. Sign in securely with your Google account.
-3. Browse the living catalog or publish your own gear in seconds!
+## Technology Stack
+- **Language & UI**: Kotlin, Jetpack Compose, Material Design 3
+- **Backend & Auth**: Firebase Cloud Firestore, Firebase Authentication (Google Sign-In via Credential Manager), Firebase AI Logic
+- **Location & Maps**: Fused Location Provider, Android Geocoder, MapLibre GL, Google Maps Compose
+- **Local Cache**: Room Database (`AppDatabase`)
+- **Navigation**: Navigation Compose with Type-Safe `@Serializable` Routes
+
+---
+
+## Getting Started
+1. Launch **Loop** and view the photographic introduction.
+2. Sign in with your Google account via Jetpack Credential Manager.
+3. Grant location permission (optional) to auto-detect your neighborhood and center the Discovery Map on your live GPS coordinates.
+4. Tap **Publish Piece** to upload a photo and publish the first real-time listing in your community.

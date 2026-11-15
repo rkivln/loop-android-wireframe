@@ -72,6 +72,20 @@ test("Authenticated user: can create and update their own profile", async () => 
   await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).update({
     bio: "Film shooter in White Town",
     favoriteItemIds: ["item_100"],
+    appearanceMode: "DARK",
+    profileVisibility: "PRIVATE",
+    locationSharing: "NEIGHBORHOOD_ONLY",
+    notifyPush: true,
+    notifyNewPosts: false,
+    notifyCommentReplies: true,
+    notifyLikes: false,
+    notifyAnnouncements: true,
+    blockedUserIds: [BOB_UID],
+    blockedUsers: [{ userId: BOB_UID, displayName: "Bob", blockedAtLabel: "Today" }],
+    updatedAt: new Date(),
+  }));
+  await assertFails(aliceDb.collection("users").doc(ALICE_UID).update({
+    appearanceMode: "NEON_MODE",
     updatedAt: new Date(),
   }));
 });
@@ -109,6 +123,34 @@ test("Authenticated user: can create and update rental item they own, but not so
       createdAt: new Date(),
     });
   });
+
+  await assertSucceeds(aliceDb.collection("items").doc("item_multi").set({
+    id: "item_multi",
+    title: "Multi Photo Tripod Kit",
+    categoryName: "ELECTRONICS",
+    pricePerDay: 450,
+    imageUrl: "data:image/jpeg;base64,AAA",
+    imageUrls: [
+      "data:image/jpeg;base64,AAA",
+      "data:image/jpeg;base64,BBB",
+      "data:image/jpeg;base64,CCC",
+      "data:image/jpeg;base64,DDD"
+    ],
+    imageCount: 4,
+    ownerId: ALICE_UID,
+    createdAt: new Date(),
+  }));
+
+  await assertFails(aliceDb.collection("items").doc("item_too_many").set({
+    id: "item_too_many",
+    title: "Too Many Photos",
+    categoryName: "ELECTRONICS",
+    pricePerDay: 450,
+    imageUrls: ["1", "2", "3", "4", "5"],
+    imageCount: 5,
+    ownerId: ALICE_UID,
+    createdAt: new Date(),
+  }));
 
   await assertFails(aliceDb.collection("items").doc("bob_item").update({
     title: "Alice Hacked Scooter",

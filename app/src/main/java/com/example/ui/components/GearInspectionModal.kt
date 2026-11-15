@@ -57,9 +57,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.RentalItem
 import com.example.ui.theme.AccentYellow
+import com.example.ui.theme.AlertCrimson
 import com.example.ui.theme.InkBlack
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.InkWhite
 import com.example.ui.theme.LoopType
 import com.example.ui.theme.ParchmentBg
 import com.example.ui.theme.ParchmentBorder
@@ -89,11 +91,11 @@ fun GearInspectionModal(
 ) {
     val checkPoints = remember {
         listOf(
-            InspectionPoint("sensor", "Sensor Glass & Cleanliness", "Checked for sensor dust & scratch-free glass", Icons.Default.CameraAlt),
-            InspectionPoint("lens", "Optics & Aperture Blades", "Front/rear elements pristine, zoom ring smooth", Icons.Default.ZoomIn),
-            InspectionPoint("battery", "Battery Health & Charger", "Tested at 100% capacity, original LP-E17", Icons.Default.BatteryChargingFull),
-            InspectionPoint("storage", "SD Slot & Write Speed", "SanDisk Extreme Pro V30 benchmark verified", Icons.Default.SdCard),
-            InspectionPoint("body", "Mount Pins & Lock System", "Gold electronic contacts clean, tight lens lock", Icons.Default.Security)
+            InspectionPoint("surface", "Exterior & Structural Condition", "Checked for clean finish and no undisclosed wear", Icons.Default.Verified),
+            InspectionPoint("function", "Core Function & Controls", "Tested primary operation and moving parts smoothly", Icons.Default.CheckCircle),
+            InspectionPoint("power", "Power, Cables & Chargers", "Included power accessories verified working", Icons.Default.BatteryChargingFull),
+            InspectionPoint("extras", "Included Kit & Accessories", "All listed attachments and cases accounted for", Icons.Default.CameraAlt),
+            InspectionPoint("safety", "Safety & Lock Mechanism", "Latches, mounts, and safety features intact", Icons.Default.Security)
         )
     }
 
@@ -183,17 +185,18 @@ fun GearInspectionModal(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = item.title,
                                     style = LoopType.H3
                                 )
                                 Text(
-                                    text = "Host: ${item.owner.name} · White Town Hub",
+                                    text = "Host: ${item.owner.name.ifBlank { "Community Member" }} · ${item.location.ifBlank { "Local Handover" }}",
                                     style = LoopType.BodySmall
                                 )
                             }
 
+                            val passedCount = passedStates.values.count { it }
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
@@ -201,7 +204,7 @@ fun GearInspectionModal(
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = "5 / 5 POINTS OK",
+                                    text = "$passedCount / ${checkPoints.size} POINTS OK",
                                     style = LoopType.CaptionTechnical,
                                     color = StatusGreen
                                 )
@@ -221,7 +224,7 @@ fun GearInspectionModal(
                             .background(ParchmentWhite)
                             .border(
                                 1.dp,
-                                if (isChecked) ParchmentBorder else Color(0xFFEF4444),
+                                if (isChecked) ParchmentBorder else AlertCrimson,
                                 RoundedCornerShape(12.dp)
                             )
                             .clickable {
@@ -242,13 +245,13 @@ fun GearInspectionModal(
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isChecked) StatusGreenBg else Color(0xFFFEE2E2)),
+                                        .background(if (isChecked) StatusGreenBg else AlertCrimson.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = point.icon,
                                         contentDescription = null,
-                                        tint = if (isChecked) StatusGreen else Color(0xFFDC2626),
+                                        tint = if (isChecked) StatusGreen else AlertCrimson,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -274,13 +277,13 @@ fun GearInspectionModal(
                                 modifier = Modifier
                                     .size(26.dp)
                                     .clip(CircleShape)
-                                    .background(if (isChecked) StatusGreen else Color(0xFFEF4444)),
+                                    .background(if (isChecked) StatusGreen else AlertCrimson),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = if (isChecked) Icons.Default.Check else Icons.Default.Close,
                                     contentDescription = null,
-                                    tint = Color.White,
+                                    tint = InkWhite,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }

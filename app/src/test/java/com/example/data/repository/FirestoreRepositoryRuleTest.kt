@@ -67,6 +67,71 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
     }
 
     @Test
+    fun userSettings_updateAndEnumValidation_enforced() = runBlocking {
+        val aliceUid = signInTestUser(ALICE_EMAIL)
+        val service = FirestoreService(firestore)
+
+        val starter = UserProfile(
+            uid = aliceUid,
+            displayName = "Alice Settings Tester",
+            email = ALICE_EMAIL
+        )
+        val saveRes = withTimeout(DEFAULT_TIMEOUT_MS) { service.saveUserProfile(starter) }
+        assertTrue("Starter profile save failed: ${saveRes.exceptionOrNull()}", saveRes.isSuccess)
+
+        val updatedSettings = com.example.data.models.UserSettings(
+            appearanceMode = com.example.data.models.AppearanceMode.DARK,
+            profileVisibility = com.example.data.models.ProfileVisibility.PRIVATE,
+            locationSharing = com.example.data.models.LocationSharingPreference.NEIGHBORHOOD_ONLY,
+            notifications = com.example.data.models.NotificationPreferences(
+                pushEnabled = true,
+                newNeighbourhoodPosts = false,
+                repliesToComments = true,
+                likesAndInteractions = false,
+                announcements = true
+            ),
+            blockedUsers = listOf(
+                com.example.data.models.BlockedUserEntry(
+                    userId = "blocked_user_99",
+                    displayName = "Blocked Member",
+                    blockedAtLabel = "Today"
+                )
+            )
+        )
+        val settingsRes = withTimeout(DEFAULT_TIMEOUT_MS) {
+            service.updateUserSettings(updatedSettings, starter)
+        }
+        assertTrue("Settings update failed: ${settingsRes.exceptionOrNull()}", settingsRes.isSuccess)
+
+        val observed = withTimeout(FLOW_TIMEOUT_MS) {
+            service.listenToUserProfile(aliceUid).first {
+                it.settings.appearanceMode == com.example.data.models.AppearanceMode.DARK &&
+                    it.settings.profileVisibility == com.example.data.models.ProfileVisibility.PRIVATE
+            }
+        }
+        assertEquals(
+            com.example.data.models.LocationSharingPreference.NEIGHBORHOOD_ONLY,
+            observed.settings.locationSharing
+        )
+        assertTrue(observed.settings.blockedUserIds.contains("blocked_user_99"))
+        assertEquals(false, observed.settings.notifications.newNeighbourhoodPosts)
+
+        // Invalid enum string must be rejected by Firestore security rules
+        var invalidEnumDenied = false
+        try {
+            withTimeout(DEFAULT_TIMEOUT_MS) {
+                firestore.collection("users").document(aliceUid)
+                    .update("appearanceMode", "INVALID_MODE").await()
+            }
+        } catch (e: Exception) {
+            if (e.unwrapFirestoreException()?.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                invalidEnumDenied = true
+            }
+        }
+        assertTrue("Invalid appearanceMode enum must be rejected with PERMISSION_DENIED", invalidEnumDenied)
+    }
+
+    @Test
     fun createAndListenItems_authenticatedSucceeds_crossUserAndUnauthDenied() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         val service = FirestoreService(firestore)
@@ -81,7 +146,10 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
             rating = 4.9f,
             reviewCount = 12,
             description = "Mint condition 50mm photography kit.",
-            primaryImageRes = R.drawable.canon_eos_camera_1790477967758,
+            primaryImageRes = 0,
+            imageUrl = "data:image/jpeg;base64,COVER",
+            imageUrls = listOf("data:image/jpeg;base64,COVER", "data:image/jpeg;base64,DETAIL"),
+            imageCount = 2,
             owner = RentalOwner(id = aliceUid, name = "Alice Tester", badge = "Top Host", initials = "AT"),
             features = listOf(SpecFeature("CAMERA", "50mm Prime")),
             availableToday = true
@@ -93,7 +161,9 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val emitted = withTimeout(FLOW_TIMEOUT_MS) {
             service.listenToItems().first { list -> list.any { it.id == uniqueItemId } }
         }
-        assertTrue(emitted.any { it.id == uniqueItemId })
+        val storedItem = emitted.first { it.id == uniqueItemId }
+        assertEquals(2, storedItem.imageUrls.size)
+        assertEquals("data:image/jpeg;base64,COVER", storedItem.imageUrl)
 
         // Cross-user update denied
         signInTestUser(BOB_EMAIL)

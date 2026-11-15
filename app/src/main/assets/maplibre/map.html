@@ -57,6 +57,16 @@
         .pin-hub { background: #1B1C19; border-color: #63C195; color: #FFFFFF; }
         .pin-maker { background: #E5EFF7; border-color: #4A7A96; }
 
+        /* Live User GPS Marker */
+        .user-gps-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2563EB;
+            border: 3px solid #FFFFFF;
+            box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.22);
+        }
+
         /* MapLibre Popups */
         .maplibregl-popup-content {
             border-radius: 16px;
@@ -107,12 +117,14 @@
     let markers = [];
     let currentPins = [];
     let selectedPinId = null;
+    let userLocation = null;
+    let userMarker = null;
 
-    // Default Puducherry Promenade coordinates
-    const DEFAULT_LNG = 79.8350;
-    const DEFAULT_LAT = 11.9338;
+    // Neutral global overview until live GPS coordinates are provided
+    const INITIAL_CENTER = [0.0, 20.0];
+    const INITIAL_ZOOM = 1.5;
 
-    // Clean OpenStreetMap raster style with warm ivory background
+    // Clean OpenStreetMap raster style
     const osmRasterStyle = {
         version: 8,
         sources: {
@@ -143,14 +155,13 @@
         }
 
         try {
-            // Prefer OpenFreeMap Liberty vector style with fallback to OSM raster
             map = new maplibregl.Map({
                 container: 'map',
                 style: 'https://tiles.openfreemap.org/styles/liberty',
-                center: [DEFAULT_LNG, DEFAULT_LAT],
-                zoom: 14.8,
-                pitch: 15,
-                bearing: -10,
+                center: INITIAL_CENTER,
+                zoom: INITIAL_ZOOM,
+                pitch: 0,
+                bearing: 0,
                 attributionControl: false
             });
         } catch (e) {
@@ -158,25 +169,30 @@
             map = new maplibregl.Map({
                 container: 'map',
                 style: osmRasterStyle,
-                center: [DEFAULT_LNG, DEFAULT_LAT],
-                zoom: 14.8,
+                center: INITIAL_CENTER,
+                zoom: INITIAL_ZOOM,
                 attributionControl: false
             });
         }
 
         map.on('error', function(e) {
-            // If vector style failed to load, gracefully switch to OSM raster style
             if (e && e.error && e.error.message && e.error.message.includes('style')) {
                 console.warn('Switching style due to error:', e.error);
                 map.setStyle(osmRasterStyle);
             }
         });
 
-        map.on('load', function() {
-            // Draw a walkable 500m radius circle around White Town Promenade
-            drawWalkableRadius(DEFAULT_LNG, DEFAULT_LAT, 0.5);
+        map.on('style.load', function() {
+            if (userLocation) {
+                drawWalkableRadius(userLocation.lng, userLocation.lat, 0.5);
+            }
+        });
 
-            // Re-render pins if already provided
+        map.on('load', function() {
+            if (userLocation) {
+                applyUserLocation(userLocation.lat, userLocation.lng, true);
+            }
+
             if (currentPins && currentPins.length > 0) {
                 renderMarkers(currentPins);
             }
@@ -187,7 +203,6 @@
         });
 
         map.on('click', function(e) {
-            // If clicked empty map area, deselect
             if (!e.defaultPrevented) {
                 selectedPinId = null;
                 clearSelectedClass();
@@ -198,7 +213,6 @@
         });
     }
 
-    // Helper to generate geojson circle coordinates
     function createGeoJSONCircle(center, radiusKm, points = 64) {
         const coords = { latitude: center[1], longitude: center[0] };
         const km = radiusKm;
@@ -223,7 +237,7 @@
     }
 
     function drawWalkableRadius(lng, lat, radiusKm) {
-        if (!map) return;
+        if (!map || !map.isStyleLoaded()) return;
         const circleData = createGeoJSONCircle([lng, lat], radiusKm);
 
         if (map.getSource('walkable-radius')) {
@@ -257,6 +271,33 @@
         }
     }
 
+    function applyUserLocation(lat, lng, autoCenter) {
+        userLocation = { lat: lat, lng: lng };
+        if (!map) return;
+
+        if (!userMarker) {
+            const el = document.createElement('div');
+            el.className = 'user-gps-dot';
+            userMarker = new maplibregl.Marker({ element: el })
+                .setLngLat([lng, lat])
+                .addTo(map);
+        } else {
+            userMarker.setLngLat([lng, lat]);
+        }
+
+        drawWalkableRadius(lng, lat, 0.5);
+
+        if (autoCenter !== false) {
+            map.flyTo({
+                center: [lng, lat],
+                zoom: 14.8,
+                pitch: 15,
+                essential: true,
+                speed: 1.4
+            });
+        }
+    }
+
     function clearMarkers() {
         markers.forEach(m => m.remove());
         markers = [];
@@ -272,18 +313,20 @@
             case 'HELP_REQUEST': return 'pin-help';
             case 'STUDY_GROUP': return 'pin-study';
             case 'PICKUP_HUB': return 'pin-hub';
-            case 'USER_HOST': return 'pin-maker';
+            case 'USER_HOST':
+            case 'RENTAL_ITEM': return 'pin-maker';
             default: return 'pin-event';
         }
     }
 
     function getPinEmoji(type) {
         switch(type) {
-            case 'COMMUNITY_EVENT': return '📸';
+            case 'COMMUNITY_EVENT': return '📅';
             case 'HELP_REQUEST': return '🤝';
             case 'STUDY_GROUP': return '📚';
             case 'PICKUP_HUB': return '🔒';
-            case 'USER_HOST': return '🛠️';
+            case 'USER_HOST':
+            case 'RENTAL_ITEM': return '📦';
             default: return '📍';
         }
     }
@@ -333,6 +376,10 @@
         }
     };
 
+    window.setUserLocation = function(lat, lng, autoCenter) {
+        applyUserLocation(lat, lng, autoCenter);
+    };
+
     window.selectPin = function(pinId) {
         selectedPinId = pinId;
         clearSelectedClass();
@@ -355,7 +402,7 @@
         if (map) {
             map.flyTo({
                 center: [lng, lat],
-                zoom: zoom || 15.5,
+                zoom: zoom || 15.2,
                 essential: true,
                 speed: 1.4
             });
@@ -364,9 +411,7 @@
 
     window.setMapStyle = function(styleKey) {
         if (!map) return;
-        if (styleKey === 'satellite') {
-            map.setStyle('https://api.maptiler.com/maps/hybrid/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL');
-        } else if (styleKey === 'osm') {
+        if (styleKey === 'osm') {
             map.setStyle(osmRasterStyle);
         } else {
             map.setStyle('https://tiles.openfreemap.org/styles/liberty');

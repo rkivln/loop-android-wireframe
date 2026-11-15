@@ -1,29 +1,31 @@
 package com.example.data.models
 
 data class UserProfile(
-    val uid: String = "user_me",
-    val displayName: String = "Jaya Nandhini G",
-    val email: String = "gokulan.rkivln@gmail.com",
-    val phone: String = "+91 98401 22345",
-    val bio: String = "Designer and photographer based in White Town, Puducherry. Passionate about tactile objects, analogue processes, and quiet travels.",
-    val location: String = "White Town, Puducherry",
+    val uid: String = "",
+    val displayName: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val bio: String = "",
+    val location: String = "",
     val avatarPresetIndex: Int = 0, // 0 to 5 preset avatars
     val customAvatarUri: String? = null,
-    val rating: Float = 5.0f,
-    val reviewCount: Int = 18,
-    val rentalsCompleted: Int = 14,
-    val listingsCount: Int = 3,
-    val earnedAmount: Int = 2450,
-    val isVerified: Boolean = true,
-    val memberSince: String = "Member since Oct 2024",
-    val badges: List<String> = listOf("✓ ID Verified", "★ Curated Host", "📸 35mm Club", "⚡ Quick Responder"),
-    val favoriteItemIds: List<String> = emptyList()
+    val rating: Float = 0f,
+    val reviewCount: Int = 0,
+    val rentalsCompleted: Int = 0,
+    val listingsCount: Int = 0,
+    val earnedAmount: Int = 0,
+    val isVerified: Boolean = false,
+    val memberSince: String = "",
+    val badges: List<String> = emptyList(),
+    val favoriteItemIds: List<String> = emptyList(),
+    val legacyResetVersion: Int = 0,
+    val settings: UserSettings = UserSettings()
 ) {
     val initials: String
         get() {
-            val parts = displayName.trim().split(" ")
+            val parts = displayName.trim().split(" ").filter { it.isNotBlank() }
             return when {
-                parts.isEmpty() || displayName.isBlank() -> "U"
+                parts.isEmpty() -> "U"
                 parts.size == 1 -> parts[0].take(2).uppercase()
                 else -> "${parts[0].take(1)}${parts[1].take(1)}".uppercase()
             }
@@ -89,11 +91,11 @@ data class UserCommunityPost(
     val dateTime: String,
     val attendeesOrResponses: String,
     val status: CommunityPostStatus = CommunityPostStatus.ACTIVE,
-    val createdAt: String = "Today",
+    val createdAt: String = "",
     val categoryName: String = "CREATIVE_PHOTO",
-    val latitude: Double = 11.9340,
-    val longitude: Double = 79.8330,
-    val authorId: String = "user_me",
-    val authorName: String = "Organizer",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val authorName: String = "",
     val createdAtEpoch: Long = System.currentTimeMillis()
 )

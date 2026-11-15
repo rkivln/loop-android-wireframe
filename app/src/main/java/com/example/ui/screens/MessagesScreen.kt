@@ -25,12 +25,18 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
 import com.example.ui.components.EditorialTopBar
 import com.example.ui.theme.AccentWarmYellow
+import com.example.ui.theme.AlertCrimson
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
@@ -97,8 +105,11 @@ fun MessagesScreen(
             onConversationSelected(null)
         }
 
+        val context = LocalContext.current
         val messages = messagesMap[activeConversation.id] ?: activeConversation.messages
         var textInput by remember { mutableStateOf("") }
+        var showOptionsMenu by remember { mutableStateOf(false) }
+        var showBlockConfirmDialog by remember { mutableStateOf(false) }
 
         Column(
             modifier = modifier
@@ -112,21 +123,107 @@ fun MessagesScreen(
                     onConversationSelected(null)
                 },
                 trailingContent = {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(InkCharcoal),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = activeConversation.owner.initials,
-                            style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold),
-                            color = InkWhite
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(InkCharcoal),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = activeConversation.owner.initials,
+                                style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold),
+                                color = InkWhite
+                            )
+                        }
+                        Box {
+                            IconButton(
+                                onClick = { showOptionsMenu = true },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .testTag("chat_options_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Conversation options",
+                                    tint = InkCharcoal
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showOptionsMenu,
+                                onDismissRequest = { showOptionsMenu = false },
+                                modifier = Modifier.background(PaperPureWhite)
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Block ${activeConversation.owner.name}",
+                                            style = LoopType.BodySmall,
+                                            color = AlertCrimson
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Block,
+                                            contentDescription = null,
+                                            tint = AlertCrimson,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        showBlockConfirmDialog = true
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             )
+
+            if (showBlockConfirmDialog) {
+                AlertDialog(
+                    onDismissRequest = { showBlockConfirmDialog = false },
+                    containerColor = PaperPureWhite,
+                    titleContentColor = InkCharcoal,
+                    textContentColor = InkSecondary,
+                    title = {
+                        Text(
+                            text = "Block ${activeConversation.owner.name}?",
+                            style = LoopType.HeadlineMedium.copy(fontSize = 18.sp)
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "This conversation and all of their pieces and community posts will be hidden. You can unblock them in Settings.",
+                            style = LoopType.BodyMedium
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showBlockConfirmDialog = false
+                                RentalRepository.blockUser(
+                                    context,
+                                    activeConversation.owner.id,
+                                    activeConversation.owner.name
+                                )
+                                selectedConversationId = null
+                                onConversationSelected(null)
+                            },
+                            modifier = Modifier.testTag("chat_confirm_block_btn")
+                        ) {
+                            Text("Block User", color = AlertCrimson, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showBlockConfirmDialog = false }) {
+                            Text("Cancel", color = InkCharcoal)
+                        }
+                    }
+                )
+            }
 
             activeConversation.itemContext?.let { item ->
                 Row(

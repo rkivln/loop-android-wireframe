@@ -3,8 +3,6 @@ package com.example.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,34 +17,31 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.RentalRepository
 import com.example.ui.theme.AccentYellow
+import com.example.ui.theme.CaptionTechnical
+import com.example.ui.theme.H1
+import com.example.ui.theme.H2
 import com.example.ui.theme.InkBlack
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
@@ -56,67 +51,15 @@ import com.example.ui.theme.ParchmentBorder
 import com.example.ui.theme.ParchmentWhite
 import com.example.ui.theme.StatusGreen
 import com.example.ui.theme.StatusGreenBg
-import com.example.ui.theme.CaptionTechnical
-import com.example.ui.theme.H1
-import com.example.ui.theme.H2
-
-
-data class PhotowalkEvent(
-    val id: String,
-    val title: String,
-    val date: String,
-    val time: String,
-    val location: String,
-    val host: String,
-    val attendeesCount: Int,
-    val gearHighlights: List<String>,
-    val description: String
-)
 
 @Composable
 fun CommunityPhotowalksSheet(
     onDismiss: () -> Unit,
+    onCreatePostClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val events = remember {
-        listOf(
-            PhotowalkEvent(
-                id = "walk_1",
-                title = "Promenade Golden Hour Photowalk",
-                date = "This Saturday",
-                time = "5:30 PM – 7:30 PM",
-                location = "Goubert Ave (Near Old Lighthouse)",
-                host = "Arjun S. & Pondy Street Collective",
-                attendeesCount = 14,
-                gearHighlights = listOf("Canon 50mm f/1.8", "Sony 85mm GM", "Fuji X100V", "DJI RS3 Gimbal"),
-                description = "Golden hour ocean portraits & street photography. Bring your camera or test lenses borrowed from neighbors."
-            ),
-            PhotowalkEvent(
-                id = "walk_2",
-                title = "French Quarter Heritage Architecture Walk",
-                date = "Sunday Morning",
-                time = "6:45 AM – 8:45 AM",
-                location = "Café des Arts, Rue Suffren",
-                host = "Priya M. (Architect & Photographer)",
-                attendeesCount = 9,
-                gearHighlights = listOf("16-35mm Ultra Wide", "Tilt-Shift 24mm", "Ricoh GR III"),
-                description = "Colonial yellow facades, bougainvillea gates, and morning light. Wide-angle lens testing session."
-            ),
-            PhotowalkEvent(
-                id = "walk_3",
-                title = "Auroville Forest Wildlife & Telephoto Jam",
-                date = "Next Tuesday",
-                time = "4:00 PM – 6:30 PM",
-                location = "Auroville Botanical Gardens",
-                host = "Vikram K. (Wildlife Biologist)",
-                attendeesCount = 7,
-                gearHighlights = listOf("Sigma 150-600mm", "Sony 200-600mm", "Monopod Kit"),
-                description = "Birding and macro testing in lush greenery. Super-telephoto lenses available to try on-site."
-            )
-        )
-    }
-
-    val rsvpStates = remember { mutableStateMapOf("walk_1" to true) }
+    val communityPosts by RentalRepository.userCommunityPostsFlow.collectAsStateWithLifecycle()
+    val rsvpIds by RentalRepository.rsvpIdsFlow.collectAsStateWithLifecycle()
 
     Box(
         modifier = modifier
@@ -145,28 +88,26 @@ fun CommunityPhotowalksSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(AccentYellow)
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "CREATOR COMMUNITY",
-                                        style = LoopType.CaptionTechnical,
-                                        color = InkBlack
-                                    )
-                                }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(AccentYellow)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "COMMUNITY BOARD",
+                                    style = LoopType.CaptionTechnical,
+                                    color = InkBlack
+                                )
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Local Photowalks & Jams",
+                                text = "Local Meetups & Posts",
                                 style = LoopType.H1
                             )
                             Text(
-                                text = "Meet local creators, shoot together, and test community gear",
+                                text = "Connect with neighbors, collaborate, and join live community gatherings",
                                 style = LoopType.BodySmall
                             )
                         }
@@ -181,26 +122,71 @@ fun CommunityPhotowalksSheet(
                     }
                 }
 
-                // Event Cards
-                items(events, key = { it.id }) { event ->
-                    val isRsvped = rsvpStates[event.id] == true
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(ParchmentWhite)
-                            .border(1.dp, ParchmentBorder, RoundedCornerShape(14.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            // Date / Time Badge & RSVP Button
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                if (communityPosts.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(ParchmentWhite)
+                                .border(1.dp, ParchmentBorder, RoundedCornerShape(14.dp))
+                                .padding(24.dp)
+                                .testTag("community_posts_empty_state"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Event,
+                                    contentDescription = null,
+                                    tint = InkMuted,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Text(
+                                    text = "No community posts yet",
+                                    style = LoopType.H2,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "Meetups, study circles, and help requests shared by members will appear here in real time.",
+                                    style = LoopType.BodySmall,
+                                    color = InkSecondary,
+                                    textAlign = TextAlign.Center
+                                )
+                                if (onCreatePostClick != null) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    PrimaryCTA(
+                                        text = "Create Community Post",
+                                        onClick = {
+                                            onDismiss()
+                                            onCreatePostClick()
+                                        },
+                                        testTag = "community_sheet_create_btn"
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    items(communityPosts, key = { it.id }) { post ->
+                        val isRsvped = post.id in rsvpIds
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(ParchmentWhite)
+                                .border(1.dp, ParchmentBorder, RoundedCornerShape(14.dp))
+                                .padding(14.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(6.dp))
@@ -209,102 +195,79 @@ fun CommunityPhotowalksSheet(
                                             .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
                                         Text(
-                                            text = "${event.date} · ${event.time}",
+                                            text = if (post.dateTime.isNotBlank()) {
+                                                "${post.type.emoji} ${post.type.title} · ${post.dateTime}"
+                                            } else {
+                                                "${post.type.emoji} ${post.type.title}"
+                                            },
                                             style = LoopType.CaptionTechnical,
                                             color = InkBlack
                                         )
                                     }
-                                }
 
-                                // RSVP Toggle Button
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isRsvped) StatusGreenBg else InkBlack)
-                                        .border(1.dp, if (isRsvped) StatusGreen else InkBlack, RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            rsvpStates[event.id] = !isRsvped
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                                        .testTag("rsvp_btn_${event.id}"),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (isRsvped) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = null,
-                                                tint = StatusGreen,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                        }
-                                        Text(
-                                            text = if (isRsvped) "Attending ✓" else "Join Walk",
-                                            style = LoopType.BodySmall,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                            color = if (isRsvped) StatusGreen else Color.White
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Title & Description
-                            Text(
-                                text = event.title,
-                                style = LoopType.H2
-                            )
-
-                            Text(
-                                text = event.description,
-                                style = LoopType.BodyEditorial
-                            )
-
-                            // Location & Host
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    tint = InkMuted,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${event.location}  ·  Hosted by ${event.host}",
-                                    style = LoopType.BodySmall,
-                                    color = InkSecondary
-                                )
-                            }
-
-                            // Gear Highlight Badges (What creators are bringing to try)
-                            Column {
-                                Text(
-                                    text = "GEAR AVAILABLE TO TRY ON THIS WALK:",
-                                    style = LoopType.CaptionTechnical,
-                                    color = InkMuted
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    event.gearHighlights.forEach { gear ->
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(ParchmentBg)
-                                                .border(1.dp, ParchmentBorder, RoundedCornerShape(4.dp))
-                                                .padding(horizontal = 7.dp, vertical = 3.dp)
-                                        ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isRsvped) StatusGreenBg else InkBlack)
+                                            .border(1.dp, if (isRsvped) StatusGreen else InkBlack, RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                RentalRepository.rsvpToCommunityPost(post.id)
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                            .testTag("rsvp_btn_${post.id}"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (isRsvped) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = StatusGreen,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                            }
                                             Text(
-                                                text = gear,
-                                                style = LoopType.CaptionTechnical,
-                                                color = InkBlack
+                                                text = if (isRsvped) "Attending ✓" else "RSVP",
+                                                style = LoopType.BodySmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isRsvped) StatusGreen else Color.White
                                             )
                                         }
                                     }
+                                }
+
+                                Text(
+                                    text = post.title,
+                                    style = LoopType.H2
+                                )
+
+                                if (post.description.isNotBlank()) {
+                                    Text(
+                                        text = post.description,
+                                        style = LoopType.BodyEditorial
+                                    )
+                                }
+
+                                val hostLabel = post.authorName.ifBlank { "Community Member" }
+                                val locationText = if (post.location.isNotBlank()) {
+                                    "${post.location}  ·  Posted by $hostLabel"
+                                } else {
+                                    "Posted by $hostLabel"
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = InkMuted,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = locationText,
+                                        style = LoopType.BodySmall,
+                                        color = InkSecondary
+                                    )
                                 }
                             }
                         }

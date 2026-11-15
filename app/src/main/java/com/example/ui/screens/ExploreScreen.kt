@@ -45,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,6 +54,7 @@ import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
 import com.example.ui.components.EditorialPhotoCard
+import com.example.ui.components.PrimaryCTA
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
@@ -68,6 +70,7 @@ fun ExploreScreen(
     onItemClick: (RentalItem) -> Unit = {},
     onContactOwner: (RentalOwner) -> Unit = {},
     onBackToCatalog: () -> Unit = {},
+    onPublishClick: () -> Unit = {},
     initialShowMap: Boolean = false,
     onMapModeChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
@@ -75,6 +78,7 @@ fun ExploreScreen(
     var showMapMode by remember(initialShowMap) { mutableStateOf(initialShowMap) }
     val searchQuery by RentalRepository.searchQuery.collectAsStateWithLifecycle()
     val selectedCategory by RentalRepository.selectedCategory.collectAsStateWithLifecycle()
+    val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
     val filteredItems by RentalRepository.filteredItems.collectAsStateWithLifecycle()
 
     if (showMapMode) {
@@ -91,6 +95,7 @@ fun ExploreScreen(
                 },
                 onItemClick = onItemClick,
                 onContactOwner = onContactOwner,
+                onPublishPiece = onPublishClick,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -119,7 +124,7 @@ fun ExploreScreen(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${filteredItems.size} verified pieces available",
+                    text = "${filteredItems.size} ${if (filteredItems.size == 1) "piece" else "pieces"} available",
                     style = LoopType.BodySmall,
                     color = InkSecondary
                 )
@@ -184,7 +189,7 @@ fun ExploreScreen(
             ) {
                 if (searchQuery.isEmpty()) {
                     Text(
-                        text = "Search 35mm cameras, e-bikes...",
+                        text = "Search cameras, tools, furniture, vehicles...",
                         style = LoopType.BodyMedium,
                         color = InkMuted,
                         maxLines = 1
@@ -287,7 +292,7 @@ fun ExploreScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(32.dp)
-                    .testTag("empty_search_state"),
+                    .testTag(if (allItems.isEmpty()) "empty_catalog_state" else "empty_search_state"),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -298,23 +303,46 @@ fun ExploreScreen(
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "No objects match your filter",
-                        style = LoopType.HeadlineMedium,
-                        color = InkCharcoal
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Try clearing your search or choosing another department.",
-                        style = LoopType.BodySmall,
-                        color = InkSecondary
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    TextButton(onClick = {
-                        RentalRepository.setSearchQuery("")
-                        RentalRepository.setSelectedCategory(null)
-                    }) {
-                        Text("Reset Catalog Filters", color = InkCharcoal)
+                    if (allItems.isEmpty()) {
+                        Text(
+                            text = "No pieces listed yet",
+                            style = LoopType.HeadlineMedium,
+                            color = InkCharcoal,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Publish the first item with your own photos to start the community marketplace.",
+                            style = LoopType.BodySmall,
+                            color = InkSecondary,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        PrimaryCTA(
+                            text = "Publish Piece",
+                            onClick = onPublishClick,
+                            testTag = "empty_catalog_publish_button"
+                        )
+                    } else {
+                        Text(
+                            text = "No objects match your filter",
+                            style = LoopType.HeadlineMedium,
+                            color = InkCharcoal
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Try clearing your search or choosing another department.",
+                            style = LoopType.BodySmall,
+                            color = InkSecondary,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        TextButton(onClick = {
+                            RentalRepository.setSearchQuery("")
+                            RentalRepository.setSelectedCategory(null)
+                        }) {
+                            Text("Reset Catalog Filters", color = InkCharcoal)
+                        }
                     }
                 }
             }

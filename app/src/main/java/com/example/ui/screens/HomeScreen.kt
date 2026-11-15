@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +68,8 @@ import com.example.data.models.RentalItem
 import com.example.ui.components.CategoryTile
 import com.example.ui.components.CommunityPhotowalksSheet
 import com.example.ui.components.EditorialPhotoCard
+import com.example.ui.components.ListingPhoto
+import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.SectionLabel
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
@@ -88,6 +91,8 @@ fun HomeScreen(
     onExploreMapClick: () -> Unit = {},
     onNavigateToObjects: (RentalCategory?) -> Unit = {},
     onPromptLocation: () -> Unit = {},
+    onPublishClick: () -> Unit = {},
+    onCreateCommunityPostClick: () -> Unit = {},
     isLocationGranted: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -96,7 +101,7 @@ fun HomeScreen(
     var showEventsSheet by remember { mutableStateOf(false) }
 
     val featuredItem = allItems.firstOrNull()
-    val circulationItems = if (allItems.size > 1) allItems.drop(1) else allItems
+    val circulationItems = if (allItems.size > 1) allItems.drop(1) else emptyList()
     val homeCategories = remember {
         listOf(
             RentalCategory.ELECTRONICS,
@@ -122,7 +127,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Masthead Header (LOOP · THE LIVING CATALOG · ISSUE 08 + Map & Search icons)
+            // Masthead Header
             item {
                 Row(
                     modifier = Modifier
@@ -143,7 +148,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "THE LIVING CATALOG · ISSUE 08",
+                            text = "COMMUNITY MARKETPLACE",
                             style = LoopType.EditorialTag.copy(fontSize = 10.sp),
                             color = InkMuted
                         )
@@ -239,7 +244,7 @@ fun HomeScreen(
                 }
             }
 
-            // Featured Cover Story Hero Card
+            // Featured Listing Hero Card or Clean Empty State
             if (featuredItem != null) {
                 item {
                     Box(
@@ -256,8 +261,9 @@ fun HomeScreen(
                             )
                             .testTag("home_cover_story_card")
                     ) {
-                        Image(
-                            painter = painterResource(id = featuredItem.primaryImageRes),
+                        ListingPhoto(
+                            imageUrl = featuredItem.imageUrl,
+                            fallbackRes = featuredItem.primaryImageRes,
                             contentDescription = featuredItem.title,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -286,8 +292,13 @@ fun HomeScreen(
                                 .background(PaperPureWhite.copy(alpha = 0.94f))
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
+                            val featuredBadge = if (featuredItem.location.isNotBlank()) {
+                                "FEATURED — ${featuredItem.location.uppercase()}"
+                            } else {
+                                "FEATURED LISTING"
+                            }
                             Text(
-                                text = "COVER STORY — WHITE TOWN",
+                                text = featuredBadge,
                                 style = LoopType.EditorialTag.copy(fontSize = 9.5.sp),
                                 color = InkCharcoal
                             )
@@ -308,13 +319,52 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "By ${featuredItem.owner.name} · Available today for ₹${featuredItem.pricePerDay}/day",
+                                text = "By ${featuredItem.owner.name.ifBlank { "Community Member" }} · ₹${featuredItem.pricePerDay}/day",
                                 style = LoopType.BodySmall.copy(fontSize = 12.5.sp),
                                 color = InkWhite.copy(alpha = 0.9f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                    }
+                }
+            } else {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 22.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorderSubtle, RoundedCornerShape(24.dp))
+                            .padding(24.dp)
+                            .testTag("home_empty_catalog_card"),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "LIVE COMMUNITY CATALOG",
+                            style = LoopType.EditorialTag.copy(fontSize = 10.sp),
+                            color = AccentForestGreen
+                        )
+                        Text(
+                            text = "No pieces published yet",
+                            style = LoopType.HeroDisplay.copy(fontSize = 23.sp, lineHeight = 28.sp),
+                            color = InkCharcoal,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Upload your own photos and publish items to share with your local community in real time.",
+                            style = LoopType.BodySmall,
+                            color = InkSecondary,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        PrimaryCTA(
+                            text = "Publish Piece",
+                            onClick = onPublishClick,
+                            testTag = "home_empty_publish_button"
+                        )
                     }
                 }
             }
@@ -388,7 +438,7 @@ fun HomeScreen(
                 }
             }
 
-            // Community Photowalks & Neighborhood Events Link Card
+            // Community Board & Neighborhood Events Link Card
             item {
                 Row(
                     modifier = Modifier
@@ -411,7 +461,7 @@ fun HomeScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Event,
-                            contentDescription = "Neighborhood Events",
+                            contentDescription = "Community Posts",
                             tint = AccentForestGreen,
                             modifier = Modifier.size(22.dp)
                         )
@@ -419,13 +469,13 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "COMMUNITY PHOTOWALKS & JAMS",
+                            text = "COMMUNITY BOARD & MEETUPS",
                             style = LoopType.EditorialTag.copy(fontSize = 9.5.sp),
                             color = AccentForestGreen
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "White Town Sunset Walks & Skill Circles",
+                            text = "Local Events, Requests & Skill Circles",
                             style = LoopType.TitleMedium.copy(fontSize = 14.5.sp),
                             color = InkCharcoal
                         )
@@ -438,28 +488,33 @@ fun HomeScreen(
                 }
             }
 
-            // Objects in Circulation Section Header
-            item {
-                SectionLabel(
-                    title = "Objects in Circulation",
-                    actionText = "Explore",
-                    onActionClick = { onNavigateToObjects(null) }
-                )
-            }
+            if (circulationItems.isNotEmpty()) {
+                // Objects in Circulation Section Header
+                item {
+                    SectionLabel(
+                        title = "Objects in Circulation",
+                        actionText = "Explore",
+                        onActionClick = { onNavigateToObjects(null) }
+                    )
+                }
 
-            // Editorial Photo Cards
-            items(circulationItems, key = { it.id }) { item ->
-                EditorialPhotoCard(
-                    item = item,
-                    onClick = { onItemClick(item) },
-                    onToggleFavorite = { RentalRepository.toggleFavorite(item.id) },
-                    modifier = Modifier.padding(horizontal = 22.dp)
-                )
+                // Editorial Photo Cards
+                items(circulationItems, key = { it.id }) { item ->
+                    EditorialPhotoCard(
+                        item = item,
+                        onClick = { onItemClick(item) },
+                        onToggleFavorite = { RentalRepository.toggleFavorite(item.id) },
+                        modifier = Modifier.padding(horizontal = 22.dp)
+                    )
+                }
             }
         }
 
         if (showEventsSheet) {
-            CommunityPhotowalksSheet(onDismiss = { showEventsSheet = false })
+            CommunityPhotowalksSheet(
+                onDismiss = { showEventsSheet = false },
+                onCreatePostClick = onCreateCommunityPostClick
+            )
         }
     }
 }

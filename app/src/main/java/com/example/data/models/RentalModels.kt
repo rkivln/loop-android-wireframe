@@ -26,13 +26,13 @@ data class SpecFeature(
 data class RentalOwner(
     val id: String,
     val name: String,
-    val badge: String = "Top Owner",
-    val initials: String = "RK",
-    val memberSince: String = "Joined 1 year ago",
-    val rating: Float = 4.9f,
-    val totalRentals: Int = 48,
-    val responseTime: String = "< 15 mins",
-    val phone: String = "+91 98765 43210"
+    val badge: String = "Community Member",
+    val initials: String = "U",
+    val memberSince: String = "",
+    val rating: Float = 0f,
+    val totalRentals: Int = 0,
+    val responseTime: String = "",
+    val phone: String = ""
 )
 
 data class RentalItem(
@@ -44,15 +44,18 @@ data class RentalItem(
     val rating: Float,
     val reviewCount: Int,
     val description: String,
-    @DrawableRes val primaryImageRes: Int,
+    @DrawableRes val primaryImageRes: Int = 0,
     val imageUrl: String? = null,
-    val imageCount: Int = 5,
+    val imageUrls: List<String> = emptyList(),
+    val imageCount: Int = 1,
     val features: List<SpecFeature>,
     val owner: RentalOwner,
     val isPopular: Boolean = false,
     val isFavorite: Boolean = false,
     val availableToday: Boolean = true,
-    val securityDeposit: Int = 0
+    val securityDeposit: Int = 0,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 ) {
     val dailyRate: Int get() = pricePerDay
     val deposit: Int get() = securityDeposit
@@ -61,15 +64,15 @@ data class RentalItem(
 
 enum class DeliveryOptionType(val title: String, val subtitle: String?, val fee: Int) {
     SELF_PICKUP("Self Pickup", null, 0),
-    OWNER_DELIVERY("Owner Delivery", "Delivery within Puducherry", 100)
+    OWNER_DELIVERY("Owner Delivery", "Local delivery arranged with host", 100)
 }
 
 data class BookingRequest(
     val id: String,
     val item: RentalItem,
-    val startDate: String = "10 Oct 2026",
-    val endDate: String = "12 Oct 2026",
-    val daysCount: Int = 3,
+    val startDate: String = "",
+    val endDate: String = "",
+    val daysCount: Int = 1,
     val deliveryOption: DeliveryOptionType = DeliveryOptionType.SELF_PICKUP,
     val serviceFee: Int = 50,
     val status: String = "Confirmed"
@@ -90,7 +93,7 @@ data class UserRentalBooking(
     val daysRemaining: Int,
     val totalPaid: Int,
     val status: String = "Confirmed",
-    val handoverOtp: String = "8492",
+    val handoverOtp: String = "",
     val deliveryOption: String = "Self Pickup",
     val isCompleted: Boolean = false
 )
@@ -161,7 +164,7 @@ enum class MapCategoryFilter(
     HELP_NEEDED("Help Needed", "🤝", "Gear setup & skill sharing"),
     LOCAL_EVENTS("Local Events", "📸", "Photowalks & gatherings"),
     GEAR_HUBS("Gear Hubs", "🔒", "24/7 Smart pickup hubs"),
-    MAKERS("Makers", "🛠️", "Verified creators & gear hosts")
+    MAKERS("Makers", "🛠️", "Community creators & hosts")
 }
 
 data class DiscoveryPinItem(
@@ -171,8 +174,8 @@ data class DiscoveryPinItem(
     val type: DiscoveryPinType,
     val latitude: Double,
     val longitude: Double,
-    val rating: Float = 4.9f,
-    val distance: String = "0.4 km away",
+    val rating: Float = 0f,
+    val distance: String = "",
     val tag: String,
     val dateOrAvailability: String,
     val locationName: String,
@@ -181,13 +184,14 @@ data class DiscoveryPinItem(
     val owner: RentalOwner? = null,
     val rentalItem: RentalItem? = null,
     @DrawableRes val imageRes: Int? = null,
+    val imageUrl: String? = null,
     val isAttending: Boolean = false,
     val category: RentalCategory = RentalCategory.ELECTRONICS,
     val filterCategory: MapCategoryFilter = MapCategoryFilter.MAKERS,
-    val neighborhood: String = "White Town",
-    val walkingTime: String = "4 min walk",
-    val cyclingTime: String = "1 min ride",
-    val address: String = "Suffren St, White Town, Puducherry"
+    val neighborhood: String = "",
+    val walkingTime: String = "",
+    val cyclingTime: String = "",
+    val address: String = ""
 )
 
 data class CuratedWalkingRoute(

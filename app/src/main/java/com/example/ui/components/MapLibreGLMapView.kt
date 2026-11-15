@@ -103,8 +103,9 @@ fun MapLibreGLMapView(
     selectedPin: DiscoveryPinItem? = null,
     onPointSelected: (DiscoveryPinItem) -> Unit = {},
     onMapClick: () -> Unit = {},
-    centerLat: Double = 11.9338, // White Town Promenade, Puducherry
-    centerLng: Double = 79.8350,
+    onRequestGpsRecenter: () -> Unit = {},
+    centerLat: Double? = null,
+    centerLng: Double? = null,
     zoom: Double = 14.8
 ) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
@@ -142,11 +143,11 @@ fun MapLibreGLMapView(
                 put("tag", point.tag)
                 put("priceOrAttendees", point.priceOrAttendees)
                 val emoji = when (point.type.name) {
-                    "COMMUNITY_EVENT" -> "📸"
+                    "COMMUNITY_EVENT" -> "📅"
                     "HELP_REQUEST" -> "🤝"
                     "STUDY_GROUP" -> "📚"
                     "PICKUP_HUB" -> "🔒"
-                    "USER_HOST" -> "🛠️"
+                    "USER_HOST", "RENTAL_ITEM" -> "📦"
                     else -> "📍"
                 }
                 put("emoji", emoji)
@@ -161,6 +162,16 @@ fun MapLibreGLMapView(
         if (isMapReady && webViewRef != null) {
             val escapedJson = pinsJson.replace("\\", "\\\\").replace("'", "\\'")
             webViewRef?.evaluateJavascript("window.setPinsJson('$escapedJson');", null)
+        }
+    }
+
+    // Auto-center MapLibre on live GPS coordinates when active
+    LaunchedEffect(centerLat, centerLng, isMapReady) {
+        if (isMapReady && centerLat != null && centerLng != null && webViewRef != null) {
+            webViewRef?.evaluateJavascript(
+                "window.setUserLocation($centerLat, $centerLng, true);",
+                null
+            )
         }
     }
 
@@ -282,10 +293,10 @@ fun MapLibreGLMapView(
                 )
             }
 
-            // Recenter to Puducherry White Town Promenade
+            // Recenter to live GPS coordinates or request GPS fix
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(PaperPureWhite)
                     .border(1.dp, PaperBorder, CircleShape)
@@ -294,10 +305,14 @@ fun MapLibreGLMapView(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = true)
                     ) {
-                        webViewRef?.evaluateJavascript(
-                            "window.flyToCoords($centerLat, $centerLng, 15.2);",
-                            null
-                        )
+                        if (centerLat != null && centerLng != null) {
+                            webViewRef?.evaluateJavascript(
+                                "window.flyToCoords($centerLat, $centerLng, $zoom);",
+                                null
+                            )
+                        } else {
+                            onRequestGpsRecenter()
+                        }
                     }
                     .testTag("maplibre_recenter_btn"),
                 contentAlignment = Alignment.Center

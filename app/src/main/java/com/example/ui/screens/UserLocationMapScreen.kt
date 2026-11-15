@@ -80,7 +80,7 @@ fun UserLocationMapScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val defaultCenter = remember { LatLng(11.9338, 79.8354) }
+    val defaultCenter = remember { LatLng(20.0, 0.0) }
 
     var userCoordinates by remember { mutableStateOf<LatLng?>(null) }
     var isLocating by remember { mutableStateOf(false) }
@@ -100,7 +100,7 @@ fun UserLocationMapScreen(
     }
 
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(defaultCenter, 14f)
+        position = CameraPosition.fromLatLngZoom(defaultCenter, 2f)
     }
 
     val events by RentalRepository.communityEventsFlow.collectAsStateWithLifecycle()
@@ -168,7 +168,7 @@ fun UserLocationMapScreen(
             fetchAndCenterLocation()
         } else {
             scope.launch {
-                snackbarHostState.showSnackbar("Location permission denied. Map centered on default location.")
+                snackbarHostState.showSnackbar("Location permission denied. Enable GPS to center on your position.")
             }
         }
     }
@@ -277,7 +277,7 @@ fun UserLocationMapScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Puducherry Hub (Tap target to locate)",
+                        text = "Location unavailable (Tap target to locate)",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
