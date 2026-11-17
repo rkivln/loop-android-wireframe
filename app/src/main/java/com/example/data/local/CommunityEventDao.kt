@@ -38,6 +38,9 @@ interface CommunityEventDao {
     @Query("UPDATE community_events SET attendeesOrResponses = :attendees WHERE id = :id")
     suspend fun updateAttendees(id: String, attendees: String)
 
+    @Query("UPDATE community_events SET attendeesOrResponses = :attendees, attendeeIdsCsv = :attendeeIdsCsv WHERE id = :id")
+    suspend fun updateAttendeesAndIds(id: String, attendees: String, attendeeIdsCsv: String)
+
     @Query("DELETE FROM community_events WHERE id = :id")
     suspend fun deleteEventById(id: String)
 

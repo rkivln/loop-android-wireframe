@@ -185,6 +185,7 @@ fun MyPostsSubScreen(
                                 .testTag("my_post_item_${item.id}"),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            val isBooked = !item.availableToday && item.activeBookingId != null
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
@@ -212,16 +213,30 @@ fun MyPostsSubScreen(
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(100.dp))
-                                                .background(if (item.availableToday) AccentMint else AccentBeigeOat)
+                                                .background(
+                                                    when {
+                                                        isBooked -> AccentPeach
+                                                        item.availableToday -> AccentMint
+                                                        else -> AccentBeigeOat
+                                                    }
+                                                )
                                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                                         ) {
                                             Text(
-                                                text = if (item.availableToday) "Available" else "Paused",
+                                                text = when {
+                                                    isBooked -> "Booked"
+                                                    item.availableToday -> "Available"
+                                                    else -> "Paused"
+                                                },
                                                 style = LoopType.Metadata.copy(
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Bold
                                                 ),
-                                                color = if (item.availableToday) AccentForestGreen else InkSecondary
+                                                color = when {
+                                                    isBooked -> AlertCrimson
+                                                    item.availableToday -> AccentForestGreen
+                                                    else -> InkSecondary
+                                                }
                                             )
                                         }
                                     }
@@ -249,24 +264,42 @@ fun MyPostsSubScreen(
                                     modifier = Modifier
                                         .heightIn(min = 48.dp)
                                         .clip(RoundedCornerShape(100.dp))
-                                        .background(if (item.availableToday) PaperIvory else AccentMint)
+                                        .background(
+                                            when {
+                                                isBooked -> AccentPeach.copy(alpha = 0.6f)
+                                                item.availableToday -> PaperIvory
+                                                else -> AccentMint
+                                            }
+                                        )
                                         .border(
                                             1.dp,
-                                            if (item.availableToday) PaperBorder else AccentForestGreen,
+                                            when {
+                                                isBooked -> AlertCrimson.copy(alpha = 0.25f)
+                                                item.availableToday -> PaperBorder
+                                                else -> AccentForestGreen
+                                            },
                                             RoundedCornerShape(100.dp)
                                         )
-                                        .clickable { onToggleItemAvailability(item.id) }
+                                        .clickable(enabled = !isBooked) { onToggleItemAvailability(item.id) }
                                         .padding(horizontal = 12.dp, vertical = 10.dp)
                                         .testTag("toggle_my_item_${item.id}"),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = if (item.availableToday) "Pause" else "Activate",
+                                        text = when {
+                                            isBooked -> "Booked"
+                                            item.availableToday -> "Pause"
+                                            else -> "Activate"
+                                        },
                                         style = LoopType.Metadata.copy(
                                             fontSize = 11.5.sp,
                                             fontWeight = FontWeight.SemiBold
                                         ),
-                                        color = if (item.availableToday) InkCharcoal else AccentForestGreen
+                                        color = when {
+                                            isBooked -> AlertCrimson
+                                            item.availableToday -> InkCharcoal
+                                            else -> AccentForestGreen
+                                        }
                                     )
                                 }
 
@@ -288,20 +321,22 @@ fun MyPostsSubScreen(
                                     )
                                 }
 
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(CircleShape)
-                                        .clickable { onDeleteItem(item.id) }
-                                        .testTag("delete_my_item_${item.id}"),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.DeleteOutline,
-                                        contentDescription = "Delete listing",
-                                        tint = AlertCrimson,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                if (!isBooked) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .clickable { onDeleteItem(item.id) }
+                                            .testTag("delete_my_item_${item.id}"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DeleteOutline,
+                                            contentDescription = "Delete listing",
+                                            tint = AlertCrimson,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

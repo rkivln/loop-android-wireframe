@@ -32,12 +32,14 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,6 +78,7 @@ import com.example.ui.theme.AccentPeach
 import com.example.ui.theme.AccentPowderBlue
 import com.example.ui.theme.AccentWarmYellow
 import com.example.ui.theme.AccentYellowSoft
+import com.example.ui.theme.AlertCrimson
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
@@ -563,7 +566,9 @@ fun EditorialPhotoCard(
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
-    isLarge: Boolean = false
+    isLarge: Boolean = false,
+    isOwnedByCurrentUser: Boolean = false,
+    onPreviewImages: (() -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -602,44 +607,85 @@ fun EditorialPhotoCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Category pill on top left
-            Box(
+            // Category and availability pills on top left
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(12.dp)
-                    .clip(RoundedCornerShape(100.dp))
-                    .background(PaperPureWhite.copy(alpha = 0.92f))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = item.category.title.uppercase(),
-                    style = LoopType.Metadata.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
-                    color = InkCharcoal
-                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(100.dp))
+                        .background(PaperPureWhite.copy(alpha = 0.92f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = item.category.title.uppercase(),
+                        style = LoopType.Metadata.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                        color = InkCharcoal
+                    )
+                }
+
+                if (!item.availableToday) {
+                    val isBooked = item.activeBookingId != null
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(if (isBooked) AccentPeach.copy(alpha = 0.95f) else AccentBeigeOat.copy(alpha = 0.95f))
+                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                            .testTag("card_status_pill_${item.id}")
+                    ) {
+                        Text(
+                            text = if (isBooked) "BOOKED" else "PAUSED",
+                            style = LoopType.Metadata.copy(fontSize = 9.5.sp, fontWeight = FontWeight.Bold),
+                            color = if (isBooked) AlertCrimson else InkCharcoal
+                        )
+                    }
+                }
             }
 
-            // Favorite Icon button top right
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(10.dp)
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(PaperPureWhite.copy(alpha = 0.92f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = true),
-                        onClick = onToggleFavorite
+            if (isOwnedByCurrentUser) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .clip(RoundedCornerShape(100.dp))
+                        .background(InkCharcoal.copy(alpha = 0.9f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .testTag("own_listing_badge_${item.id}")
+                ) {
+                    Text(
+                        text = "YOUR LISTING",
+                        style = LoopType.Metadata.copy(fontSize = 9.5.sp, fontWeight = FontWeight.Bold),
+                        color = InkWhite
                     )
-                    .testTag("fav_btn_${item.id}"),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (item.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Favorite",
-                    tint = if (item.isFavorite) com.example.ui.theme.HeartRed else InkCharcoal,
-                    modifier = Modifier.size(18.dp)
-                )
+                }
+            } else {
+                // Favorite Icon button top right
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(PaperPureWhite.copy(alpha = 0.92f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true),
+                            onClick = onToggleFavorite
+                        )
+                        .testTag("fav_btn_${item.id}"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (item.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (item.isFavorite) "Remove favorite" else "Add favorite",
+                        tint = if (item.isFavorite) com.example.ui.theme.HeartRed else InkCharcoal,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             // Location tag bottom left
@@ -664,6 +710,50 @@ fun EditorialPhotoCard(
                         text = item.location,
                         style = LoopType.Metadata.copy(fontSize = 10.sp, color = Color.White)
                     )
+                }
+            }
+
+            if (onPreviewImages != null) {
+                val photoTotal = when {
+                    item.imageUrls.isNotEmpty() -> item.imageUrls.size
+                    item.imageCount > 0 -> item.imageCount
+                    else -> 1
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .clip(RoundedCornerShape(100.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = false),
+                            onClick = onPreviewImages
+                        )
+                        .padding(8.dp)
+                        .testTag("preview_images_btn_${item.id}"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(Color.Black.copy(alpha = 0.76f))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = "Preview photos",
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = if (photoTotal > 1) "$photoTotal photos" else "Preview",
+                            style = LoopType.Metadata.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                    }
                 }
             }
         }
@@ -730,9 +820,11 @@ fun EditorialPhotoCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Hosted by ${item.owner.name.ifBlank { "Community Member" }}",
-                    style = LoopType.Metadata,
-                    color = InkMuted
+                    text = if (isOwnedByCurrentUser) "Your listing" else "Hosted by ${item.owner.name.ifBlank { "Community Member" }}",
+                    style = LoopType.Metadata.copy(
+                        fontWeight = if (isOwnedByCurrentUser) FontWeight.SemiBold else FontWeight.Normal
+                    ),
+                    color = if (isOwnedByCurrentUser) AccentForestGreen else InkMuted
                 )
 
                 Row(verticalAlignment = Alignment.Bottom) {

@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.filled.CameraAlt
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Forest
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Surfing
@@ -39,9 +41,11 @@ import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,6 +59,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -66,10 +71,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
+import com.example.data.models.UserCommunityPost
+import com.example.ui.components.CatalogSkeletonFeed
 import com.example.ui.components.CategoryTile
 import com.example.ui.components.CommunityPhotowalksSheet
 import com.example.ui.components.EditorialPhotoCard
+import com.example.ui.components.HeroSkeletonCard
 import com.example.ui.components.HomeUpdateBanner
+import com.example.ui.components.ItemImagePreviewModal
 import com.example.ui.components.ListingPhoto
 import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.SectionLabel
@@ -89,6 +98,8 @@ import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
 
+@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun HomeScreen(
     onItemClick: (RentalItem) -> Unit = {},
@@ -97,13 +108,19 @@ fun HomeScreen(
     onPromptLocation: () -> Unit = {},
     onPublishClick: () -> Unit = {},
     onCreateCommunityPostClick: () -> Unit = {},
+    onMessageOrganizer: (UserCommunityPost) -> Unit = {},
     isLocationGranted: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
+    val userProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
     val syncError by RentalRepository.syncErrorFlow.collectAsStateWithLifecycle()
+    val isCatalogLoading by RentalRepository.isCatalogLoadingFlow.collectAsStateWithLifecycle()
+    val isRefreshing by RentalRepository.isRefreshingFlow.collectAsStateWithLifecycle()
     val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
     var showEventsSheet by remember { mutableStateOf(false) }
+    var previewItem by remember { mutableStateOf<RentalItem?>(null) }
 
     val featuredItem = allItems.firstOrNull()
     val circulationItems = if (allItems.size > 1) allItems.drop(1) else emptyList()
@@ -119,7 +136,9 @@ fun HomeScreen(
         )
     }
 
-    Box(
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { RentalRepository.refreshSessionData(context) },
         modifier = modifier
             .fillMaxSize()
             .background(PaperIvory)
@@ -265,8 +284,12 @@ fun HomeScreen(
                 }
             }
 
-            // Featured Listing Hero Card or Clean Empty State
-            if (featuredItem != null) {
+            // Featured Listing Hero Card, Loading Skeleton, or Clean Empty State
+            if (isCatalogLoading && allItems.isEmpty()) {
+                item {
+                    HeroSkeletonCard(modifier = Modifier.padding(horizontal = 22.dp))
+                }
+            } else if (featuredItem != null) {
                 item {
                     Box(
                         modifier = Modifier
@@ -304,32 +327,74 @@ fun HomeScreen(
                                 )
                         )
 
-                        // Top-left white pill tag
-                        Box(
+                        val isFeaturedOwn = featuredItem.owner.id.isNotBlank() && featuredItem.owner.id == userProfile.uid
+
+                        // Top-left white pill tag + availability status
+                        Row(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .padding(16.dp)
-                                .clip(RoundedCornerShape(100.dp))
-                                .background(PaperPureWhite.copy(alpha = 0.94f))
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val featuredBadge = if (featuredItem.location.isNotBlank()) {
-                                "FEATURED — ${featuredItem.location.uppercase()}"
-                            } else {
-                                "FEATURED LISTING"
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(100.dp))
+                                    .background(PaperPureWhite.copy(alpha = 0.94f))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                val featuredBadge = if (featuredItem.location.isNotBlank()) {
+                                    "FEATURED — ${featuredItem.location.uppercase()}"
+                                } else {
+                                    "FEATURED LISTING"
+                                }
+                                Text(
+                                    text = featuredBadge,
+                                    style = LoopType.EditorialTag.copy(fontSize = 9.5.sp),
+                                    color = InkCharcoal
+                                )
                             }
-                            Text(
-                                text = featuredBadge,
-                                style = LoopType.EditorialTag.copy(fontSize = 9.5.sp),
-                                color = InkCharcoal
-                            )
+
+                            if (!featuredItem.availableToday) {
+                                val isBooked = featuredItem.activeBookingId != null
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(100.dp))
+                                        .background(AccentPeach.copy(alpha = 0.95f))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = if (isBooked) "BOOKED" else "PAUSED",
+                                        style = LoopType.EditorialTag.copy(fontSize = 9.5.sp),
+                                        color = AlertCrimson
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isFeaturedOwn) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(16.dp)
+                                    .clip(RoundedCornerShape(100.dp))
+                                    .background(InkCharcoal.copy(alpha = 0.9f))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    .testTag("home_featured_own_badge")
+                            ) {
+                                Text(
+                                    text = "YOUR LISTING",
+                                    style = LoopType.EditorialTag.copy(fontSize = 9.5.sp),
+                                    color = InkWhite
+                                )
+                            }
                         }
 
                         // Bottom-left white editorial headline & subline
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
-                                .padding(20.dp)
+                                .padding(start = 20.dp, end = 96.dp, bottom = 20.dp)
                         ) {
                             Text(
                                 text = featuredItem.title,
@@ -339,13 +404,56 @@ fun HomeScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Spacer(modifier = Modifier.height(4.dp))
+                            val hostSubline = if (isFeaturedOwn) {
+                                "Your listing · ₹${featuredItem.pricePerDay}/day"
+                            } else {
+                                "By ${featuredItem.owner.name.ifBlank { "Community Member" }} · ₹${featuredItem.pricePerDay}/day"
+                            }
                             Text(
-                                text = "By ${featuredItem.owner.name.ifBlank { "Community Member" }} · ₹${featuredItem.pricePerDay}/day",
+                                text = hostSubline,
                                 style = LoopType.BodySmall.copy(fontSize = 12.5.sp),
                                 color = InkWhite.copy(alpha = 0.9f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                        }
+
+                        val heroPhotoCount = when {
+                            featuredItem.imageUrls.isNotEmpty() -> featuredItem.imageUrls.size
+                            featuredItem.imageCount > 0 -> featuredItem.imageCount
+                            else -> 1
+                        }
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(6.dp)
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(100.dp))
+                                .clickable { previewItem = featuredItem }
+                                .padding(10.dp)
+                                .testTag("home_hero_preview_button"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(100.dp))
+                                    .background(Color.Black.copy(alpha = 0.72f))
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhotoLibrary,
+                                    contentDescription = "Preview featured item photos",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = if (heroPhotoCount > 1) "$heroPhotoCount" else "Preview",
+                                    style = LoopType.Metadata.copy(fontSize = 10.5.sp, fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
                 }
@@ -509,7 +617,14 @@ fun HomeScreen(
                 }
             }
 
-            if (circulationItems.isNotEmpty()) {
+            if (isCatalogLoading && allItems.isEmpty()) {
+                item {
+                    CatalogSkeletonFeed(
+                        count = 2,
+                        modifier = Modifier.padding(horizontal = 22.dp)
+                    )
+                }
+            } else if (circulationItems.isNotEmpty()) {
                 // Objects in Circulation Section Header
                 item {
                     SectionLabel(
@@ -521,10 +636,13 @@ fun HomeScreen(
 
                 // Editorial Photo Cards
                 items(circulationItems, key = { it.id }) { item ->
+                    val isOwn = item.owner.id.isNotBlank() && item.owner.id == userProfile.uid
                     EditorialPhotoCard(
                         item = item,
                         onClick = { onItemClick(item) },
                         onToggleFavorite = { RentalRepository.toggleFavorite(item.id) },
+                        isOwnedByCurrentUser = isOwn,
+                        onPreviewImages = { previewItem = item },
                         modifier = Modifier.padding(horizontal = 22.dp)
                     )
                 }
@@ -534,7 +652,16 @@ fun HomeScreen(
         if (showEventsSheet) {
             CommunityPhotowalksSheet(
                 onDismiss = { showEventsSheet = false },
-                onCreatePostClick = onCreateCommunityPostClick
+                onCreatePostClick = onCreateCommunityPostClick,
+                onMessageOrganizer = onMessageOrganizer
+            )
+        }
+
+        previewItem?.let { itemToPreview ->
+            ItemImagePreviewModal(
+                item = itemToPreview,
+                onDismiss = { previewItem = null },
+                onViewDetails = { onItemClick(itemToPreview) }
             )
         }
     }

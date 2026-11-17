@@ -12,24 +12,34 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -37,20 +47,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.BookingDateUtils
 import com.example.data.RentalRepository
 import com.example.data.firebase.FirestoreBooking
 import com.example.data.models.DeliveryOptionType
 import com.example.data.models.RentalItem
+import com.example.data.models.RentalOwner
 import com.example.ui.components.EditorialTopBar
 import com.example.ui.components.PrimaryCTA
+import com.example.ui.components.SecondaryCTA
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
+import com.example.ui.theme.AccentPeach
 import com.example.ui.theme.AlertCrimson
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
@@ -63,34 +77,44 @@ import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
 import kotlinx.coroutines.launch
 
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
-
-private fun formatOffsetDays(offsetDays: Int): String {
-    val cal = Calendar.getInstance()
-    cal.add(Calendar.DAY_OF_YEAR, offsetDays)
-    return SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(cal.time)
-}
+@OptIn(ExperimentalMaterial3Api::class)
 
 @Composable
 fun BookingScreen(
     item: RentalItem,
     onBack: () -> Unit,
-    onBookingConfirmed: () -> Unit
+    onBookingConfirmed: () -> Unit,
+    onViewBookings: () -> Unit = {},
+    onMessageHost: (RentalOwner, RentalItem) -> Unit = { _, _ -> }
 ) {
     BackHandler(onBack = onBack)
 
     val coroutineScope = rememberCoroutineScope()
+    val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
+    val currentProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
+    val liveItem = remember(allItems, item) {
+        allItems.find { it.id == item.id } ?: item
+    }
+    val isOwnListing = liveItem.owner.id.isNotBlank() && liveItem.owner.id == currentProfile.uid
+    val isUnavailable = !liveItem.availableToday || liveItem.activeBookingId != null
+
+    val todayUtcMillis = remember { BookingDateUtils.todayUtcMidnightMillis() }
     var daysCount by remember { mutableIntStateOf(3) }
-    var startDate by remember { mutableStateOf(formatOffsetDays(0)) }
-    var endDate by remember { mutableStateOf(formatOffsetDays(3)) }
+    var startDateMillis by remember { mutableLongStateOf(todayUtcMillis) }
+    var endDateMillis by remember { mutableLongStateOf(BookingDateUtils.addDaysUtcMillis(todayUtcMillis, 3)) }
+    val startDate = remember(startDateMillis) { BookingDateUtils.formatUtcDate(startDateMillis) }
+    val endDate = remember(endDateMillis) { BookingDateUtils.formatUtcDate(endDateMillis) }
+    val dateValidationError = remember(startDateMillis, endDateMillis, todayUtcMillis) {
+        BookingDateUtils.validateRange(startDateMillis, endDateMillis, todayUtcMillis)
+    }
+
+    var showDatePickerDialog by remember { mutableStateOf(false) }
     var selectedDelivery by remember { mutableStateOf(DeliveryOptionType.SELF_PICKUP) }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var confirmedBooking by remember { mutableStateOf<FirestoreBooking?>(null) }
 
-    val rentalSubtotal = item.pricePerDay * daysCount
+    val rentalSubtotal = liveItem.pricePerDay * daysCount
     val serviceFee = 50
     val deliveryFee = selectedDelivery.fee
     val totalPayable = rentalSubtotal + serviceFee + deliveryFee
@@ -172,6 +196,14 @@ fun BookingScreen(
                             style = LoopType.HeroDisplayLarge.copy(fontSize = 30.sp),
                             color = AccentForestGreen
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Share this PIN with ${booking.hostName} at pickup to begin the rental.",
+                            style = LoopType.Metadata,
+                            color = InkSecondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
                     }
                     Text(
                         text = "Total Reserved: ₹${booking.totalAmount}",
@@ -179,12 +211,49 @@ fun BookingScreen(
                         color = InkCharcoal
                     )
                     PrimaryCTA(
-                        text = "Back to Catalog",
-                        onClick = onBookingConfirmed,
-                        testTag = "booking_done_button"
+                        text = "View My Reservations",
+                        onClick = onViewBookings,
+                        testTag = "booking_view_reservations_btn"
                     )
+                    SecondaryCTA(
+                        text = "Message Host",
+                        onClick = { onMessageHost(liveItem.owner, liveItem) },
+                        testTag = "booking_message_host_btn"
+                    )
+                    androidx.compose.material3.TextButton(
+                        onClick = onBookingConfirmed,
+                        modifier = Modifier.testTag("booking_done_button")
+                    ) {
+                        Text(
+                            text = "Back to Catalog",
+                            style = LoopType.BodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = InkSecondary
+                        )
+                    }
                 }
             } else {
+                if (isOwnListing || isUnavailable) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(AccentPeach.copy(alpha = 0.55f))
+                            .border(1.dp, AlertCrimson.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                            .padding(14.dp)
+                            .testTag("booking_blocked_banner")
+                    ) {
+                        Text(
+                            text = if (isOwnListing) {
+                                "You host this listing and cannot book your own item."
+                            } else {
+                                "This piece is currently unavailable or already booked."
+                            },
+                            style = LoopType.BodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = AlertCrimson
+                        )
+                    }
+                }
+
                 // Piece Summary Card
                 Column(
                     modifier = Modifier
@@ -196,19 +265,19 @@ fun BookingScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = item.category.title.uppercase(),
+                        text = liveItem.category.title.uppercase(),
                         style = LoopType.EditorialTag.copy(fontSize = 10.sp),
                         color = InkMuted
                     )
                     Text(
-                        text = item.title,
+                        text = liveItem.title,
                         style = LoopType.HeadlineMedium,
                         color = InkCharcoal
                     )
-                    val hostText = item.owner.name.ifBlank { "Community Member" }
+                    val hostText = liveItem.owner.name.ifBlank { "Community Member" }
                     Text(
-                        text = if (item.location.isNotBlank()) {
-                            "Hosted by $hostText · ${item.location}"
+                        text = if (liveItem.location.isNotBlank()) {
+                            "Hosted by $hostText · ${liveItem.location}"
                         } else {
                             "Hosted by $hostText"
                         },
@@ -217,7 +286,7 @@ fun BookingScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "₹${item.pricePerDay} / day · Refundable Deposit ₹${item.securityDeposit}",
+                        text = "₹${liveItem.pricePerDay} / day · Refundable Deposit ₹${liveItem.securityDeposit}",
                         style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
                         color = InkCharcoal
                     )
@@ -245,28 +314,40 @@ fun BookingScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(PaperIvory)
                                 .border(1.dp, PaperBorder, CircleShape)
-                                .clickable { if (daysCount > 1) daysCount-- }
+                                .clickable {
+                                    if (daysCount > BookingDateUtils.MIN_RENTAL_DAYS) {
+                                        daysCount--
+                                        endDateMillis = BookingDateUtils.addDaysUtcMillis(startDateMillis, daysCount)
+                                        errorMessage = null
+                                    }
+                                }
                                 .testTag("booking_days_minus"),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Default.Remove, contentDescription = "Decrease days", tint = InkCharcoal, modifier = Modifier.size(16.dp))
                         }
                         Text(
-                            text = "$daysCount days",
+                            text = "$daysCount ${if (daysCount == 1) "day" else "days"}",
                             style = LoopType.TitleMedium,
                             color = InkCharcoal
                         )
                         Box(
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(PaperIvory)
                                 .border(1.dp, PaperBorder, CircleShape)
-                                .clickable { if (daysCount < 30) daysCount++ }
+                                .clickable {
+                                    if (daysCount < BookingDateUtils.MAX_RENTAL_DAYS) {
+                                        daysCount++
+                                        endDateMillis = BookingDateUtils.addDaysUtcMillis(startDateMillis, daysCount)
+                                        errorMessage = null
+                                    }
+                                }
                                 .testTag("booking_days_plus"),
                             contentAlignment = Alignment.Center
                         ) {
@@ -275,18 +356,95 @@ fun BookingScreen(
                     }
                 }
 
-                // Dates
-                BookingEditorialInput(
-                    label = "PICKUP DATE",
-                    value = startDate,
-                    onValueChange = { startDate = it }
-                )
-
-                BookingEditorialInput(
-                    label = "RETURN DATE",
-                    value = endDate,
-                    onValueChange = { endDate = it }
-                )
+                // Calendar Date-Range Selector Card
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "PICKUP & RETURN DATES",
+                            style = LoopType.EditorialTag,
+                            color = InkSecondary
+                        )
+                        Text(
+                            text = "Max ${BookingDateUtils.MAX_RENTAL_DAYS} days",
+                            style = LoopType.Metadata.copy(fontSize = 11.sp),
+                            color = InkMuted
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 64.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(PaperPureWhite)
+                            .border(
+                                1.dp,
+                                if (dateValidationError != null) AlertCrimson else PaperBorderSubtle,
+                                RoundedCornerShape(18.dp)
+                            )
+                            .clickable { showDatePickerDialog = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                            .testTag("booking_date_picker_button"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentMint),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarMonth,
+                                    contentDescription = "Select dates",
+                                    tint = AccentForestGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "$startDate  →  $endDate",
+                                    style = LoopType.TitleMedium.copy(fontSize = 14.5.sp),
+                                    color = InkCharcoal
+                                )
+                                Text(
+                                    text = "Tap to adjust pickup & return calendar",
+                                    style = LoopType.Metadata.copy(fontSize = 11.5.sp),
+                                    color = InkSecondary
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(PaperIvory)
+                                .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "Edit",
+                                style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold),
+                                color = InkCharcoal
+                            )
+                        }
+                    }
+                    if (dateValidationError != null) {
+                        Text(
+                            text = dateValidationError,
+                            style = LoopType.Metadata,
+                            color = AlertCrimson
+                        )
+                    }
+                }
 
                 // Handover Method Pills
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -340,7 +498,7 @@ fun BookingScreen(
                         color = InkSecondary
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("₹${item.pricePerDay} × $daysCount days", style = LoopType.BodySmall, color = InkSecondary)
+                        Text("₹${liveItem.pricePerDay} × $daysCount days", style = LoopType.BodySmall, color = InkSecondary)
                         Text("₹$rentalSubtotal", style = LoopType.BodySmall, color = InkCharcoal)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -378,14 +536,24 @@ fun BookingScreen(
                     .padding(horizontal = 22.dp, vertical = 14.dp)
             ) {
                 PrimaryCTA(
-                    text = if (isSubmitting) "Confirming..." else "Confirm Reservation (₹$totalPayable)",
-                    enabled = !isSubmitting,
+                    text = when {
+                        isSubmitting -> "Confirming..."
+                        isOwnListing -> "Your Own Listing"
+                        isUnavailable -> "Currently Unavailable"
+                        else -> "Confirm Reservation (₹$totalPayable)"
+                    },
+                    enabled = !isSubmitting && !isOwnListing && !isUnavailable && dateValidationError == null,
                     onClick = {
+                        val validationErr = BookingDateUtils.validateRange(startDateMillis, endDateMillis, todayUtcMillis)
+                        if (validationErr != null) {
+                            errorMessage = validationErr
+                            return@PrimaryCTA
+                        }
                         isSubmitting = true
                         errorMessage = null
                         coroutineScope.launch {
                             val result = RentalRepository.createBooking(
-                                item = item,
+                                item = liveItem,
                                 startDate = startDate,
                                 endDate = endDate,
                                 daysCount = daysCount,
@@ -403,36 +571,81 @@ fun BookingScreen(
             }
         }
     }
-}
 
-@Composable
-private fun BookingEditorialInput(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = label,
-            style = LoopType.EditorialTag,
-            color = InkSecondary
+    if (showDatePickerDialog) {
+        val selectableDates = remember(todayUtcMillis) {
+            object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    return utcTimeMillis >= todayUtcMillis
+                }
+            }
+        }
+        val dateRangePickerState = rememberDateRangePickerState(
+            initialSelectedStartDateMillis = startDateMillis,
+            initialSelectedEndDateMillis = endDateMillis,
+            selectableDates = selectableDates
         )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(PaperPureWhite)
-                .border(1.dp, PaperBorderSubtle, RoundedCornerShape(16.dp))
-                .padding(horizontal = 16.dp, vertical = 14.dp)
+        val pickedStart = dateRangePickerState.selectedStartDateMillis
+        val pickedEnd = dateRangePickerState.selectedEndDateMillis
+        val pickerValidationError = BookingDateUtils.validateRange(pickedStart, pickedEnd, todayUtcMillis)
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerDialog = false },
+            colors = DatePickerDefaults.colors(containerColor = PaperPureWhite),
+            confirmButton = {
+                TextButton(
+                    enabled = pickedStart != null && pickedEnd != null && pickerValidationError == null,
+                    onClick = {
+                        if (pickedStart != null && pickedEnd != null) {
+                            val normalizedStart = BookingDateUtils.normalizeToUtcMidnight(pickedStart)
+                            val computedDays = BookingDateUtils.calculateDurationDays(normalizedStart, pickedEnd)
+                            startDateMillis = normalizedStart
+                            daysCount = computedDays
+                            endDateMillis = BookingDateUtils.addDaysUtcMillis(normalizedStart, computedDays)
+                            errorMessage = null
+                        }
+                        showDatePickerDialog = false
+                    },
+                    modifier = Modifier.testTag("confirm_date_range_button")
+                ) {
+                    Text(
+                        text = "Apply Dates",
+                        color = AccentForestGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePickerDialog = false }) {
+                    Text("Cancel", color = InkCharcoal)
+                }
+            }
         ) {
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = true,
-                textStyle = LoopType.BodyMedium.copy(color = InkCharcoal),
-                cursorBrush = SolidColor(InkCharcoal),
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column {
+                DateRangePicker(
+                    state = dateRangePickerState,
+                    colors = DatePickerDefaults.colors(containerColor = PaperPureWhite),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(420.dp),
+                    title = {
+                        Text(
+                            text = "Select Pickup & Return",
+                            style = LoopType.EditorialTag,
+                            color = InkSecondary,
+                            modifier = Modifier.padding(start = 24.dp, top = 16.dp)
+                        )
+                    }
+                )
+                if (pickerValidationError != null && pickedStart != null && pickedEnd != null) {
+                    Text(
+                        text = pickerValidationError,
+                        style = LoopType.Metadata,
+                        color = AlertCrimson,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                    )
+                }
+            }
         }
     }
 }

@@ -9,6 +9,7 @@ import com.example.data.local.CommunityEventDao
 import com.example.data.local.toEntity
 import com.example.data.local.toUserCommunityPost
 import com.example.data.models.CommunityPostStatus
+import com.example.data.models.CommunityPostType
 import com.example.data.models.UserCommunityPost
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
@@ -34,6 +35,7 @@ interface ICommunityEventRepository {
     suspend fun updateEvent(post: UserCommunityPost): Result<UserCommunityPost>
     suspend fun updateEventStatus(id: String, status: CommunityPostStatus): Result<Unit>
     suspend fun rsvpToEvent(id: String): Result<String>
+    suspend fun toggleRsvpForUser(id: String, uid: String): Result<Pair<UserCommunityPost, Boolean>>
     suspend fun deleteEvent(id: String): Result<Unit>
     suspend fun syncWithFirestore(): Result<Unit>
 }
@@ -187,6 +189,63 @@ class CommunityEventRepository(
             Result.failure(e)
         }
     }
+
+    override suspend fun toggleRsvpForUser(id: String, uid: String): Result<Pair<UserCommunityPost, Boolean>> =
+        withContext(ioDispatcher) {
+            try {
+                if (uid.isBlank()) {
+                    return@withContext Result.failure(IllegalStateException("Sign in required to RSVP."))
+                }
+                val currentEntity = eventDao.getEventByIdOnce(id)
+                    ?: return@withContext Result.failure(IllegalStateException("Community post not found."))
+                val currentPost = currentEntity.toUserCommunityPost()
+                if (currentPost.authorId == uid) {
+                    return@withContext Result.failure(IllegalStateException("You cannot RSVP to your own post."))
+                }
+                if (currentPost.status != CommunityPostStatus.ACTIVE) {
+                    return@withContext Result.failure(IllegalStateException("This post is already resolved."))
+                }
+
+                val nowAttending = uid !in currentPost.attendeeIds
+                val updatedIds = if (nowAttending) {
+                    (currentPost.attendeeIds + uid).distinct()
+                } else {
+                    currentPost.attendeeIds.filterNot { it == uid }
+                }
+
+                val count = updatedIds.size
+                val newText = when (currentPost.type) {
+                    CommunityPostType.EVENT -> "$count ${if (count == 1) "creator" else "creators"} attending"
+                    CommunityPostType.HELP_REQUEST -> if (count == 0) "Seeking assistance" else "$count ${if (count == 1) "offer" else "offers"} to help"
+                    CommunityPostType.STUDY_GROUP -> "$count ${if (count == 1) "desk" else "desks"} booked"
+                }
+
+                val csv = updatedIds.joinToString("|")
+                eventDao.updateAttendeesAndIds(id, newText, csv)
+                val cloudRes = firestoreService.updateCommunityPostRsvp(id, newText, updatedIds)
+                if (cloudRes.isFailure) {
+                    eventDao.updateAttendeesAndIds(
+                        id,
+                        currentPost.attendeesOrResponses,
+                        currentPost.attendeeIds.joinToString("|")
+                    )
+                    return@withContext Result.failure(
+                        cloudRes.exceptionOrNull() ?: IllegalStateException("RSVP sync failed")
+                    )
+                }
+
+                val updatedPost = currentPost.copy(
+                    attendeesOrResponses = newText,
+                    attendeeIds = updatedIds
+                )
+                Result.success(updatedPost to nowAttending)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(tag, "Failed to toggle RSVP for user: ${e.message}", e)
+                Result.failure(e)
+            }
+        }
 
     override suspend fun deleteEvent(id: String): Result<Unit> = withContext(ioDispatcher) {
         try {

@@ -23,6 +23,7 @@ import com.example.data.models.UserRentalBooking
 import com.example.data.models.UserSettings
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -51,84 +52,123 @@ class FirestoreService(
             ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
     }
 
+    private fun parseUserProfileSnapshot(
+        snapshot: DocumentSnapshot,
+        fallbackUid: String,
+        allowAuthFallback: Boolean
+    ): UserProfile {
+        if (!snapshot.exists()) {
+            return UserProfile(
+                uid = fallbackUid,
+                displayName = if (allowAuthFallback) auth.currentUser?.displayName ?: "" else "",
+                email = if (allowAuthFallback) auth.currentUser?.email ?: "" else ""
+            )
+        }
+        val rawDisplayName = snapshot.getString("displayName")
+            ?: if (allowAuthFallback) auth.currentUser?.displayName ?: "" else ""
+        val badgesList = (snapshot.get("badges") as? List<*>)?.mapNotNull { it?.toString() }
+            ?: emptyList()
+        val favoritesList = (snapshot.get("favoriteItemIds") as? List<*>)?.mapNotNull { it?.toString() }
+            ?: emptyList()
+
+        @Suppress("UNCHECKED_CAST")
+        val rawBlocked = snapshot.get("blockedUsers") as? List<Map<String, Any?>>
+        val blockedList = rawBlocked?.mapNotNull { entry ->
+            val bUid = (entry["userId"] as? String).orEmpty()
+            if (bUid.isBlank()) null
+            else BlockedUserEntry(
+                userId = bUid,
+                displayName = (entry["displayName"] as? String).orEmpty().ifBlank { "Community Member" },
+                blockedAtLabel = (entry["blockedAtLabel"] as? String).orEmpty()
+            )
+        } ?: (snapshot.get("blockedUserIds") as? List<*>)
+            ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+            ?.map { id -> BlockedUserEntry(userId = id, displayName = "Blocked Member") }
+            ?: emptyList()
+
+        val parsedSettings = UserSettings(
+            appearanceMode = AppearanceMode.fromNameOrDefault(snapshot.getString("appearanceMode")),
+            profileVisibility = ProfileVisibility.fromNameOrDefault(snapshot.getString("profileVisibility")),
+            locationSharing = LocationSharingPreference.fromNameOrDefault(snapshot.getString("locationSharing")),
+            notifications = NotificationPreferences(
+                pushEnabled = snapshot.getBoolean("notifyPush") ?: true,
+                newNeighbourhoodPosts = snapshot.getBoolean("notifyNewPosts") ?: true,
+                repliesToComments = snapshot.getBoolean("notifyCommentReplies") ?: true,
+                likesAndInteractions = snapshot.getBoolean("notifyLikes") ?: true,
+                announcements = snapshot.getBoolean("notifyAnnouncements") ?: true
+            ),
+            blockedUsers = blockedList
+        )
+
+        return UserProfile(
+            uid = snapshot.id,
+            displayName = rawDisplayName,
+            email = snapshot.getString("email") ?: if (allowAuthFallback) auth.currentUser?.email ?: "" else "",
+            phone = snapshot.getString("phone") ?: "",
+            bio = snapshot.getString("bio") ?: "",
+            location = snapshot.getString("location") ?: "",
+            avatarPresetIndex = snapshot.getLong("avatarPresetIndex")?.toInt() ?: 0,
+            customAvatarUri = snapshot.getString("customAvatarUri"),
+            rating = (snapshot.getDouble("rating") ?: 0.0).toFloat(),
+            reviewCount = snapshot.getLong("reviewCount")?.toInt() ?: 0,
+            rentalsCompleted = snapshot.getLong("rentalsCompleted")?.toInt() ?: 0,
+            listingsCount = snapshot.getLong("listingsCount")?.toInt() ?: 0,
+            earnedAmount = snapshot.getLong("earnedAmount")?.toInt() ?: 0,
+            isVerified = snapshot.getBoolean("isVerified") ?: false,
+            memberSince = snapshot.getString("memberSince") ?: "",
+            badges = badgesList,
+            favoriteItemIds = favoritesList,
+            legacyResetVersion = snapshot.getLong("legacyResetVersion")?.toInt() ?: 0,
+            settings = parsedSettings
+        )
+    }
+
     /**
      * Real-time listener for User Profile in Firestore (/users/{uid})
      */
     fun listenToUserProfile(uid: String): Flow<UserProfile> {
         val docRef = firestore.collection("users").document(uid)
+        val isOwnUser = uid == auth.currentUser?.uid
         return docRef.snapshots()
             .map { snapshot ->
-                if (snapshot.exists()) {
-                    val rawDisplayName = snapshot.getString("displayName")
-                        ?: auth.currentUser?.displayName
-                        ?: ""
-                    val badgesList = (snapshot.get("badges") as? List<*>)?.mapNotNull { it?.toString() }
-                        ?: emptyList()
-                    val favoritesList = (snapshot.get("favoriteItemIds") as? List<*>)?.mapNotNull { it?.toString() }
-                        ?: emptyList()
-
-                    @Suppress("UNCHECKED_CAST")
-                    val rawBlocked = snapshot.get("blockedUsers") as? List<Map<String, Any?>>
-                    val blockedList = rawBlocked?.mapNotNull { entry ->
-                        val bUid = (entry["userId"] as? String).orEmpty()
-                        if (bUid.isBlank()) null
-                        else BlockedUserEntry(
-                            userId = bUid,
-                            displayName = (entry["displayName"] as? String).orEmpty().ifBlank { "Community Member" },
-                            blockedAtLabel = (entry["blockedAtLabel"] as? String).orEmpty()
-                        )
-                    } ?: (snapshot.get("blockedUserIds") as? List<*>)
-                        ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
-                        ?.map { id -> BlockedUserEntry(userId = id, displayName = "Blocked Member") }
-                        ?: emptyList()
-
-                    val parsedSettings = UserSettings(
-                        appearanceMode = AppearanceMode.fromNameOrDefault(snapshot.getString("appearanceMode")),
-                        profileVisibility = ProfileVisibility.fromNameOrDefault(snapshot.getString("profileVisibility")),
-                        locationSharing = LocationSharingPreference.fromNameOrDefault(snapshot.getString("locationSharing")),
-                        notifications = NotificationPreferences(
-                            pushEnabled = snapshot.getBoolean("notifyPush") ?: true,
-                            newNeighbourhoodPosts = snapshot.getBoolean("notifyNewPosts") ?: true,
-                            repliesToComments = snapshot.getBoolean("notifyCommentReplies") ?: true,
-                            likesAndInteractions = snapshot.getBoolean("notifyLikes") ?: true,
-                            announcements = snapshot.getBoolean("notifyAnnouncements") ?: true
-                        ),
-                        blockedUsers = blockedList
-                    )
-
-                    UserProfile(
-                        uid = snapshot.id,
-                        displayName = rawDisplayName,
-                        email = snapshot.getString("email") ?: (auth.currentUser?.email ?: ""),
-                        phone = snapshot.getString("phone") ?: "",
-                        bio = snapshot.getString("bio") ?: "",
-                        location = snapshot.getString("location") ?: "",
-                        avatarPresetIndex = snapshot.getLong("avatarPresetIndex")?.toInt() ?: 0,
-                        customAvatarUri = snapshot.getString("customAvatarUri"),
-                        rating = (snapshot.getDouble("rating") ?: 0.0).toFloat(),
-                        reviewCount = snapshot.getLong("reviewCount")?.toInt() ?: 0,
-                        rentalsCompleted = snapshot.getLong("rentalsCompleted")?.toInt() ?: 0,
-                        listingsCount = snapshot.getLong("listingsCount")?.toInt() ?: 0,
-                        earnedAmount = snapshot.getLong("earnedAmount")?.toInt() ?: 0,
-                        isVerified = snapshot.getBoolean("isVerified") ?: false,
-                        memberSince = snapshot.getString("memberSince") ?: "",
-                        badges = badgesList,
-                        favoriteItemIds = favoritesList,
-                        legacyResetVersion = snapshot.getLong("legacyResetVersion")?.toInt() ?: 0,
-                        settings = parsedSettings
-                    )
-                } else {
-                    UserProfile(
-                        uid = uid,
-                        displayName = auth.currentUser?.displayName ?: "",
-                        email = auth.currentUser?.email ?: ""
-                    )
-                }
+                parseUserProfileSnapshot(
+                    snapshot = snapshot,
+                    fallbackUid = uid,
+                    allowAuthFallback = isOwnUser
+                )
             }
             .catch { error ->
                 if (error is Exception) handleFirestoreError(error, OperationType.GET, docRef.path)
                 throw error
             }
+    }
+
+    /**
+     * One-shot fetch for any member's public profile document (/users/{uid})
+     */
+    suspend fun getUserProfileOnce(uid: String): Result<UserProfile?> {
+        if (uid.isBlank()) return Result.success(null)
+        val docRef = firestore.collection("users").document(uid)
+        return try {
+            val snapshot = docRef.get().await()
+            if (!snapshot.exists()) {
+                Result.success(null)
+            } else {
+                val isOwnUser = uid == auth.currentUser?.uid
+                Result.success(
+                    parseUserProfileSnapshot(
+                        snapshot = snapshot,
+                        fallbackUid = uid,
+                        allowAuthFallback = isOwnUser
+                    )
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.GET, docRef.path)
+            Result.failure(e)
+        }
     }
 
     /**
@@ -345,6 +385,7 @@ class FirestoreService(
                             isPopular = doc.getBoolean("isPopular") ?: false,
                             isFavorite = doc.getBoolean("isFavorite") ?: false,
                             availableToday = doc.getBoolean("availableToday") ?: true,
+                            activeBookingId = doc.getString("activeBookingId")?.takeIf { it.isNotBlank() },
                             securityDeposit = doc.getLong("securityDeposit")?.toInt() ?: 0,
                             latitude = doc.getDouble("latitude"),
                             longitude = doc.getDouble("longitude")
@@ -403,6 +444,7 @@ class FirestoreService(
                 "isPopular" to item.isPopular,
                 "isFavorite" to false,
                 "availableToday" to item.availableToday,
+                "activeBookingId" to item.activeBookingId,
                 "latitude" to item.latitude,
                 "longitude" to item.longitude,
                 "features" to item.features.map {
@@ -463,6 +505,7 @@ class FirestoreService(
                 "ownerName" to ownerName,
                 "ownerInitials" to initials,
                 "availableToday" to item.availableToday,
+                "activeBookingId" to item.activeBookingId,
                 "latitude" to item.latitude,
                 "longitude" to item.longitude,
                 "updatedAt" to FieldValue.serverTimestamp()
@@ -494,6 +537,56 @@ class FirestoreService(
                 )
             ).await()
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun setItemBookingLock(
+        itemId: String,
+        availableToday: Boolean,
+        activeBookingId: String?
+    ): Result<Unit> {
+        val docRef = firestore.collection("items").document(itemId)
+        return try {
+            docRef.update(
+                mapOf<String, Any?>(
+                    "availableToday" to availableToday,
+                    "activeBookingId" to activeBookingId,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun applyItemRatingReview(itemId: String, ratingToAdd: Int): Result<Pair<Float, Int>> {
+        val docRef = firestore.collection("items").document(itemId)
+        return try {
+            val clamped = ratingToAdd.coerceIn(1, 5)
+            val snap = docRef.get().await()
+            val oldCount = snap.getLong("reviewCount")?.toInt() ?: 0
+            val oldRating = snap.getDouble("rating") ?: 0.0
+            val newCount = oldCount + 1
+            val newAvg = ((oldRating * oldCount) + clamped) / newCount.toDouble()
+            val roundedAvg = kotlin.math.round(newAvg * 10.0) / 10.0
+
+            docRef.update(
+                mapOf(
+                    "rating" to roundedAvg,
+                    "reviewCount" to newCount,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(roundedAvg.toFloat() to newCount)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -538,6 +631,10 @@ class FirestoreService(
                             CommunityPostStatus.ACTIVE
                         }
 
+                        val attendeeIdsList = (doc.get("attendeeIds") as? List<*>)
+                            ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+                            ?: emptyList()
+
                         UserCommunityPost(
                             id = doc.id,
                             title = doc.getString("title") ?: "",
@@ -547,6 +644,7 @@ class FirestoreService(
                             location = doc.getString("location") ?: "",
                             dateTime = doc.getString("dateTime") ?: "",
                             attendeesOrResponses = doc.getString("attendeesOrResponses") ?: "0 participating",
+                            attendeeIds = attendeeIdsList,
                             status = status,
                             createdAt = "",
                             createdAtEpoch = doc.getTimestamp("createdAt")?.toDate()?.time ?: System.currentTimeMillis(),
@@ -588,6 +686,7 @@ class FirestoreService(
                 "location" to post.location,
                 "dateTime" to post.dateTime,
                 "attendeesOrResponses" to post.attendeesOrResponses,
+                "attendeeIds" to post.attendeeIds,
                 "statusStr" to post.status.name,
                 "authorId" to uid,
                 "authorName" to authorName,
@@ -671,6 +770,29 @@ class FirestoreService(
         }
     }
 
+    suspend fun updateCommunityPostRsvp(
+        id: String,
+        attendeesText: String,
+        attendeeIds: List<String>
+    ): Result<Unit> {
+        val docRef = firestore.collection("community_posts").document(id)
+        return try {
+            docRef.update(
+                mapOf(
+                    "attendeesOrResponses" to attendeesText,
+                    "attendeeIds" to attendeeIds.distinct().take(500),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteCommunityPost(id: String): Result<Unit> {
         val docRef = firestore.collection("community_posts").document(id)
         return try {
@@ -698,29 +820,37 @@ class FirestoreService(
                         val hostName = doc.getString("hostName") ?: "Host"
                         val renterId = doc.getString("renterId") ?: ""
                         val renterName = doc.getString("renterName") ?: "Member"
-                        val displayOtherName = if (uid == hostId && renterName.isNotBlank() && hostId != renterId) {
+                        val isHost = uid == hostId && renterId.isNotBlank() && hostId != renterId
+                        val displayOtherName = if (isHost && renterName.isNotBlank()) {
                             renterName
                         } else {
                             hostName
                         }
-                        val hostInitials = doc.getString("hostInitials") ?: displayOtherName.take(2).uppercase()
-                        val host = RentalOwner(
-                            id = if (uid == hostId && renterId.isNotBlank()) renterId else hostId,
+                        val otherInitials = if (isHost) {
+                            computeInitials(displayOtherName)
+                        } else {
+                            doc.getString("hostInitials")?.takeIf { it.isNotBlank() }
+                                ?: computeInitials(displayOtherName)
+                        }
+                        val counterparty = RentalOwner(
+                            id = if (isHost) renterId else hostId,
                             name = displayOtherName,
-                            badge = doc.getString("hostBadge") ?: "Community Member",
-                            initials = hostInitials,
-                            phone = doc.getString("hostPhone") ?: ""
+                            badge = if (isHost) "Community Member" else (doc.getString("hostBadge") ?: "Community Member"),
+                            initials = otherInitials,
+                            phone = if (isHost) "" else (doc.getString("hostPhone") ?: "")
                         )
 
+                        val lastSenderId = doc.getString("lastSenderId").orEmpty()
                         val lastMessageText = doc.getString("lastMessageText").orEmpty()
                         val lastMessages = if (lastMessageText.isNotBlank()) {
                             listOf(
                                 RentalMessage(
                                     id = "last_${doc.id}",
-                                    senderName = displayOtherName,
+                                    senderName = if (lastSenderId == uid) "You" else displayOtherName,
                                     text = lastMessageText,
                                     timestamp = doc.getString("lastMessageTimestamp") ?: "Just now",
-                                    isFromMe = false,
+                                    isFromMe = lastSenderId == uid,
+                                    senderId = lastSenderId,
                                     status = MessageStatus.READ
                                 )
                             )
@@ -728,7 +858,7 @@ class FirestoreService(
                             emptyList()
                         }
 
-                        val itemId = doc.getString("itemId")
+                        val itemId = doc.getString("itemId")?.takeIf { it.isNotBlank() }
                         val itemContext = itemId?.let { id ->
                             knownItems.find { it.id == id } ?: doc.getString("itemTitle")?.let { title ->
                                 RentalItem(
@@ -742,18 +872,24 @@ class FirestoreService(
                                     description = "",
                                     primaryImageRes = 0,
                                     features = emptyList(),
-                                    owner = host
+                                    owner = counterparty
                                 )
                             }
                         }
 
+                        val storedUnread = doc.getLong("unreadCount")?.toInt() ?: 0
+                        val effectiveUnread = if (lastSenderId.isNotBlank() && lastSenderId == uid) 0 else storedUnread
+
                         ChatConversation(
                             id = doc.id,
-                            owner = host,
+                            owner = counterparty,
                             itemContext = itemContext,
+                            communityPostId = doc.getString("communityPostId")?.takeIf { it.isNotBlank() },
+                            communityPostTitle = doc.getString("communityPostTitle")?.takeIf { it.isNotBlank() },
+                            lastSenderId = lastSenderId,
                             isOnline = doc.getBoolean("isOnline") ?: true,
                             isTyping = doc.getBoolean("isTyping") ?: false,
-                            unreadCount = doc.getLong("unreadCount")?.toInt() ?: 0,
+                            unreadCount = effectiveUnread,
                             isPinned = doc.getBoolean("isPinned") ?: false,
                             messages = lastMessages
                         )
@@ -774,6 +910,7 @@ class FirestoreService(
     suspend fun createOrGetConversation(
         host: RentalOwner,
         item: RentalItem? = null,
+        communityPost: UserCommunityPost? = null,
         customConversationId: String? = null
     ): Result<ChatConversation> {
         val uid = try {
@@ -781,10 +918,20 @@ class FirestoreService(
         } catch (e: Exception) {
             return Result.failure(e)
         }
-        val cleanHostId = host.id.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").ifBlank { "host_member" }
-        val cleanItemSuffix = item?.id?.replace(Regex("[^a-zA-Z0-9_\\-]"), "_") ?: "general"
+        val cleanHostId = host.id.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+        if (cleanHostId.isBlank()) {
+            return Result.failure(IllegalArgumentException("Recipient user ID is missing."))
+        }
+        if (cleanHostId == uid) {
+            return Result.failure(IllegalStateException("You cannot start a conversation with yourself."))
+        }
+        val contextSuffix = when {
+            item != null -> item.id.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+            communityPost != null -> communityPost.id.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+            else -> "general"
+        }
         val convId = customConversationId
-            ?: "conv_${uid.take(24)}_${cleanHostId.take(24)}_${cleanItemSuffix.take(24)}"
+            ?: "conv_${uid.take(24)}_${cleanHostId.take(24)}_${contextSuffix.take(24)}"
         val docRef = firestore.collection("conversations").document(convId)
 
         return try {
@@ -793,12 +940,63 @@ class FirestoreService(
             val renterName = auth.currentUser?.displayName ?: "Loop Member"
 
             if (!existingSnap.exists()) {
+                if (customConversationId == null) {
+                    val userConvs = firestore.collection("conversations")
+                        .whereArrayContains("participantIds", uid)
+                        .get()
+                        .await()
+                    val matchingExisting = userConvs.documents.firstOrNull { d ->
+                        val participants = (d.get("participantIds") as? List<*>)
+                            ?.mapNotNull { it?.toString() }
+                            ?: emptyList()
+                        val sameParticipants = cleanHostId in participants && uid in participants
+                        val sameItem = item?.id != null && d.getString("itemId") == item.id
+                        val samePost = communityPost?.id != null && d.getString("communityPostId") == communityPost.id
+                        val sameGeneral = item == null && communityPost == null &&
+                            d.getString("itemId").isNullOrBlank() &&
+                            d.getString("communityPostId").isNullOrBlank()
+                        sameParticipants && (sameItem || samePost || sameGeneral)
+                    }
+                    if (matchingExisting != null) {
+                        val existingHostId = matchingExisting.getString("hostId") ?: cleanHostId
+                        val existingHostName = matchingExisting.getString("hostName") ?: host.name
+                        val existingRenterId = matchingExisting.getString("renterId") ?: uid
+                        val existingRenterName = matchingExisting.getString("renterName") ?: renterName
+                        val isHostInDoc = uid == existingHostId
+                        val otherName = if (isHostInDoc) existingRenterName else existingHostName
+                        val otherOwner = RentalOwner(
+                            id = if (isHostInDoc) existingRenterId else existingHostId,
+                            name = otherName,
+                            badge = if (isHostInDoc) "Community Member" else (matchingExisting.getString("hostBadge") ?: host.badge),
+                            initials = computeInitials(otherName),
+                            phone = if (isHostInDoc) "" else (matchingExisting.getString("hostPhone") ?: host.phone)
+                        )
+                        return Result.success(
+                            ChatConversation(
+                                id = matchingExisting.id,
+                                owner = otherOwner,
+                                itemContext = item,
+                                communityPostId = communityPost?.id ?: matchingExisting.getString("communityPostId"),
+                                communityPostTitle = communityPost?.title ?: matchingExisting.getString("communityPostTitle"),
+                                lastSenderId = matchingExisting.getString("lastSenderId").orEmpty(),
+                                isOnline = true,
+                                messages = emptyList()
+                            )
+                        )
+                    }
+                }
+
+                val initialText = when {
+                    item != null -> "Inquiry about ${item.title}"
+                    communityPost != null -> "Message about ${communityPost.title}"
+                    else -> "Conversation started"
+                }
                 val convData = mutableMapOf<String, Any?>(
                     "id" to convId,
                     "participantIds" to participantIds,
                     "hostId" to cleanHostId,
                     "hostName" to host.name,
-                    "hostInitials" to host.initials,
+                    "hostInitials" to host.initials.ifBlank { computeInitials(host.name) },
                     "hostBadge" to host.badge,
                     "hostPhone" to host.phone,
                     "renterId" to uid,
@@ -806,11 +1004,14 @@ class FirestoreService(
                     "itemId" to item?.id,
                     "itemTitle" to item?.title,
                     "itemPricePerDay" to item?.pricePerDay,
+                    "communityPostId" to communityPost?.id,
+                    "communityPostTitle" to communityPost?.title,
+                    "lastSenderId" to "",
                     "isOnline" to true,
                     "isTyping" to false,
                     "unreadCount" to 0,
                     "isPinned" to false,
-                    "lastMessageText" to (item?.let { "Inquiry about ${it.title}" } ?: "Conversation started"),
+                    "lastMessageText" to initialText,
                     "lastMessageTimestamp" to "Just now",
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
@@ -824,6 +1025,8 @@ class FirestoreService(
                     id = convId,
                     owner = host.copy(id = cleanHostId),
                     itemContext = item,
+                    communityPostId = communityPost?.id,
+                    communityPostTitle = communityPost?.title,
                     isOnline = true,
                     messages = emptyList()
                 )
@@ -931,6 +1134,8 @@ class FirestoreService(
                 mapOf(
                     "lastMessageText" to message.text,
                     "lastMessageTimestamp" to message.timestamp,
+                    "lastSenderId" to uid,
+                    "unreadCount" to FieldValue.increment(1),
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
             ).await()
@@ -940,6 +1145,36 @@ class FirestoreService(
             throw e
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.CREATE, msgRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun markConversationRead(conversationId: String): Result<Unit> {
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val convRef = firestore.collection("conversations").document(conversationId)
+        return try {
+            val snap = convRef.get().await()
+            if (snap.exists()) {
+                val lastSenderId = snap.getString("lastSenderId").orEmpty()
+                val unread = snap.getLong("unreadCount")?.toInt() ?: 0
+                if (unread > 0 && lastSenderId.isNotBlank() && lastSenderId != uid) {
+                    convRef.update(
+                        mapOf(
+                            "unreadCount" to 0,
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    ).await()
+                }
+            }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, convRef.path)
             Result.failure(e)
         }
     }
@@ -995,7 +1230,10 @@ class FirestoreService(
                         handoverOtp = doc.getString("handoverOtp") ?: "",
                         deliveryOption = doc.getString("deliveryOption") ?: "Self Pickup",
                         isCompleted = status.equals("Completed", ignoreCase = true) ||
-                            status.equals("Cancelled", ignoreCase = true)
+                            status.equals("Cancelled", ignoreCase = true),
+                        isReviewed = doc.getBoolean("isReviewed") ?: false,
+                        ratingGiven = doc.getLong("ratingGiven")?.toInt() ?: 0,
+                        reviewComment = doc.getString("reviewComment") ?: ""
                     )
                 } catch (_: Exception) {
                     null
@@ -1008,6 +1246,360 @@ class FirestoreService(
     }
 
     /**
+     * Atomically verify item availability and create reservation + lock item in a single transaction.
+     */
+    suspend fun createBookingTransaction(booking: FirestoreBooking): Result<FirestoreBooking> {
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        if (booking.hostId.isBlank() || booking.hostId == uid) {
+            return Result.failure(IllegalStateException("You cannot book your own listing."))
+        }
+        val bookingRef = firestore.collection("bookings").document(booking.id)
+        val itemRef = firestore.collection("items").document(booking.itemId)
+        return try {
+            val renterName = booking.renterName.ifBlank { auth.currentUser?.displayName ?: "Renter" }
+            val saved = firestore.runTransaction { tx ->
+                val itemSnap = tx.get(itemRef)
+                if (!itemSnap.exists()) {
+                    throw IllegalStateException("This listing is no longer available.")
+                }
+                val ownerId = itemSnap.getString("ownerId").orEmpty()
+                if (ownerId.isBlank() || ownerId == uid) {
+                    throw IllegalStateException("You cannot book your own listing.")
+                }
+                val isAvailable = itemSnap.getBoolean("availableToday") ?: true
+                val activeId = itemSnap.getString("activeBookingId")?.takeIf { it.isNotBlank() }
+                if (!isAvailable || activeId != null) {
+                    throw IllegalStateException("This piece was just booked or paused by the host.")
+                }
+
+                val liveTitle = itemSnap.getString("title")?.takeIf { it.isNotBlank() } ?: booking.itemTitle
+                val livePrice = itemSnap.getLong("pricePerDay")?.toInt() ?: booking.pricePerDay
+                val liveHostName = itemSnap.getString("ownerName")?.takeIf { it.isNotBlank() } ?: booking.hostName
+
+                val bookingData = mapOf<String, Any>(
+                    "id" to booking.id,
+                    "renterId" to uid,
+                    "renterName" to renterName,
+                    "hostId" to ownerId,
+                    "hostName" to liveHostName,
+                    "itemId" to booking.itemId,
+                    "itemTitle" to liveTitle,
+                    "startDate" to booking.startDate,
+                    "endDate" to booking.endDate,
+                    "daysCount" to booking.daysCount,
+                    "pricePerDay" to livePrice,
+                    "totalAmount" to booking.totalAmount,
+                    "status" to "Confirmed",
+                    "deliveryOption" to booking.deliveryOption,
+                    "handoverOtp" to booking.handoverOtp,
+                    "isReviewed" to false,
+                    "ratingGiven" to 0,
+                    "reviewComment" to "",
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                tx.set(bookingRef, bookingData)
+                tx.update(
+                    itemRef,
+                    mapOf<String, Any?>(
+                        "availableToday" to false,
+                        "activeBookingId" to booking.id,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                )
+
+                booking.copy(
+                    renterId = uid,
+                    renterName = renterName,
+                    hostId = ownerId,
+                    hostName = liveHostName,
+                    itemTitle = liveTitle,
+                    pricePerDay = livePrice,
+                    status = "Confirmed"
+                )
+            }.await()
+            Result.success(saved)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (e !is IllegalStateException && e !is IllegalArgumentException) {
+                handleFirestoreError(e, OperationType.WRITE, "${bookingRef.path}|${itemRef.path}")
+            }
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Atomically validate handover OTP on the server document and transition booking Confirmed -> Active.
+     */
+    suspend fun verifyHandoverPinTransaction(bookingId: String, enteredPin: String): Result<FirestoreBooking> {
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val bookingRef = firestore.collection("bookings").document(bookingId)
+        return try {
+            val updated = firestore.runTransaction { tx ->
+                val snap = tx.get(bookingRef)
+                if (!snap.exists()) {
+                    throw IllegalArgumentException("Reservation not found.")
+                }
+                val hostId = snap.getString("hostId").orEmpty()
+                if (hostId != uid) {
+                    throw IllegalStateException("Only the host can verify handover PIN.")
+                }
+                val status = snap.getString("status").orEmpty()
+                if (!status.equals("Confirmed", ignoreCase = true)) {
+                    throw IllegalStateException("Reservation must be Confirmed before pickup.")
+                }
+                val expectedOtp = snap.getString("handoverOtp").orEmpty().trim()
+                if (enteredPin.trim() != expectedOtp) {
+                    throw IllegalArgumentException("Incorrect 4-digit handover PIN.")
+                }
+                tx.update(
+                    bookingRef,
+                    mapOf(
+                        "status" to "Active",
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                )
+                parseFirestoreBookingSnapshot(snap).copy(status = "Active")
+            }.await()
+            Result.success(updated)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (e !is IllegalStateException && e !is IllegalArgumentException) {
+                handleFirestoreError(e, OperationType.UPDATE, bookingRef.path)
+            }
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Atomically transition booking -> Completed and unlock the associated item if locked by this booking.
+     */
+    suspend fun completeBookingTransaction(bookingId: String): Result<FirestoreBooking> {
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val bookingRef = firestore.collection("bookings").document(bookingId)
+        return try {
+            val updated = firestore.runTransaction { tx ->
+                val bookingSnap = tx.get(bookingRef)
+                if (!bookingSnap.exists()) {
+                    throw IllegalArgumentException("Reservation not found.")
+                }
+                val hostId = bookingSnap.getString("hostId").orEmpty()
+                if (hostId != uid) {
+                    throw IllegalStateException("Only the host can mark gear returned.")
+                }
+                val status = bookingSnap.getString("status").orEmpty()
+                if (status.equals("Cancelled", ignoreCase = true)) {
+                    throw IllegalStateException("Cancelled bookings cannot be completed.")
+                }
+                if (status.equals("Completed", ignoreCase = true)) {
+                    return@runTransaction parseFirestoreBookingSnapshot(bookingSnap)
+                }
+                val itemId = bookingSnap.getString("itemId").orEmpty()
+                val itemSnap = if (itemId.isNotBlank()) tx.get(firestore.collection("items").document(itemId)) else null
+
+                tx.update(
+                    bookingRef,
+                    mapOf(
+                        "status" to "Completed",
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                )
+                if (itemSnap != null && itemSnap.exists() && itemSnap.getString("activeBookingId") == bookingId) {
+                    tx.update(
+                        itemSnap.reference,
+                        mapOf<String, Any?>(
+                            "availableToday" to true,
+                            "activeBookingId" to null,
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    )
+                }
+                parseFirestoreBookingSnapshot(bookingSnap).copy(status = "Completed")
+            }.await()
+            Result.success(updated)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (e !is IllegalStateException && e !is IllegalArgumentException) {
+                handleFirestoreError(e, OperationType.UPDATE, bookingRef.path)
+            }
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Atomically cancel a Confirmed booking and unlock the item if locked by this booking.
+     */
+    suspend fun cancelBookingTransaction(bookingId: String): Result<FirestoreBooking> {
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val bookingRef = firestore.collection("bookings").document(bookingId)
+        return try {
+            val updated = firestore.runTransaction { tx ->
+                val bookingSnap = tx.get(bookingRef)
+                if (!bookingSnap.exists()) {
+                    throw IllegalArgumentException("Reservation not found.")
+                }
+                val hostId = bookingSnap.getString("hostId").orEmpty()
+                val renterId = bookingSnap.getString("renterId").orEmpty()
+                if (uid != hostId && uid != renterId) {
+                    throw IllegalStateException("Only reservation participants can cancel.")
+                }
+                val status = bookingSnap.getString("status").orEmpty()
+                if (!status.equals("Confirmed", ignoreCase = true)) {
+                    throw IllegalStateException("Only Confirmed bookings can be cancelled.")
+                }
+                val itemId = bookingSnap.getString("itemId").orEmpty()
+                val itemSnap = if (itemId.isNotBlank()) tx.get(firestore.collection("items").document(itemId)) else null
+
+                tx.update(
+                    bookingRef,
+                    mapOf(
+                        "status" to "Cancelled",
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                )
+                if (itemSnap != null && itemSnap.exists() && itemSnap.getString("activeBookingId") == bookingId) {
+                    tx.update(
+                        itemSnap.reference,
+                        mapOf<String, Any?>(
+                            "availableToday" to true,
+                            "activeBookingId" to null,
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    )
+                }
+                parseFirestoreBookingSnapshot(bookingSnap).copy(status = "Cancelled")
+            }.await()
+            Result.success(updated)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (e !is IllegalStateException && e !is IllegalArgumentException) {
+                handleFirestoreError(e, OperationType.UPDATE, bookingRef.path)
+            }
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Atomically submit a renter review on a Completed booking and update the item's aggregate rating.
+     */
+    suspend fun submitBookingReviewTransaction(
+        bookingId: String,
+        rating: Int,
+        comment: String
+    ): Result<Pair<Float, Int>> {
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val bookingRef = firestore.collection("bookings").document(bookingId)
+        val clamped = rating.coerceIn(1, 5)
+        val cleanedComment = comment.trim().take(1000)
+        return try {
+            val resultPair = firestore.runTransaction { tx ->
+                val bookingSnap = tx.get(bookingRef)
+                if (!bookingSnap.exists()) {
+                    throw IllegalArgumentException("Reservation not found.")
+                }
+                val renterId = bookingSnap.getString("renterId").orEmpty()
+                if (renterId != uid) {
+                    throw IllegalStateException("Only the borrower can review this rental.")
+                }
+                val status = bookingSnap.getString("status").orEmpty()
+                if (!status.equals("Completed", ignoreCase = true)) {
+                    throw IllegalStateException("Complete the rental before leaving a review.")
+                }
+                if (bookingSnap.getBoolean("isReviewed") == true) {
+                    throw IllegalStateException("You have already reviewed this rental.")
+                }
+                val itemId = bookingSnap.getString("itemId").orEmpty()
+                val itemSnap = if (itemId.isNotBlank()) tx.get(firestore.collection("items").document(itemId)) else null
+
+                tx.update(
+                    bookingRef,
+                    mapOf(
+                        "isReviewed" to true,
+                        "ratingGiven" to clamped,
+                        "reviewComment" to cleanedComment,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                )
+
+                if (itemSnap != null && itemSnap.exists()) {
+                    val oldCount = itemSnap.getLong("reviewCount")?.toInt() ?: 0
+                    val oldRating = itemSnap.getDouble("rating") ?: 0.0
+                    val newCount = oldCount + 1
+                    val newAvg = ((oldRating * oldCount) + clamped) / newCount.toDouble()
+                    val roundedAvg = kotlin.math.round(newAvg * 10.0) / 10.0
+
+                    tx.update(
+                        itemSnap.reference,
+                        mapOf(
+                            "rating" to roundedAvg,
+                            "reviewCount" to newCount,
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    )
+                    roundedAvg.toFloat() to newCount
+                } else {
+                    clamped.toFloat() to 1
+                }
+            }.await()
+            Result.success(resultPair)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (e !is IllegalStateException && e !is IllegalArgumentException) {
+                handleFirestoreError(e, OperationType.UPDATE, bookingRef.path)
+            }
+            Result.failure(e)
+        }
+    }
+
+    private fun parseFirestoreBookingSnapshot(doc: DocumentSnapshot): FirestoreBooking {
+        return FirestoreBooking(
+            id = doc.id,
+            renterId = doc.getString("renterId") ?: "",
+            renterName = doc.getString("renterName") ?: "",
+            hostId = doc.getString("hostId") ?: "",
+            hostName = doc.getString("hostName") ?: "",
+            itemId = doc.getString("itemId") ?: "",
+            itemTitle = doc.getString("itemTitle") ?: "Gear Rental",
+            startDate = doc.getString("startDate") ?: "",
+            endDate = doc.getString("endDate") ?: "",
+            daysCount = doc.getLong("daysCount")?.toInt() ?: 1,
+            pricePerDay = doc.getLong("pricePerDay")?.toInt() ?: 0,
+            totalAmount = doc.getLong("totalAmount")?.toInt() ?: 0,
+            status = doc.getString("status") ?: "Confirmed",
+            deliveryOption = doc.getString("deliveryOption") ?: "Self Pickup",
+            handoverOtp = doc.getString("handoverOtp") ?: "",
+            isReviewed = doc.getBoolean("isReviewed") ?: false,
+            ratingGiven = doc.getLong("ratingGiven")?.toInt() ?: 0,
+            reviewComment = doc.getString("reviewComment") ?: ""
+        )
+    }
+
+    /**
      * Create a rental booking (/bookings/{bookingId})
      */
     suspend fun createBooking(booking: FirestoreBooking): Result<FirestoreBooking> {
@@ -1016,6 +1608,9 @@ class FirestoreService(
         } catch (e: Exception) {
             return Result.failure(e)
         }
+        if (booking.hostId.isBlank() || booking.hostId == uid) {
+            return Result.failure(IllegalStateException("You cannot book your own listing."))
+        }
         val docRef = firestore.collection("bookings").document(booking.id)
         return try {
             val renterName = booking.renterName.ifBlank { auth.currentUser?.displayName ?: "Renter" }
@@ -1023,7 +1618,7 @@ class FirestoreService(
                 "id" to booking.id,
                 "renterId" to uid,
                 "renterName" to renterName,
-                "hostId" to booking.hostId.ifBlank { uid },
+                "hostId" to booking.hostId,
                 "hostName" to booking.hostName,
                 "itemId" to booking.itemId,
                 "itemTitle" to booking.itemTitle,
@@ -1035,6 +1630,9 @@ class FirestoreService(
                 "status" to booking.status,
                 "deliveryOption" to booking.deliveryOption,
                 "handoverOtp" to booking.handoverOtp,
+                "isReviewed" to booking.isReviewed,
+                "ratingGiven" to booking.ratingGiven,
+                "reviewComment" to booking.reviewComment,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
@@ -1055,6 +1653,30 @@ class FirestoreService(
             docRef.update(
                 mapOf(
                     "status" to newStatus,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitBookingReview(
+        bookingId: String,
+        rating: Int,
+        comment: String
+    ): Result<Unit> {
+        val docRef = firestore.collection("bookings").document(bookingId)
+        return try {
+            docRef.update(
+                mapOf(
+                    "isReviewed" to true,
+                    "ratingGiven" to rating.coerceIn(1, 5),
+                    "reviewComment" to comment.trim().take(1000),
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
             ).await()
@@ -1108,6 +1730,14 @@ class FirestoreService(
             handleFirestoreError(e, OperationType.LIST, "items|community_posts")
             Result.failure(e)
         }
+    }
+
+    private fun computeInitials(name: String): String {
+        return name.trim().split(" ")
+            .filter { it.isNotBlank() }
+            .take(2)
+            .joinToString("") { it.take(1).uppercase() }
+            .ifBlank { "U" }
     }
 
     private fun imageResForCategory(category: RentalCategory): Int {

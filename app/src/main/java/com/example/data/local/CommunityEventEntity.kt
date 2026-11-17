@@ -16,6 +16,7 @@ data class CommunityEventEntity(
     val location: String,
     val dateTime: String,
     val attendeesOrResponses: String,
+    val attendeeIdsCsv: String = "",
     val status: String = "ACTIVE",
     val createdAt: String = "",
     val categoryName: String = "CREATIVE_PHOTO",
@@ -38,6 +39,7 @@ fun CommunityEventEntity.toUserCommunityPost(): UserCommunityPost {
     } catch (e: Exception) {
         CommunityPostStatus.ACTIVE
     }
+    val parsedAttendees = attendeeIdsCsv.split("|").map { it.trim() }.filter { it.isNotBlank() }
     return UserCommunityPost(
         id = id,
         title = title,
@@ -46,6 +48,7 @@ fun CommunityEventEntity.toUserCommunityPost(): UserCommunityPost {
         location = location,
         dateTime = dateTime,
         attendeesOrResponses = attendeesOrResponses,
+        attendeeIds = parsedAttendees,
         status = postStatus,
         createdAt = createdAt,
         categoryName = categoryName,
@@ -66,6 +69,7 @@ fun UserCommunityPost.toEntity(isSynced: Boolean = true): CommunityEventEntity {
         location = location,
         dateTime = dateTime,
         attendeesOrResponses = attendeesOrResponses,
+        attendeeIdsCsv = attendeeIds.filter { it.isNotBlank() }.distinct().joinToString("|"),
         status = status.name,
         createdAt = createdAt,
         categoryName = categoryName,

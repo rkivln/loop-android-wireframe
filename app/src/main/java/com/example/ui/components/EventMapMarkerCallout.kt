@@ -33,7 +33,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.text.style.TextOverflow
 import com.example.data.models.CommunityEvent
+import com.example.data.models.CommunityPostStatus
+import com.example.data.models.DiscoveryPinItem
+import com.example.data.models.DiscoveryPinType
 
 @Composable
 fun EventMapMarkerCallout(
@@ -203,15 +211,26 @@ fun EventMapMarkerCallout(
     }
 }
 
+
 @Composable
 fun EventMapMarkerCallout(
-    pin: com.example.data.models.DiscoveryPinItem,
+    pin: DiscoveryPinItem,
+    currentUserId: String = "",
     onDirectionsClick: () -> Unit = {},
     onRsvpClick: () -> Unit = {},
     onViewDetailsClick: () -> Unit = {},
+    onMessageOwnerOrOrganizerClick: () -> Unit = {},
     onDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val isRentalPin = pin.type == DiscoveryPinType.RENTAL_ITEM || pin.rentalItem != null
+    val isCommunityPin = pin.type == DiscoveryPinType.COMMUNITY_EVENT ||
+        pin.type == DiscoveryPinType.HELP_REQUEST ||
+        pin.type == DiscoveryPinType.STUDY_GROUP
+    val isOwnRental = pin.rentalItem?.owner?.id?.let { it.isNotBlank() && it == currentUserId } == true
+    val isOwnCommunityPost = pin.communityPost?.authorId?.let { it.isNotBlank() && it == currentUserId } == true
+    val isResolvedPost = pin.communityPost?.status == CommunityPostStatus.COMPLETED
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
@@ -229,33 +248,102 @@ fun EventMapMarkerCallout(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = pin.tag.ifBlank { pin.type.name },
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = pin.distance,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = pin.tag.ifBlank { pin.type.name }.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (isOwnRental || isOwnCommunityPost) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (isOwnRental) "YOUR LISTING" else "YOUR POST",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    } else if (pin.dateOrAvailability.isNotBlank()) {
+                        val isUnavailable = pin.dateOrAvailability.equals("Booked", ignoreCase = true) ||
+                            pin.dateOrAvailability.equals("Paused", ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(
+                                    if (isUnavailable) MaterialTheme.colorScheme.errorContainer
+                                    else MaterialTheme.colorScheme.primaryContainer
+                                )
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = pin.dateOrAvailability,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 10.sp),
+                                color = if (isUnavailable) MaterialTheme.colorScheme.onErrorContainer
+                                else MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("callout_dismiss_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close marker details",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
 
             Text(
                 text = pin.title,
                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp),
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = pin.description.ifBlank { pin.subtitle },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            val metaLine = listOfNotNull(
+                pin.priceOrAttendees.takeIf { it.isNotBlank() },
+                pin.distance.takeIf { it.isNotBlank() }
+            ).joinToString(" · ")
+            if (metaLine.isNotBlank()) {
+                Text(
+                    text = metaLine,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            if (pin.description.isNotBlank() || pin.subtitle.isNotBlank()) {
+                Text(
+                    text = pin.description.ifBlank { pin.subtitle },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -263,17 +351,91 @@ fun EventMapMarkerCallout(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
+                OutlinedButton(
                     onClick = onDirectionsClick,
-                    modifier = Modifier.weight(1f)
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("callout_directions_btn")
                 ) {
-                    Text("Directions")
+                    Text("Directions", maxLines = 1)
                 }
-                Button(
-                    onClick = onRsvpClick,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(if (pin.isAttending) "Attending ✓" else "RSVP")
+
+                when {
+                    isRentalPin -> {
+                        Button(
+                            onClick = onViewDetailsClick,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("callout_view_piece_btn")
+                        ) {
+                            Text(if (isOwnRental) "Manage" else "View Piece", maxLines = 1)
+                        }
+                        if (!isOwnRental && pin.rentalItem?.owner?.id?.isNotBlank() == true) {
+                            OutlinedButton(
+                                onClick = onMessageOwnerOrOrganizerClick,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("callout_message_host_btn")
+                            ) {
+                                Text("Message", maxLines = 1)
+                            }
+                        }
+                    }
+                    isCommunityPin -> {
+                        if (!isOwnCommunityPost && !isResolvedPost) {
+                            Button(
+                                onClick = onRsvpClick,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("callout_rsvp_btn")
+                            ) {
+                                Text(if (pin.isAttending) "Attending ✓" else "RSVP", maxLines = 1)
+                            }
+                            if (pin.communityPost?.authorId?.isNotBlank() == true) {
+                                OutlinedButton(
+                                    onClick = onMessageOwnerOrOrganizerClick,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 48.dp)
+                                        .testTag("callout_message_organizer_btn")
+                                ) {
+                                    Text("Message", maxLines = 1)
+                                }
+                            }
+                        } else {
+                            Button(
+                                onClick = onDismiss,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                            ) {
+                                Text(if (isResolvedPost) "Resolved" else "Close", maxLines = 1)
+                            }
+                        }
+                    }
+                    else -> {
+                        if (pin.owner != null && pin.owner.id.isNotBlank() && pin.owner.id != currentUserId) {
+                            Button(
+                                onClick = onMessageOwnerOrOrganizerClick,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                            ) {
+                                Text("Message Host", maxLines = 1)
+                            }
+                        }
+                    }
                 }
             }
         }

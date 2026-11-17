@@ -286,6 +286,18 @@ object PhotoBitmapProcessor {
         }
     }
 
+    fun prepareBitmapForAi(bitmap: Bitmap, maxEdge: Int = 640): Bitmap {
+        val softwareBitmap = if (
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+            bitmap.config == Bitmap.Config.HARDWARE
+        ) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: bitmap
+        } else {
+            bitmap
+        }
+        return scaleDownToMaxEdge(softwareBitmap, maxEdge)
+    }
+
     private fun scaleDownToMaxEdge(bitmap: Bitmap, maxEdge: Int): Bitmap {
         val w = bitmap.width
         val h = bitmap.height

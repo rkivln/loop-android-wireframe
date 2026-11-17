@@ -50,8 +50,15 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         }
         assertEquals("Alice Puducherry", observed.displayName)
 
-        // Cross-user write by Bob must fail with PERMISSION_DENIED
+        // Cross-user read by Bob must succeed for member profile cards (displayName, bio, location, badges, rating)
         signInTestUser(BOB_EMAIL)
+        val fetchedByBobRes = withTimeout(DEFAULT_TIMEOUT_MS) { service.getUserProfileOnce(aliceUid) }
+        assertTrue("Bob reading Alice's profile card failed: ${fetchedByBobRes.exceptionOrNull()}", fetchedByBobRes.isSuccess)
+        val fetchedByBob = fetchedByBobRes.getOrNull()
+        assertEquals("Alice Puducherry", fetchedByBob?.displayName)
+        assertEquals("White Town", fetchedByBob?.location)
+
+        // Cross-user write by Bob must fail with PERMISSION_DENIED
         var denied = false
         try {
             withTimeout(DEFAULT_TIMEOUT_MS) {
@@ -354,6 +361,259 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
             }
         }
         assertTrue("Third-party reading booking must fail with PERMISSION_DENIED", charlieDenied)
+    }
+
+    @Test
+    fun interconnectedFlows_itemBookingLockReviewAndRsvp_enforced() = runBlocking {
+        val bobUid = signInTestUser(BOB_EMAIL)
+        val bobService = FirestoreService(firestore)
+        val uniqueItemId = "item_${UUID.randomUUID()}"
+        val bobItem = RentalItem(
+            id = uniqueItemId,
+            title = "Bob Studio Mic",
+            category = RentalCategory.ELECTRONICS,
+            pricePerDay = 400,
+            location = "White Town",
+            rating = 0f,
+            reviewCount = 0,
+            description = "Studio microphone",
+            features = emptyList(),
+            owner = RentalOwner(id = bobUid, name = "Bob Host", initials = "BH"),
+            availableToday = true
+        )
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { bobService.createListing(bobItem) }.isSuccess)
+
+        val uniquePostId = "post_${UUID.randomUUID()}"
+        val bobPost = UserCommunityPost(
+            id = uniquePostId,
+            title = "Audio Meetup",
+            type = CommunityPostType.EVENT,
+            description = "Bring field recorders.",
+            location = "Rock Beach",
+            dateTime = "Sunday 7 AM",
+            attendeesOrResponses = "1 attending",
+            authorId = bobUid,
+            authorName = "Bob Host",
+            status = CommunityPostStatus.ACTIVE
+        )
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { bobService.createCommunityPost(bobPost) }.isSuccess)
+
+        // Sign in as Alice (borrower + attendee)
+        val aliceUid = signInTestUser(ALICE_EMAIL)
+        val aliceService = FirestoreService(firestore)
+
+        // Self-conversation & self-booking rejected by rules
+        val selfConvRes = withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceService.createOrGetConversation(
+                host = RentalOwner(id = aliceUid, name = "Alice", initials = "A"),
+                customConversationId = "conv_self_${UUID.randomUUID()}"
+            )
+        }
+        assertTrue("Self-conversation must be rejected", selfConvRes.isFailure)
+
+        val selfBookingRes = withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceService.createBooking(
+                FirestoreBooking(
+                    id = "book_self_${UUID.randomUUID()}",
+                    renterId = aliceUid,
+                    hostId = aliceUid,
+                    itemId = uniqueItemId,
+                    totalAmount = 450,
+                    status = "Confirmed",
+                    handoverOtp = "1111"
+                )
+            )
+        }
+        assertTrue("Self-booking must be rejected", selfBookingRes.isFailure)
+
+        // Alice creates valid booking and locks Bob's item
+        val bookingId = "book_${UUID.randomUUID()}"
+        val bookRes = withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceService.createBooking(
+                FirestoreBooking(
+                    id = bookingId,
+                    renterId = aliceUid,
+                    renterName = "Alice",
+                    hostId = bobUid,
+                    hostName = "Bob Host",
+                    itemId = uniqueItemId,
+                    itemTitle = bobItem.title,
+                    totalAmount = 450,
+                    status = "Confirmed",
+                    handoverOtp = "7392"
+                )
+            )
+        }
+        assertTrue("Valid booking must succeed", bookRes.isSuccess)
+        val lockRes = withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceService.setItemBookingLock(uniqueItemId, availableToday = false, activeBookingId = bookingId)
+        }
+        assertTrue("Renter locking item failed: ${lockRes.exceptionOrNull()}", lockRes.isSuccess)
+
+        // Alice RSVPs to Bob's post
+        val rsvpRes = withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceService.updateCommunityPostRsvp(uniquePostId, "1 creator attending", listOf(aliceUid))
+        }
+        assertTrue("Alice RSVP failed: ${rsvpRes.exceptionOrNull()}", rsvpRes.isSuccess)
+
+        // Host verifies handover (Active), completes (Completed), unlocks item
+        signInTestUser(BOB_EMAIL)
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { bobService.updateBookingStatus(bookingId, "Active") }.isSuccess)
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { bobService.updateBookingStatus(bookingId, "Completed") }.isSuccess)
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { bobService.setItemBookingLock(uniqueItemId, availableToday = true, activeBookingId = null) }.isSuccess)
+
+        // Borrower submits review & updates item rating
+        signInTestUser(ALICE_EMAIL)
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { aliceService.submitBookingReview(bookingId, 5, "Great mic!") }.isSuccess)
+        val ratingRes = withTimeout(DEFAULT_TIMEOUT_MS) { aliceService.applyItemRatingReview(uniqueItemId, 5) }
+        assertTrue("Rating update failed: ${ratingRes.exceptionOrNull()}", ratingRes.isSuccess)
+        assertEquals(5.0f, ratingRes.getOrThrow().first)
+        assertEquals(1, ratingRes.getOrThrow().second)
+    }
+
+    @Test
+    fun atomicBookingLifecycleTransactions_createVerifyCompleteCancelAndReview_enforced() = runBlocking {
+        val bobUid = signInTestUser(BOB_EMAIL)
+        val bobService = FirestoreService(firestore)
+        val itemId = "item_tx_${UUID.randomUUID()}"
+        val item = RentalItem(
+            id = itemId,
+            title = "Transactional FX3 Kit",
+            category = RentalCategory.ELECTRONICS,
+            pricePerDay = 900,
+            location = "Auroville",
+            rating = 0f,
+            reviewCount = 0,
+            description = "Cinema camera body",
+            features = emptyList(),
+            owner = RentalOwner(id = bobUid, name = "Bob Host", initials = "BH"),
+            availableToday = true
+        )
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { bobService.createListing(item) }.isSuccess)
+
+        // 1. Alice atomically creates booking + locks item
+        val aliceUid = signInTestUser(ALICE_EMAIL)
+        val aliceService = FirestoreService(firestore)
+        val bookingId = "book_tx_${UUID.randomUUID()}"
+        val createTx = withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceService.createBookingTransaction(
+                FirestoreBooking(
+                    id = bookingId,
+                    renterId = aliceUid,
+                    renterName = "Alice",
+                    hostId = bobUid,
+                    hostName = "Bob Host",
+                    itemId = itemId,
+                    itemTitle = item.title,
+                    startDate = "Nov 18, 2026",
+                    endDate = "Nov 20, 2026",
+                    daysCount = 2,
+                    pricePerDay = 900,
+                    totalAmount = 1850,
+                    status = "Confirmed",
+                    handoverOtp = "8426"
+                )
+            )
+        }
+        assertTrue("Atomic booking tx failed: ${createTx.exceptionOrNull()}", createTx.isSuccess)
+
+        // Item must be locked to bookingId
+        val lockedSnap = withTimeout(DEFAULT_TIMEOUT_MS) {
+            firestore.collection("items").document(itemId).get().await()
+        }
+        assertEquals(false, lockedSnap.getBoolean("availableToday"))
+        assertEquals(bookingId, lockedSnap.getString("activeBookingId"))
+
+        // 2. Concurrent borrower Charlie must fail double-booking transaction
+        val charlieUid = signInTestUser(CHARLIE_EMAIL)
+        val charlieService = FirestoreService(firestore)
+        val concurrentTx = withTimeout(DEFAULT_TIMEOUT_MS) {
+            charlieService.createBookingTransaction(
+                FirestoreBooking(
+                    id = "book_race_${UUID.randomUUID()}",
+                    renterId = charlieUid,
+                    renterName = "Charlie",
+                    hostId = bobUid,
+                    hostName = "Bob Host",
+                    itemId = itemId,
+                    itemTitle = item.title,
+                    totalAmount = 950,
+                    status = "Confirmed",
+                    handoverOtp = "1234"
+                )
+            )
+        }
+        assertTrue("Concurrent booking on locked item must fail", concurrentTx.isFailure)
+
+        // 3. Host Bob verifies wrong PIN (fails), then right PIN (succeeds -> Active)
+        signInTestUser(BOB_EMAIL)
+        val wrongPinTx = withTimeout(DEFAULT_TIMEOUT_MS) {
+            bobService.verifyHandoverPinTransaction(bookingId, "0000")
+        }
+        assertTrue("Wrong PIN must fail", wrongPinTx.isFailure)
+
+        val rightPinTx = withTimeout(DEFAULT_TIMEOUT_MS) {
+            bobService.verifyHandoverPinTransaction(bookingId, "8426")
+        }
+        assertTrue("Valid PIN verification failed: ${rightPinTx.exceptionOrNull()}", rightPinTx.isSuccess)
+        assertEquals("Active", rightPinTx.getOrThrow().status)
+
+        // 4. Host Bob completes booking -> status Completed + item unlocked
+        val completeTx = withTimeout(DEFAULT_TIMEOUT_MS) {
+            bobService.completeBookingTransaction(bookingId)
+        }
+        assertTrue("Complete booking tx failed: ${completeTx.exceptionOrNull()}", completeTx.isSuccess)
+        val unlockedSnap = withTimeout(DEFAULT_TIMEOUT_MS) {
+            firestore.collection("items").document(itemId).get().await()
+        }
+        assertEquals(true, unlockedSnap.getBoolean("availableToday"))
+        assertEquals(null, unlockedSnap.getString("activeBookingId"))
+
+        // 5. Alice reviews transactionally (sets isReviewed + updates item rating) and cannot review twice
+        signInTestUser(ALICE_EMAIL)
+        val reviewTx = withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceService.submitBookingReviewTransaction(bookingId, 5, "Spotless kit")
+        }
+        assertTrue("Atomic review failed: ${reviewTx.exceptionOrNull()}", reviewTx.isSuccess)
+        assertEquals(5.0f, reviewTx.getOrThrow().first)
+        assertEquals(1, reviewTx.getOrThrow().second)
+
+        val duplicateReviewTx = withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceService.submitBookingReviewTransaction(bookingId, 4, "Second try")
+        }
+        assertTrue("Duplicate review must be rejected", duplicateReviewTx.isFailure)
+
+        // 6. Charlie books unlocked item and cancels -> unlocks item cleanly
+        signInTestUser(CHARLIE_EMAIL)
+        val charlieBookId = "book_cancel_${UUID.randomUUID()}"
+        assertTrue(
+            withTimeout(DEFAULT_TIMEOUT_MS) {
+                charlieService.createBookingTransaction(
+                    FirestoreBooking(
+                        id = charlieBookId,
+                        renterId = charlieUid,
+                        renterName = "Charlie",
+                        hostId = bobUid,
+                        hostName = "Bob Host",
+                        itemId = itemId,
+                        itemTitle = item.title,
+                        totalAmount = 950,
+                        status = "Confirmed",
+                        handoverOtp = "5555"
+                    )
+                )
+            }.isSuccess
+        )
+        val cancelTx = withTimeout(DEFAULT_TIMEOUT_MS) {
+            charlieService.cancelBookingTransaction(charlieBookId)
+        }
+        assertTrue("Cancel tx failed: ${cancelTx.exceptionOrNull()}", cancelTx.isSuccess)
+        assertEquals("Cancelled", cancelTx.getOrThrow().status)
+        val postCancelSnap = withTimeout(DEFAULT_TIMEOUT_MS) {
+            firestore.collection("items").document(itemId).get().await()
+        }
+        assertEquals(true, postCancelSnap.getBoolean("availableToday"))
+        assertEquals(null, postCancelSnap.getString("activeBookingId"))
     }
 
     private companion object {

@@ -90,6 +90,7 @@ data class UserCommunityPost(
     val location: String,
     val dateTime: String,
     val attendeesOrResponses: String,
+    val attendeeIds: List<String> = emptyList(),
     val status: CommunityPostStatus = CommunityPostStatus.ACTIVE,
     val createdAt: String = "",
     val categoryName: String = "CREATIVE_PHOTO",

@@ -93,6 +93,7 @@ import com.example.data.models.DiscoveryPinType
 import com.example.data.models.MapCategoryFilter
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
+import com.example.data.models.UserCommunityPost
 import com.example.ui.components.CommunityActivityMap
 import com.example.ui.components.EventMapMarkerCallout
 import com.example.ui.components.MapLibreGLMapView
@@ -140,12 +141,15 @@ fun DiscoveryMapScreen(
     onBackToCatalog: () -> Unit,
     onItemClick: (RentalItem) -> Unit,
     onContactOwner: (RentalOwner) -> Unit,
+    onContactHostWithItem: (RentalOwner, RentalItem?) -> Unit = { owner, _ -> onContactOwner(owner) },
+    onMessageOrganizer: (UserCommunityPost) -> Unit = {},
     onPublishPiece: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val allPins by RentalRepository.discoveryPinsFlow.collectAsStateWithLifecycle()
+    val userProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
 
     var selectedCategoryFilter by remember { mutableStateOf(MapCategoryFilter.ALL) }
     var selectedPin by remember { mutableStateOf<DiscoveryPinItem?>(null) }
@@ -300,6 +304,7 @@ fun DiscoveryMapScreen(
                 CommunityActivityMap(
                     modifier = Modifier.fillMaxSize(),
                     activityPoints = filteredPins,
+                    currentUserId = userProfile.uid,
                     initialCenter = liveLatLng,
                     onPointSelected = { pin ->
                         selectedPin = pin
@@ -311,10 +316,25 @@ fun DiscoveryMapScreen(
                         }
                     },
                     onDirectionsClick = { pin ->
-                        selectedPin = pin
+                        LocationHelper.openNavigationIntent(
+                            context = context,
+                            latitude = pin.latitude,
+                            longitude = pin.longitude,
+                            label = pin.title
+                        )
                     },
                     onRsvpClick = { pin ->
-                        selectedPin = pin
+                        RentalRepository.rsvpToCommunityPost(pin.id)
+                    },
+                    onViewDetailsClick = { pin ->
+                        pin.rentalItem?.let(onItemClick)
+                    },
+                    onMessageOwnerOrOrganizerClick = { pin ->
+                        when {
+                            pin.rentalItem != null -> onContactHostWithItem(pin.rentalItem.owner, pin.rentalItem)
+                            pin.communityPost != null -> onMessageOrganizer(pin.communityPost)
+                            pin.owner != null -> onContactOwner(pin.owner)
+                        }
                     },
                     onRecenterMissingGps = {
                         if (LocationHelper.hasLocationPermission(context)) {
@@ -779,6 +799,7 @@ fun DiscoveryMapScreen(
         }
 
         // Bottom Discovery Marker Callout & Carousel Drawer for MapLibre & Canvas modes
+        val liveSelectedPin = selectedPin?.let { sel -> filteredPins.find { it.id == sel.id } ?: sel }
         if (mapMode != MapEngineMode.GOOGLE_MAP && filteredPins.isNotEmpty()) {
             Column(
                 modifier = Modifier
@@ -789,13 +810,14 @@ fun DiscoveryMapScreen(
             ) {
                 // Reusable UI Component that appears when a user clicks a map marker
                 AnimatedVisibility(
-                    visible = selectedPin != null,
+                    visible = liveSelectedPin != null,
                     enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut()
                 ) {
-                    selectedPin?.let { pin ->
+                    liveSelectedPin?.let { pin ->
                         EventMapMarkerCallout(
                             pin = pin,
+                            currentUserId = userProfile.uid,
                             onDirectionsClick = {
                                 LocationHelper.openNavigationIntent(
                                     context = context,
@@ -814,6 +836,13 @@ fun DiscoveryMapScreen(
                                     onContactOwner(pin.owner)
                                 }
                             },
+                            onMessageOwnerOrOrganizerClick = {
+                                when {
+                                    pin.rentalItem != null -> onContactHostWithItem(pin.rentalItem.owner, pin.rentalItem)
+                                    pin.communityPost != null -> onMessageOrganizer(pin.communityPost)
+                                    pin.owner != null -> onContactOwner(pin.owner)
+                                }
+                            },
                             onDismiss = {
                                 selectedPin = null
                             }
@@ -822,7 +851,7 @@ fun DiscoveryMapScreen(
                 }
 
                 // Compact Marker Carousel when callout is dismissed or to quickly switch markers
-                AnimatedVisibility(visible = selectedPin == null) {
+                AnimatedVisibility(visible = liveSelectedPin == null) {
                     LazyRow(
                         state = carouselState,
                         modifier = Modifier.fillMaxWidth(),

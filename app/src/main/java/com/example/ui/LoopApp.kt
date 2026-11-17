@@ -6,10 +6,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,8 +22,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
@@ -28,6 +33,7 @@ import com.example.data.ThemePreferencesStore
 import com.example.data.models.AppearanceMode
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
+import com.example.data.models.UserCommunityPost
 import com.example.location.LocationAccessState
 import com.example.location.LocationPermissionManager
 import com.example.ui.auth.AuthManager
@@ -127,12 +133,27 @@ fun LoopMainContent(
     val locationPermissionManager = remember { LocationPermissionManager(context) }
     val locationAccessState by locationPermissionManager.accessState.collectAsStateWithLifecycle()
     val conversations by RentalRepository.conversationsFlow.collectAsStateWithLifecycle()
+    val syncAlert by RentalRepository.syncAlertFlow.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showPermissionDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentUserId) {
         RentalRepository.startSession(context, currentUserId)
+    }
+
+    LaunchedEffect(syncAlert?.id) {
+        val alert = syncAlert ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = alert.message,
+            actionLabel = alert.retryLabel,
+            withDismissAction = true,
+            duration = if (alert.onRetry != null) SnackbarDuration.Long else SnackbarDuration.Short
+        )
+        RentalRepository.clearSyncError()
+        if (result == SnackbarResult.ActionPerformed) {
+            alert.onRetry?.invoke()
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -157,8 +178,12 @@ fun LoopMainContent(
     var currentTab by remember { mutableStateOf(LoopTab.CATALOG) }
     var openExploreInMapMode by remember { mutableStateOf(false) }
     var activeConversationId by remember { mutableStateOf<String?>(null) }
+    var openBookingsOnProfile by remember { mutableStateOf(false) }
+    var openCreatePostOnProfile by remember { mutableStateOf(false) }
 
-    val unreadCount = conversations.sumOf { it.unreadCount }
+    val unreadCount = conversations
+        .filter { it.lastSenderId != currentUserId }
+        .sumOf { it.unreadCount }
 
     val openConversationWithHost: (RentalOwner, RentalItem?) -> Unit = { owner, item ->
         coroutineScope.launch {
@@ -178,6 +203,24 @@ fun LoopMainContent(
         }
     }
 
+    val openConversationWithOrganizer: (UserCommunityPost) -> Unit = { post ->
+        coroutineScope.launch {
+            val result = RentalRepository.openConversationWithPostAuthor(post)
+            result.fold(
+                onSuccess = { conv ->
+                    activeConversationId = conv.id
+                    currentTab = LoopTab.STUDIO
+                    currentScreen = ScreenState.Main
+                },
+                onFailure = { error ->
+                    snackbarHostState.showSnackbar(
+                        error.localizedMessage ?: "Unable to message organizer."
+                    )
+                }
+            )
+        }
+    }
+
     val isFineLocationGranted = locationAccessState == LocationAccessState.GrantedFine
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -191,6 +234,9 @@ fun LoopMainContent(
                     },
                     onContactOwner = { owner, rentalItem ->
                         openConversationWithHost(owner, rentalItem)
+                    },
+                    onEditItem = { editItem ->
+                        currentScreen = ScreenState.EditListing(editItem, returnToSettings = false)
                     }
                 )
             }
@@ -198,7 +244,15 @@ fun LoopMainContent(
                 BookingScreen(
                     item = screen.item,
                     onBack = { currentScreen = ScreenState.ItemDetails(screen.item) },
-                    onBookingConfirmed = { currentScreen = ScreenState.Main }
+                    onBookingConfirmed = { currentScreen = ScreenState.Main },
+                    onViewBookings = {
+                        openBookingsOnProfile = true
+                        currentTab = LoopTab.PROFILE
+                        currentScreen = ScreenState.Main
+                    },
+                    onMessageHost = { owner, bookingItem ->
+                        openConversationWithHost(owner, bookingItem)
+                    }
                 )
             }
             is ScreenState.CreateListing -> {
@@ -218,14 +272,14 @@ fun LoopMainContent(
                         currentScreen = if (screen.returnToSettings) {
                             ScreenState.Settings(openMyPosts = true)
                         } else {
-                            ScreenState.Main
+                            ScreenState.ItemDetails(screen.item)
                         }
                     },
                     onListingUpdated = {
                         currentScreen = if (screen.returnToSettings) {
                             ScreenState.Settings(openMyPosts = true)
                         } else {
-                            ScreenState.Main
+                            ScreenState.ItemDetails(screen.item)
                         }
                     },
                     onListingDeleted = {
@@ -271,7 +325,6 @@ fun LoopMainContent(
             is ScreenState.Main -> {
                 Scaffold(
                     containerColor = PaperIvory,
-                    snackbarHost = { SnackbarHost(snackbarHostState) },
                     bottomBar = {
                         BottomNavBar(
                             currentTab = currentTab,
@@ -312,8 +365,10 @@ fun LoopMainContent(
                                     currentScreen = ScreenState.CreateListing
                                 },
                                 onCreateCommunityPostClick = {
+                                    openCreatePostOnProfile = true
                                     currentTab = LoopTab.PROFILE
                                 },
+                                onMessageOrganizer = openConversationWithOrganizer,
                                 isLocationGranted = isFineLocationGranted,
                                 modifier = Modifier.padding(innerPadding)
                             )
@@ -326,6 +381,10 @@ fun LoopMainContent(
                                 onContactOwner = { owner ->
                                     openConversationWithHost(owner, null)
                                 },
+                                onContactHostWithItem = { owner, rentalItem ->
+                                    openConversationWithHost(owner, rentalItem)
+                                },
+                                onMessageOrganizer = openConversationWithOrganizer,
                                 onBackToCatalog = {
                                     openExploreInMapMode = false
                                     currentTab = LoopTab.CATALOG
@@ -342,6 +401,9 @@ fun LoopMainContent(
                             MessagesScreen(
                                 initialConversationId = activeConversationId,
                                 onConversationSelected = { activeConversationId = it },
+                                onOpenItem = { item ->
+                                    currentScreen = ScreenState.ItemDetails(item)
+                                },
                                 modifier = Modifier.padding(innerPadding)
                             )
                         }
@@ -363,6 +425,16 @@ fun LoopMainContent(
                                         },
                                         scope = coroutineScope
                                     )
+                                },
+                                initialOpenBookings = openBookingsOnProfile,
+                                onBookingsSheetOpened = { openBookingsOnProfile = false },
+                                initialOpenCreatePost = openCreatePostOnProfile,
+                                onCreatePostOpened = { openCreatePostOnProfile = false },
+                                onOpenItem = { item ->
+                                    currentScreen = ScreenState.ItemDetails(item)
+                                },
+                                onMessageUser = { owner, rentalItem ->
+                                    openConversationWithHost(owner, rentalItem)
                                 },
                                 modifier = Modifier.padding(innerPadding)
                             )
@@ -413,5 +485,17 @@ fun LoopMainContent(
                 }
             )
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    bottom = if (currentScreen is ScreenState.Main) 80.dp else 16.dp
+                )
+        )
     }
 }

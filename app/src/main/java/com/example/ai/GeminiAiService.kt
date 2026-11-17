@@ -3,13 +3,18 @@ package com.example.ai
 import android.graphics.Bitmap
 import android.util.Log
 import com.example.data.models.RentalCategory
+import com.example.ui.components.PhotoBitmapProcessor
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.Schema
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.generationConfig
+import com.google.firebase.appcheck.FirebaseAppCheck
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 
@@ -65,23 +70,36 @@ data class AiListingDraft(
 
 sealed interface AiValuationUiState {
     data object Idle : AiValuationUiState
-    data object Loading : AiValuationUiState
+    data class Loading(
+        val statusMessage: String = "Appraising piece with Gemini AI..."
+    ) : AiValuationUiState
     data class Success(val valuation: AiGearValuation) : AiValuationUiState
     data class Error(val message: String) : AiValuationUiState
 }
 
 sealed interface AiPhotoAutoFillUiState {
     data object Idle : AiPhotoAutoFillUiState
-    data object Loading : AiPhotoAutoFillUiState
+    data class Loading(
+        val statusMessage: String = "Inspecting gear photos with Gemini..."
+    ) : AiPhotoAutoFillUiState
     data class Success(
         val draft: AiListingDraft,
-        val appliedAllFields: Boolean
+        val appliedAllFields: Boolean,
+        val modelUsed: String = GeminiAiService.PRIMARY_MODEL
     ) : AiPhotoAutoFillUiState
     data class Error(val message: String) : AiPhotoAutoFillUiState
 }
 
 object GeminiAiService {
     private const val TAG = "GeminiAiService"
+
+    const val PRIMARY_MODEL = "gemini-3.8-flash"
+    const val LITE_FALLBACK_MODEL = "gemini-3.5-flash-lite"
+
+    private const val PHOTO_PRIMARY_TIMEOUT_MS = 25_000L
+    private const val PHOTO_FALLBACK_TIMEOUT_MS = 30_000L
+    private const val VALUATION_PRIMARY_TIMEOUT_MS = 20_000L
+    private const val VALUATION_FALLBACK_TIMEOUT_MS = 25_000L
 
     private val valuationSchema = Schema.obj(
         properties = mapOf(
@@ -129,29 +147,191 @@ object GeminiAiService {
         )
     )
 
-    private val valuationModel by lazy {
+    private val valuationGenerationConfig = generationConfig {
+        responseMimeType = "application/json"
+        responseSchema = valuationSchema
+    }
+
+    private val listingGenerationConfig = generationConfig {
+        responseMimeType = "application/json"
+        responseSchema = listingDraftSchema
+    }
+
+    private val primaryValuationModel by lazy {
         Firebase.ai.generativeModel(
-            modelName = "gemini-3.8-flash",
-            generationConfig = generationConfig {
-                responseMimeType = "application/json"
-                responseSchema = valuationSchema
-            }
+            modelName = PRIMARY_MODEL,
+            generationConfig = valuationGenerationConfig
         )
     }
 
-    private val photoListingModel by lazy {
+    private val liteValuationModel by lazy {
         Firebase.ai.generativeModel(
-            modelName = "gemini-3.8-flash",
-            generationConfig = generationConfig {
-                responseMimeType = "application/json"
-                responseSchema = listingDraftSchema
+            modelName = LITE_FALLBACK_MODEL,
+            generationConfig = valuationGenerationConfig
+        )
+    }
+
+    private val primaryPhotoListingModel by lazy {
+        Firebase.ai.generativeModel(
+            modelName = PRIMARY_MODEL,
+            generationConfig = listingGenerationConfig
+        )
+    }
+
+    private val litePhotoListingModel by lazy {
+        Firebase.ai.generativeModel(
+            modelName = LITE_FALLBACK_MODEL,
+            generationConfig = listingGenerationConfig
+        )
+    }
+
+    internal fun isTokenOrAppCheckError(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            val msg = current.message.orEmpty().lowercase()
+            if (
+                msg.contains("app check") ||
+                msg.contains("appcheck") ||
+                msg.contains("attestation") ||
+                msg.contains("firebase token") ||
+                msg.contains("token error") ||
+                msg.contains("403") ||
+                msg.contains("unauthenticated") ||
+                msg.contains("permission_denied")
+            ) {
+                return true
             }
+            current = current.cause
+        }
+        return false
+    }
+
+    internal fun formatFriendlyError(error: Throwable, isPhoto: Boolean): String {
+        if (error is TimeoutCancellationException) {
+            return if (isPhoto) {
+                "Photo analysis timed out on both primary and Gemini Lite models. Check your network connection and try again."
+            } else {
+                "AI appraisal timed out on both primary and Gemini Lite models. Check your network connection and try again."
+            }
+        }
+        if (isTokenOrAppCheckError(error)) {
+            return "Firebase App Check token error. Ensure network & automatic device time are enabled, then tap Retry."
+        }
+        val rawMsg = error.localizedMessage.orEmpty()
+        if (rawMsg.contains("429") || rawMsg.contains("quota", ignoreCase = true) || rawMsg.contains("resource_exhausted", ignoreCase = true)) {
+            return "Gemini service is temporarily busy across models. Please tap Retry in a moment."
+        }
+        return rawMsg.ifBlank {
+            if (isPhoto) "Could not analyze attached photos." else "Gemini AI appraisal failed."
+        }
+    }
+
+    private suspend fun refreshAppCheckTokenBestEffort() {
+        try {
+            FirebaseAppCheck.getInstance().getAppCheckToken(true).await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Best-effort App Check token refresh failed: ${e.message}", e)
+        }
+    }
+
+    internal suspend fun <T> executeWithLiteFallback(
+        primaryTimeoutMs: Long,
+        fallbackTimeoutMs: Long,
+        onStatusUpdate: suspend (String) -> Unit,
+        onRefreshToken: suspend () -> Unit,
+        primaryCall: suspend () -> T,
+        fallbackCall: suspend () -> T
+    ): Pair<T, String> {
+        return try {
+            val primaryResult = withTimeout(primaryTimeoutMs) {
+                primaryCall()
+            }
+            primaryResult to PRIMARY_MODEL
+        } catch (timeout: TimeoutCancellationException) {
+            Log.w(TAG, "Primary model ($PRIMARY_MODEL) timed out after ${primaryTimeoutMs}ms; falling back to $LITE_FALLBACK_MODEL", timeout)
+            onStatusUpdate("Primary model timed out — switching to Gemini Lite...")
+            val fallbackResult = withTimeout(fallbackTimeoutMs) {
+                fallbackCall()
+            }
+            fallbackResult to LITE_FALLBACK_MODEL
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (primaryError: Exception) {
+            Log.w(TAG, "Primary model ($PRIMARY_MODEL) failed (${primaryError.message}); falling back to $LITE_FALLBACK_MODEL", primaryError)
+            if (isTokenOrAppCheckError(primaryError)) {
+                onStatusUpdate("Refreshing Firebase verification & retrying with Gemini Lite...")
+                onRefreshToken()
+            } else {
+                onStatusUpdate("Switching to fast Gemini Lite model...")
+            }
+            val fallbackResult = withTimeout(fallbackTimeoutMs) {
+                fallbackCall()
+            }
+            fallbackResult to LITE_FALLBACK_MODEL
+        }
+    }
+
+    internal fun parseValuationJson(rawJson: String): AiGearValuation {
+        val json = JSONObject(rawJson)
+        val dailyRate = json.optInt("suggestedDailyRateInr", 0).coerceAtLeast(50)
+        val deposit = json.optInt("recommendedDepositInr", 0).coerceAtLeast(200)
+        val summary = json.optString("valuationSummary", "").ifBlank {
+            "Fair daily rate calibrated for local community sharing."
+        }
+        val accJson = json.optJSONArray("compatibleAccessories")
+        val accessories = buildList {
+            if (accJson != null) {
+                for (i in 0 until accJson.length()) {
+                    val item = accJson.optString(i)
+                    if (item.isNotBlank()) add(item)
+                }
+            }
+        }
+        return AiGearValuation(
+            suggestedDailyRateInr = dailyRate,
+            recommendedDepositInr = deposit,
+            valuationSummary = summary,
+            compatibleAccessories = accessories
+        )
+    }
+
+    internal fun parseListingDraftJson(rawJson: String, existingTitle: String = ""): AiListingDraft {
+        val json = JSONObject(rawJson)
+        val objectTitle = json.optString("objectTitle", "").trim()
+            .ifBlank { existingTitle.ifBlank { "Community Gear Listing" } }
+        val categoryKey = json.optString("categoryKey", RentalCategory.ELECTRONICS.name).trim()
+        val description = json.optString("description", "").trim()
+            .ifBlank { "Available for local neighborhood rental. Ready for pickup." }
+        val observedCondition = json.optString("observedCondition", "").trim()
+            .ifBlank { "Good visible condition" }
+        val dailyRate = json.optInt("suggestedDailyRateInr", 0).coerceAtLeast(50)
+        val deposit = json.optInt("recommendedDepositInr", 0).coerceAtLeast(200)
+        val accJson = json.optJSONArray("compatibleAccessories")
+        val accessories = buildList {
+            if (accJson != null) {
+                for (i in 0 until accJson.length()) {
+                    val item = accJson.optString(i)
+                    if (item.isNotBlank()) add(item)
+                }
+            }
+        }
+        return AiListingDraft(
+            objectTitle = objectTitle,
+            categoryKey = categoryKey,
+            description = description,
+            observedCondition = observedCondition,
+            suggestedDailyRateInr = dailyRate,
+            recommendedDepositInr = deposit,
+            compatibleAccessories = accessories
         )
     }
 
     suspend fun evaluateGearAndSuggestPricing(
         gearTitle: String,
-        description: String
+        description: String,
+        onStatusUpdate: (String) -> Unit = {}
     ): Result<AiGearValuation> {
         if (gearTitle.isBlank()) {
             return Result.failure(IllegalArgumentException("Enter a gear title first to evaluate."))
@@ -165,57 +345,50 @@ object GeminiAiService {
         }
 
         return try {
-            val response = withTimeout(60_000L) {
-                valuationModel.generateContent(prompt)
-            }
-            val rawJson = response.text?.takeIf { it.isNotBlank() }
-                ?: return Result.failure(IllegalStateException("Gemini returned an empty response."))
-
-            val json = JSONObject(rawJson)
-            val dailyRate = json.optInt("suggestedDailyRateInr", 0).coerceAtLeast(50)
-            val deposit = json.optInt("recommendedDepositInr", 0).coerceAtLeast(200)
-            val summary = json.optString("valuationSummary", "").ifBlank {
-                "Fair daily rate calibrated for local community sharing."
-            }
-            val accJson = json.optJSONArray("compatibleAccessories")
-            val accessories = buildList {
-                if (accJson != null) {
-                    for (i in 0 until accJson.length()) {
-                        val item = accJson.optString(i)
-                        if (item.isNotBlank()) add(item)
+            onStatusUpdate("Appraising piece with Gemini...")
+            val (rawJson, _) = withContext(Dispatchers.IO) {
+                executeWithLiteFallback(
+                    primaryTimeoutMs = VALUATION_PRIMARY_TIMEOUT_MS,
+                    fallbackTimeoutMs = VALUATION_FALLBACK_TIMEOUT_MS,
+                    onStatusUpdate = { status ->
+                        withContext(Dispatchers.Main) { onStatusUpdate(status) }
+                    },
+                    onRefreshToken = { refreshAppCheckTokenBestEffort() },
+                    primaryCall = {
+                        val response = primaryValuationModel.generateContent(prompt)
+                        response.text?.takeIf { it.isNotBlank() }
+                            ?: throw IllegalStateException("Gemini returned an empty response.")
+                    },
+                    fallbackCall = {
+                        val response = liteValuationModel.generateContent(prompt)
+                        response.text?.takeIf { it.isNotBlank() }
+                            ?: throw IllegalStateException("Gemini Lite returned an empty response.")
                     }
-                }
+                )
             }
 
-            Result.success(
-                AiGearValuation(
-                    suggestedDailyRateInr = dailyRate,
-                    recommendedDepositInr = deposit,
-                    valuationSummary = summary,
-                    compatibleAccessories = accessories
-                )
-            )
-        } catch (e: TimeoutCancellationException) {
-            Log.e(TAG, "Gemini valuation timed out", e)
-            Result.failure(Exception("AI appraisal timed out after 60 seconds. Please try again."))
-        } catch (e: CancellationException) {
-            throw e
+            Result.success(parseValuationJson(rawJson))
+        } catch (t: TimeoutCancellationException) {
+            Log.e(TAG, "Gemini valuation timed out across primary and lite models", t)
+            Result.failure(Exception(formatFriendlyError(t, isPhoto = false), t))
+        } catch (c: CancellationException) {
+            throw c
         } catch (e: Exception) {
             Log.e(TAG, "Gemini valuation failed", e)
-            Result.failure(Exception(e.localizedMessage ?: "Gemini AI appraisal failed."))
+            Result.failure(Exception(formatFriendlyError(e, isPhoto = false), e))
         }
     }
 
     suspend fun analyzePhotosForListing(
         photos: List<Bitmap>,
         existingTitle: String = "",
-        existingNotes: String = ""
+        existingNotes: String = "",
+        onStatusUpdate: (String) -> Unit = {}
     ): Result<AiListingDraft> {
         if (photos.isEmpty()) {
             return Result.failure(IllegalArgumentException("Attach at least one photo to analyze."))
         }
 
-        val samplePhotos = photos.take(3)
         val promptText = buildString {
             appendLine("You are a gear and item curator for Loop, an Indian peer-to-peer neighborhood sharing marketplace.")
             appendLine("Inspect the attached photo(s) carefully and generate an accurate, honest listing draft.")
@@ -231,58 +404,54 @@ object GeminiAiService {
         }
 
         return try {
-            val multimodalPrompt = content {
-                text(promptText)
-                samplePhotos.forEach { bitmap ->
-                    image(bitmap)
+            onStatusUpdate("Optimizing photo & scanning with Gemini...")
+            val (rawJson, _) = withContext(Dispatchers.IO) {
+                val primaryPhotos = photos.take(2).map { bmp ->
+                    PhotoBitmapProcessor.prepareBitmapForAi(bmp, maxEdge = 640)
                 }
-            }
+                val fallbackCoverPhoto by lazy {
+                    PhotoBitmapProcessor.prepareBitmapForAi(photos.first(), maxEdge = 512)
+                }
 
-            val response = withTimeout(60_000L) {
-                photoListingModel.generateContent(multimodalPrompt)
-            }
-            val rawJson = response.text?.takeIf { it.isNotBlank() }
-                ?: return Result.failure(IllegalStateException("Gemini returned an empty response."))
-
-            val json = JSONObject(rawJson)
-            val objectTitle = json.optString("objectTitle", "").trim()
-                .ifBlank { existingTitle.ifBlank { "Community Gear Listing" } }
-            val categoryKey = json.optString("categoryKey", RentalCategory.ELECTRONICS.name).trim()
-            val description = json.optString("description", "").trim()
-                .ifBlank { "Available for local neighborhood rental. Ready for pickup." }
-            val observedCondition = json.optString("observedCondition", "").trim()
-                .ifBlank { "Good visible condition" }
-            val dailyRate = json.optInt("suggestedDailyRateInr", 0).coerceAtLeast(50)
-            val deposit = json.optInt("recommendedDepositInr", 0).coerceAtLeast(200)
-            val accJson = json.optJSONArray("compatibleAccessories")
-            val accessories = buildList {
-                if (accJson != null) {
-                    for (i in 0 until accJson.length()) {
-                        val item = accJson.optString(i)
-                        if (item.isNotBlank()) add(item)
+                executeWithLiteFallback(
+                    primaryTimeoutMs = PHOTO_PRIMARY_TIMEOUT_MS,
+                    fallbackTimeoutMs = PHOTO_FALLBACK_TIMEOUT_MS,
+                    onStatusUpdate = { status ->
+                        withContext(Dispatchers.Main) { onStatusUpdate(status) }
+                    },
+                    onRefreshToken = { refreshAppCheckTokenBestEffort() },
+                    primaryCall = {
+                        val multimodalPrompt = content {
+                            text(promptText)
+                            primaryPhotos.forEach { bitmap ->
+                                image(bitmap)
+                            }
+                        }
+                        val response = primaryPhotoListingModel.generateContent(multimodalPrompt)
+                        response.text?.takeIf { it.isNotBlank() }
+                            ?: throw IllegalStateException("Gemini returned an empty response.")
+                    },
+                    fallbackCall = {
+                        val litePrompt = content {
+                            text(promptText)
+                            image(fallbackCoverPhoto)
+                        }
+                        val response = litePhotoListingModel.generateContent(litePrompt)
+                        response.text?.takeIf { it.isNotBlank() }
+                            ?: throw IllegalStateException("Gemini Lite returned an empty response.")
                     }
-                }
+                )
             }
 
-            Result.success(
-                AiListingDraft(
-                    objectTitle = objectTitle,
-                    categoryKey = categoryKey,
-                    description = description,
-                    observedCondition = observedCondition,
-                    suggestedDailyRateInr = dailyRate,
-                    recommendedDepositInr = deposit,
-                    compatibleAccessories = accessories
-                )
-            )
-        } catch (e: TimeoutCancellationException) {
-            Log.e(TAG, "Gemini photo analysis timed out", e)
-            Result.failure(Exception("Photo analysis timed out after 60 seconds. Please try again."))
-        } catch (e: CancellationException) {
-            throw e
+            Result.success(parseListingDraftJson(rawJson, existingTitle))
+        } catch (t: TimeoutCancellationException) {
+            Log.e(TAG, "Gemini photo analysis timed out across primary and lite models", t)
+            Result.failure(Exception(formatFriendlyError(t, isPhoto = true), t))
+        } catch (c: CancellationException) {
+            throw c
         } catch (e: Exception) {
             Log.e(TAG, "Gemini photo analysis failed", e)
-            Result.failure(Exception(e.localizedMessage ?: "Could not analyze attached photos."))
+            Result.failure(Exception(formatFriendlyError(e, isPhoto = true), e))
         }
     }
 }

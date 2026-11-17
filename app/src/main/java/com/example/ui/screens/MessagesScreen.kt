@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -56,7 +57,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
+import com.example.data.models.RentalItem
 import com.example.ui.components.EditorialTopBar
+import com.example.ui.components.MemberProfileModalSheet
+import com.example.ui.components.MessagesSkeletonList
+import com.example.ui.theme.AccentForestGreen
+import com.example.ui.theme.AccentMint
 import com.example.ui.theme.AccentWarmYellow
 import com.example.ui.theme.AlertCrimson
 import com.example.ui.theme.InkCharcoal
@@ -79,10 +85,14 @@ private enum class DispatchFilter(val label: String) {
 fun MessagesScreen(
     initialConversationId: String? = null,
     onConversationSelected: (String?) -> Unit = {},
+    onOpenItem: (RentalItem) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val conversations by RentalRepository.conversationsFlow.collectAsStateWithLifecycle()
     val messagesMap by RentalRepository.activeConversationMessagesFlow.collectAsStateWithLifecycle()
+    val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
+    val currentProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
+    val isConversationsLoading by RentalRepository.isConversationsLoadingFlow.collectAsStateWithLifecycle()
 
     var selectedConversationId by remember(initialConversationId) {
         mutableStateOf(initialConversationId)
@@ -110,77 +120,125 @@ fun MessagesScreen(
         var textInput by remember { mutableStateOf("") }
         var showOptionsMenu by remember { mutableStateOf(false) }
         var showBlockConfirmDialog by remember { mutableStateOf(false) }
+        var showMemberProfile by remember { mutableStateOf(false) }
 
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .background(PaperIvory)
+        Box(
+            modifier = modifier.fillMaxSize()
         ) {
-            EditorialTopBar(
-                title = activeConversation.owner.name,
-                onBack = {
-                    selectedConversationId = null
-                    onConversationSelected(null)
-                },
-                trailingContent = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(InkCharcoal),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = activeConversation.owner.initials,
-                                style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold),
-                                color = InkWhite
-                            )
-                        }
-                        Box {
-                            IconButton(
-                                onClick = { showOptionsMenu = true },
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .testTag("chat_options_btn")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Conversation options",
-                                    tint = InkCharcoal
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showOptionsMenu,
-                                onDismissRequest = { showOptionsMenu = false },
-                                modifier = Modifier.background(PaperPureWhite)
-                            ) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = "Block ${activeConversation.owner.name}",
-                                            style = LoopType.BodySmall,
-                                            color = AlertCrimson
-                                        )
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Block,
-                                            contentDescription = null,
-                                            tint = AlertCrimson,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showBlockConfirmDialog = true
-                                    }
-                                )
-                            }
-                        }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(PaperIvory)
+            ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 22.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(PaperIvory)
+                        .border(1.dp, PaperBorderSubtle, CircleShape)
+                        .clickable {
+                            selectedConversationId = null
+                            onConversationSelected(null)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "←",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = InkCharcoal
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(100.dp))
+                        .clickable { showMemberProfile = true }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .testTag("chat_header_profile_btn"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(InkCharcoal),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = activeConversation.owner.initials,
+                            style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold),
+                            color = InkWhite
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = activeConversation.owner.name,
+                            style = LoopType.TitleMedium.copy(fontSize = 15.sp),
+                            color = InkCharcoal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "View profile ›",
+                            style = LoopType.Metadata.copy(fontSize = 10.sp, color = AccentForestGreen),
+                            maxLines = 1
+                        )
                     }
                 }
-            )
+
+                Box {
+                    IconButton(
+                        onClick = { showOptionsMenu = true },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("chat_options_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Conversation options",
+                            tint = InkCharcoal
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showOptionsMenu,
+                        onDismissRequest = { showOptionsMenu = false },
+                        modifier = Modifier.background(PaperPureWhite)
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Block ${activeConversation.owner.name}",
+                                    style = LoopType.BodySmall,
+                                    color = AlertCrimson
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Block,
+                                    contentDescription = null,
+                                    tint = AlertCrimson,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            onClick = {
+                                showOptionsMenu = false
+                                showBlockConfirmDialog = true
+                            }
+                        )
+                    }
+                }
+            }
 
             if (showBlockConfirmDialog) {
                 AlertDialog(
@@ -225,7 +283,8 @@ fun MessagesScreen(
                 )
             }
 
-            activeConversation.itemContext?.let { item ->
+            activeConversation.itemContext?.let { ctx ->
+                val liveItem = allItems.find { it.id == ctx.id } ?: ctx
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -233,22 +292,58 @@ fun MessagesScreen(
                         .clip(RoundedCornerShape(14.dp))
                         .background(PaperPureWhite)
                         .border(1.dp, PaperBorderSubtle, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                        .clickable { onOpenItem(liveItem) }
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                        .testTag("chat_item_context_card"),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = liveItem.title,
+                            style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
+                            color = InkCharcoal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        val statusText = when {
+                            !liveItem.availableToday && liveItem.activeBookingId != null -> "Currently Booked"
+                            !liveItem.availableToday -> "Availability Paused"
+                            else -> "Available · ₹${liveItem.pricePerDay}/day"
+                        }
+                        Text(
+                            text = statusText,
+                            style = LoopType.Metadata.copy(fontSize = 11.sp),
+                            color = InkSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = item.title,
-                        style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
-                        color = InkCharcoal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        text = "View ›",
+                        style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                        color = AccentForestGreen
                     )
+                }
+            }
+
+            if (activeConversation.itemContext == null && !activeConversation.communityPostTitle.isNullOrBlank()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(AccentMint.copy(alpha = 0.7f))
+                        .border(1.dp, AccentForestGreen.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .testTag("chat_post_context_pill"),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = "₹${item.pricePerDay}/day",
-                        style = LoopType.PriceSmall.copy(fontSize = 12.sp),
-                        color = InkSecondary
+                        text = "COMMUNITY POST · ${activeConversation.communityPostTitle}",
+                        style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
+                        color = AccentForestGreen,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -374,18 +469,31 @@ fun MessagesScreen(
                     )
                 }
             }
+            }
+
+            if (showMemberProfile) {
+                MemberProfileModalSheet(
+                    owner = activeConversation.owner,
+                    fallbackLocation = activeConversation.itemContext?.location.orEmpty(),
+                    showMessageButton = false,
+                    hasActiveRelationship = true,
+                    onDismiss = { showMemberProfile = false }
+                )
+            }
         }
     } else {
         val filteredConversations = conversations.filter { conv ->
             val matchesQuery = searchQuery.isBlank() ||
                 conv.owner.name.contains(searchQuery, ignoreCase = true) ||
                 (conv.itemContext?.title?.contains(searchQuery, ignoreCase = true) == true) ||
+                (conv.communityPostTitle?.contains(searchQuery, ignoreCase = true) == true) ||
                 (conv.lastMessage?.text?.contains(searchQuery, ignoreCase = true) == true)
 
+            val hasUnread = conv.unreadCount > 0 && conv.lastSenderId != currentProfile.uid
             val matchesFilter = when (activeFilter) {
                 DispatchFilter.ALL -> true
                 DispatchFilter.ACTIVE -> conv.lastMessage != null
-                DispatchFilter.UNREAD -> conv.unreadCount > 0
+                DispatchFilter.UNREAD -> hasUnread
             }
             matchesQuery && matchesFilter
         }
@@ -509,7 +617,14 @@ fun MessagesScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            if (filteredConversations.isEmpty()) {
+            if (isConversationsLoading && conversations.isEmpty()) {
+                MessagesSkeletonList(
+                    count = 4,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 22.dp, vertical = 4.dp)
+                )
+            } else if (filteredConversations.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -614,6 +729,7 @@ fun MessagesScreen(
                                     Text(
                                         text = conv.lastMessage?.text
                                             ?: conv.itemContext?.title
+                                            ?: conv.communityPostTitle
                                             ?: "Tap to start chatting",
                                         style = LoopType.BodySmall,
                                         color = InkSecondary,
@@ -621,7 +737,8 @@ fun MessagesScreen(
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    if (conv.unreadCount > 0) {
+                                    val hasUnread = conv.unreadCount > 0 && conv.lastSenderId != currentProfile.uid
+                                    if (hasUnread) {
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Box(
                                             modifier = Modifier

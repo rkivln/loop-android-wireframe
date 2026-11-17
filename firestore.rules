@@ -75,6 +75,7 @@ service cloud.firestore {
              (!('isPopular' in data) || data.isPopular is bool) &&
              (!('isFavorite' in data) || data.isFavorite is bool) &&
              (!('availableToday' in data) || data.availableToday is bool) &&
+             (!('activeBookingId' in data) || data.activeBookingId == null || (data.activeBookingId is string && data.activeBookingId.size() <= 128)) &&
              (!('features' in data) || (data.features is list && data.features.size() <= 20));
     }
 
@@ -89,6 +90,7 @@ service cloud.firestore {
              (!('location' in data) || (data.location is string && data.location.size() <= 150)) &&
              (!('dateTime' in data) || (data.dateTime is string && data.dateTime.size() <= 100)) &&
              (!('attendeesOrResponses' in data) || (data.attendeesOrResponses is string && data.attendeesOrResponses.size() <= 100)) &&
+             (!('attendeeIds' in data) || (data.attendeeIds is list && data.attendeeIds.size() <= 500)) &&
              (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 100)) &&
              (!('latitude' in data) || data.latitude == null || data.latitude is number) &&
              (!('longitude' in data) || data.longitude == null || data.longitude is number) &&
@@ -108,6 +110,9 @@ service cloud.firestore {
              (!('itemId' in data) || data.itemId == null || (data.itemId is string && data.itemId.size() <= 128)) &&
              (!('itemTitle' in data) || data.itemTitle == null || (data.itemTitle is string && data.itemTitle.size() <= 150)) &&
              (!('itemPricePerDay' in data) || data.itemPricePerDay == null || data.itemPricePerDay is int) &&
+             (!('communityPostId' in data) || data.communityPostId == null || (data.communityPostId is string && data.communityPostId.size() <= 128)) &&
+             (!('communityPostTitle' in data) || data.communityPostTitle == null || (data.communityPostTitle is string && data.communityPostTitle.size() <= 150)) &&
+             (!('lastSenderId' in data) || (data.lastSenderId is string && data.lastSenderId.size() <= 128)) &&
              (!('isOnline' in data) || data.isOnline is bool) &&
              (!('isTyping' in data) || data.isTyping is bool) &&
              (!('unreadCount' in data) || data.unreadCount is int) &&
@@ -148,7 +153,10 @@ service cloud.firestore {
              (!('daysCount' in data) || data.daysCount is int) &&
              (!('pricePerDay' in data) || data.pricePerDay is int) &&
              (!('deliveryOption' in data) || (data.deliveryOption is string && data.deliveryOption.size() <= 50)) &&
-             (!('handoverOtp' in data) || (data.handoverOtp is string && data.handoverOtp.size() <= 10));
+             (!('handoverOtp' in data) || (data.handoverOtp is string && data.handoverOtp.size() <= 10)) &&
+             (!('isReviewed' in data) || data.isReviewed is bool) &&
+             (!('ratingGiven' in data) || (data.ratingGiven is int && data.ratingGiven >= 0 && data.ratingGiven <= 5)) &&
+             (!('reviewComment' in data) || (data.reviewComment is string && data.reviewComment.size() <= 1000));
     }
 
     function isConversationParticipant(convId) {
@@ -195,17 +203,60 @@ service cloud.firestore {
                        incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
                        isValidRentalItem(incoming());
       allow update: if isSignedIn() && isValidId(itemId) &&
-                       existing().ownerId == request.auth.uid &&
                        incoming().ownerId == existing().ownerId &&
                        incoming().createdAt == existing().createdAt &&
                        incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
                        isValidRentalItem(incoming()) &&
-                       incoming().diff(existing()).affectedKeys().hasOnly([
-                         'title', 'categoryName', 'pricePerDay', 'securityDeposit', 'location',
-                         'rating', 'reviewCount', 'description', 'imageUrl', 'imageUrls', 'imageCount',
-                         'latitude', 'longitude', 'ownerName', 'ownerInitials',
-                         'isPopular', 'isFavorite', 'availableToday', 'features', 'updatedAt'
-                       ]);
+                       (
+                         (
+                           existing().ownerId == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'title', 'categoryName', 'pricePerDay', 'securityDeposit', 'location',
+                             'rating', 'reviewCount', 'description', 'imageUrl', 'imageUrls', 'imageCount',
+                             'latitude', 'longitude', 'ownerName', 'ownerInitials',
+                             'isPopular', 'isFavorite', 'availableToday', 'activeBookingId', 'features', 'updatedAt'
+                           ])
+                         ) ||
+                         (
+                           existing().ownerId != request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'availableToday', 'activeBookingId', 'updatedAt'
+                           ]) &&
+                           (
+                             (
+                               (!('activeBookingId' in existing()) || existing().activeBookingId == null) &&
+                               incoming().availableToday == false &&
+                               incoming().activeBookingId is string &&
+                               incoming().activeBookingId.size() > 0 &&
+                               existsAfter(/databases/$(database)/documents/bookings/$(incoming().activeBookingId)) &&
+                               getAfter(/databases/$(database)/documents/bookings/$(incoming().activeBookingId)).data.renterId == request.auth.uid &&
+                               getAfter(/databases/$(database)/documents/bookings/$(incoming().activeBookingId)).data.itemId == itemId &&
+                               getAfter(/databases/$(database)/documents/bookings/$(incoming().activeBookingId)).data.status == 'Confirmed'
+                             ) ||
+                             (
+                               incoming().availableToday == true &&
+                               incoming().activeBookingId == null &&
+                               existing().activeBookingId is string &&
+                               existsAfter(/databases/$(database)/documents/bookings/$(existing().activeBookingId)) &&
+                               getAfter(/databases/$(database)/documents/bookings/$(existing().activeBookingId)).data.renterId == request.auth.uid &&
+                               getAfter(/databases/$(database)/documents/bookings/$(existing().activeBookingId)).data.itemId == itemId &&
+                               getAfter(/databases/$(database)/documents/bookings/$(existing().activeBookingId)).data.status in ['Cancelled', 'Completed']
+                             )
+                           )
+                         ) ||
+                         (
+                           existing().ownerId != request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'rating', 'reviewCount', 'updatedAt'
+                           ]) &&
+                           (
+                             (!('reviewCount' in existing()) && incoming().reviewCount == 1) ||
+                             ('reviewCount' in existing() && incoming().reviewCount == existing().reviewCount + 1)
+                           ) &&
+                           incoming().rating >= 1 &&
+                           incoming().rating <= 5
+                         )
+                       );
       allow delete: if isSignedIn() && isValidId(itemId) &&
                        (existing().ownerId == request.auth.uid ||
                         !('ownerId' in existing()) ||
@@ -233,10 +284,11 @@ service cloud.firestore {
                          (existing().authorId == request.auth.uid &&
                           incoming().diff(existing()).affectedKeys().hasOnly([
                             'title', 'typeStr', 'categoryName', 'description', 'location',
-                            'dateTime', 'attendeesOrResponses', 'statusStr', 'authorName',
+                            'dateTime', 'attendeesOrResponses', 'attendeeIds', 'statusStr', 'authorName',
                             'latitude', 'longitude', 'imageUrl', 'updatedAt'
                           ])) ||
-                         (incoming().diff(existing()).affectedKeys().hasOnly(['attendeesOrResponses', 'updatedAt']))
+                         (existing().authorId != request.auth.uid &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['attendeesOrResponses', 'attendeeIds', 'updatedAt']))
                        );
       allow delete: if isSignedIn() && isValidId(postId) &&
                        (existing().authorId == request.auth.uid ||
@@ -260,6 +312,7 @@ service cloud.firestore {
                      request.auth.uid in resource.data.participantIds);
       allow create: if isSignedIn() && isValidId(convId) &&
                        incoming().id == convId &&
+                       incoming().hostId != incoming().renterId &&
                        (incoming().hostId == request.auth.uid || incoming().renterId == request.auth.uid) &&
                        request.auth.uid in incoming().participantIds &&
                        incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
@@ -275,7 +328,7 @@ service cloud.firestore {
                        incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
                        isValidConversation(incoming()) &&
                        incoming().diff(existing()).affectedKeys().hasOnly([
-                         'lastMessageText', 'lastMessageTimestamp', 'unreadCount',
+                         'lastMessageText', 'lastMessageTimestamp', 'lastSenderId', 'unreadCount',
                          'isPinned', 'isOnline', 'isTyping', 'updatedAt'
                        ]);
       allow delete: if isSignedIn() && isValidId(convId) &&
@@ -307,6 +360,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(bookingId) &&
                        incoming().id == bookingId &&
                        incoming().renterId == request.auth.uid &&
+                       incoming().hostId != request.auth.uid &&
                        incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
                        isValidBooking(incoming());
       allow update: if isSignedIn() && isValidId(bookingId) &&
@@ -316,7 +370,9 @@ service cloud.firestore {
                        incoming().createdAt == existing().createdAt &&
                        incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
                        isValidBooking(incoming()) &&
-                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'handoverOtp']);
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'status', 'updatedAt', 'handoverOtp', 'isReviewed', 'ratingGiven', 'reviewComment'
+                       ]);
       allow delete: if isSignedIn() && isValidId(bookingId) &&
                        (existing().renterId == request.auth.uid || existing().hostId == request.auth.uid);
     }

@@ -256,30 +256,24 @@ fun CreateListingScreen(
     val analyzePhotosWithAi: () -> Unit = analyze@{
         if (attachedPhotos.isEmpty() || photoAiState is AiPhotoAutoFillUiState.Loading) return@analyze
         val hadExistingContent = title.isNotBlank() || description.isNotBlank()
-        photoAiState = AiPhotoAutoFillUiState.Loading
+        photoAiState = AiPhotoAutoFillUiState.Loading("Preparing photo for Gemini scan...")
         coroutineScope.launch {
             val bitmaps = withContext(Dispatchers.IO) {
-                attachedPhotos.take(3).mapNotNull { draft ->
+                attachedPhotos.take(2).mapNotNull { draft ->
                     val cached = draft.previewBitmap
                     when {
-                        cached != null -> PhotoBitmapProcessor.renderTransformedBitmap(
-                            sourceBitmap = cached,
-                            editState = com.example.ui.components.PhotoEditState(
-                                aspectPreset = com.example.ui.components.CropAspectPreset.FREE
-                            ),
-                            maxOutputEdge = 1024
-                        )
+                        cached != null -> PhotoBitmapProcessor.prepareBitmapForAi(cached, maxEdge = 640)
                         draft.sourceUri != Uri.EMPTY -> PhotoBitmapProcessor
-                            .loadOrientedSourceBitmap(context, draft.sourceUri, maxEdge = 1024)
+                            .loadOrientedSourceBitmap(context, draft.sourceUri, maxEdge = 640)
                             ?.let { src ->
                                 PhotoBitmapProcessor.renderTransformedBitmap(
                                     sourceBitmap = src,
                                     editState = draft.editState,
-                                    maxOutputEdge = 1024
+                                    maxOutputEdge = 640
                                 )
                             }
                         !draft.existingImageUrl.isNullOrBlank() ->
-                            PhotoBitmapProcessor.loadExistingBitmap(draft.existingImageUrl, maxEdge = 1024)
+                            PhotoBitmapProcessor.loadExistingBitmap(draft.existingImageUrl, maxEdge = 640)
                         else -> null
                     }
                 }
@@ -293,7 +287,10 @@ fun CreateListingScreen(
             val result = GeminiAiService.analyzePhotosForListing(
                 photos = bitmaps,
                 existingTitle = title,
-                existingNotes = description
+                existingNotes = description,
+                onStatusUpdate = { status ->
+                    photoAiState = AiPhotoAutoFillUiState.Loading(status)
+                }
             )
             photoAiState = result.fold(
                 onSuccess = { draft ->
@@ -311,10 +308,16 @@ fun CreateListingScreen(
     }
 
     val evaluateWithAi: () -> Unit = {
-        if (title.isNotBlank()) {
-            aiState = AiValuationUiState.Loading
+        if (title.isNotBlank() && aiState !is AiValuationUiState.Loading) {
+            aiState = AiValuationUiState.Loading("Appraising piece with Gemini AI...")
             coroutineScope.launch {
-                val result = GeminiAiService.evaluateGearAndSuggestPricing(title, description)
+                val result = GeminiAiService.evaluateGearAndSuggestPricing(
+                    gearTitle = title,
+                    description = description,
+                    onStatusUpdate = { status ->
+                        aiState = AiValuationUiState.Loading(status)
+                    }
+                )
                 aiState = result.fold(
                     onSuccess = { valuation ->
                         if (dailyRateStr.isBlank()) {
@@ -727,7 +730,7 @@ fun CreateListingScreen(
                                         color = AccentForestGreen
                                     )
                                     Text(
-                                        text = "Scanning up to ${attachedPhotos.take(3).size} attached photo(s)",
+                                        text = "Scanning up to ${attachedPhotos.take(2).size} attached photo(s) · Unlimited",
                                         style = LoopType.Metadata.copy(fontSize = 11.sp),
                                         color = InkMuted
                                     )
@@ -748,7 +751,7 @@ fun CreateListingScreen(
                                     testTag = "photo_autofill_button"
                                 )
                             }
-                            AiPhotoAutoFillUiState.Loading -> {
+                            is AiPhotoAutoFillUiState.Loading -> {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -760,7 +763,7 @@ fun CreateListingScreen(
                                         strokeWidth = 2.dp
                                     )
                                     Text(
-                                        text = "Inspecting gear photos with Gemini...",
+                                        text = pState.statusMessage,
                                         style = LoopType.BodySmall,
                                         color = InkCharcoal
                                     )
@@ -1016,7 +1019,7 @@ fun CreateListingScreen(
                             testTag = "create_listing_ai_button"
                         )
                     }
-                    AiValuationUiState.Loading -> {
+                    is AiValuationUiState.Loading -> {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1027,7 +1030,7 @@ fun CreateListingScreen(
                                 strokeWidth = 2.dp
                             )
                             Text(
-                                text = "Appraising piece with Gemini AI...",
+                                text = state.statusMessage,
                                 style = LoopType.BodySmall,
                                 color = InkSecondary
                             )
@@ -1062,6 +1065,10 @@ fun CreateListingScreen(
             }
 
             if (isEditMode) {
+                val isBookedLock = editingItem != null &&
+                    !editingItem.availableToday &&
+                    editingItem.activeBookingId != null
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1080,13 +1087,22 @@ fun CreateListingScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (availableToday) "Available for community booking" else "Paused — hidden from new bookings",
+                            text = when {
+                                isBookedLock -> "Locked while an active booking is in progress"
+                                availableToday -> "Available for community booking"
+                                else -> "Paused — hidden from new bookings"
+                            },
                             style = LoopType.BodySmall,
-                            color = if (availableToday) AccentForestGreen else InkSecondary
+                            color = when {
+                                isBookedLock -> AlertCrimson
+                                availableToday -> AccentForestGreen
+                                else -> InkSecondary
+                            }
                         )
                     }
                     Switch(
                         checked = availableToday,
+                        enabled = !isBookedLock,
                         onCheckedChange = { availableToday = it },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = InkWhite,
@@ -1098,31 +1114,33 @@ fun CreateListingScreen(
                     )
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(PaperPureWhite)
-                        .border(1.dp, AlertCrimson.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
-                        .clickable { showDeleteConfirm = true }
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .testTag("edit_listing_delete_button"),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Delete listing",
-                        tint = AlertCrimson,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Delete Piece from Catalog",
-                        style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = AlertCrimson
-                    )
+                if (!isBookedLock) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, AlertCrimson.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                            .clickable { showDeleteConfirm = true }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .testTag("edit_listing_delete_button"),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Delete listing",
+                            tint = AlertCrimson,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Delete Piece from Catalog",
+                            style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = AlertCrimson
+                        )
+                    }
                 }
             }
 

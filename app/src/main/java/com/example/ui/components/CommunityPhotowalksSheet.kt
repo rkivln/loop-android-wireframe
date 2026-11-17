@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,15 +21,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +45,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
+import com.example.data.models.CommunityPostStatus
+import com.example.data.models.RentalOwner
+import com.example.data.models.UserCommunityPost
 import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.CaptionTechnical
 import com.example.ui.theme.H1
@@ -56,10 +66,15 @@ import com.example.ui.theme.StatusGreenBg
 fun CommunityPhotowalksSheet(
     onDismiss: () -> Unit,
     onCreatePostClick: (() -> Unit)? = null,
+    onMessageOrganizer: (UserCommunityPost) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    BackHandler(onBack = onDismiss)
+
     val communityPosts by RentalRepository.userCommunityPostsFlow.collectAsStateWithLifecycle()
     val rsvpIds by RentalRepository.rsvpIdsFlow.collectAsStateWithLifecycle()
+    val currentProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
+    var selectedAuthorPost by remember { mutableStateOf<UserCommunityPost?>(null) }
 
     Box(
         modifier = modifier
@@ -112,7 +127,10 @@ fun CommunityPhotowalksSheet(
                             )
                         }
 
-                        IconButton(onClick = onDismiss) {
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(48.dp)
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Close",
@@ -171,6 +189,8 @@ fun CommunityPhotowalksSheet(
                     }
                 } else {
                     items(communityPosts, key = { it.id }) { post ->
+                        val isOwnPost = post.authorId.isNotBlank() && post.authorId == currentProfile.uid
+                        val isResolved = post.status == CommunityPostStatus.COMPLETED
                         val isRsvped = post.id in rsvpIds
 
                         Box(
@@ -180,6 +200,7 @@ fun CommunityPhotowalksSheet(
                                 .background(ParchmentWhite)
                                 .border(1.dp, ParchmentBorder, RoundedCornerShape(14.dp))
                                 .padding(14.dp)
+                                .testTag("community_post_item_${post.id}")
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Row(
@@ -189,6 +210,7 @@ fun CommunityPhotowalksSheet(
                                 ) {
                                     Box(
                                         modifier = Modifier
+                                            .weight(1f, fill = false)
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(ParchmentBg)
                                             .border(1.dp, ParchmentBorder, RoundedCornerShape(6.dp))
@@ -205,34 +227,74 @@ fun CommunityPhotowalksSheet(
                                         )
                                     }
 
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(if (isRsvped) StatusGreenBg else InkBlack)
-                                            .border(1.dp, if (isRsvped) StatusGreen else InkBlack, RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                RentalRepository.rsvpToCommunityPost(post.id)
-                                            }
-                                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                                            .testTag("rsvp_btn_${post.id}"),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            if (isRsvped) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    tint = StatusGreen,
-                                                    modifier = Modifier.size(13.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    when {
+                                        isOwnPost -> {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(AccentYellow.copy(alpha = 0.45f))
+                                                    .border(1.dp, ParchmentBorder, RoundedCornerShape(8.dp))
+                                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                                                    .testTag("own_post_badge_${post.id}")
+                                            ) {
+                                                Text(
+                                                    text = "YOUR POST",
+                                                    style = LoopType.CaptionTechnical,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = InkBlack
                                                 )
-                                                Spacer(modifier = Modifier.width(4.dp))
                                             }
-                                            Text(
-                                                text = if (isRsvped) "Attending ✓" else "RSVP",
-                                                style = LoopType.BodySmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isRsvped) StatusGreen else Color.White
-                                            )
+                                        }
+                                        isResolved -> {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(ParchmentBg)
+                                                    .border(1.dp, ParchmentBorder, RoundedCornerShape(8.dp))
+                                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Resolved",
+                                                    style = LoopType.BodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = InkMuted
+                                                )
+                                            }
+                                        }
+                                        else -> {
+                                            Box(
+                                                modifier = Modifier
+                                                    .heightIn(min = 48.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(if (isRsvped) StatusGreenBg else InkBlack)
+                                                    .border(1.dp, if (isRsvped) StatusGreen else InkBlack, RoundedCornerShape(10.dp))
+                                                    .clickable {
+                                                        RentalRepository.rsvpToCommunityPost(post.id)
+                                                    }
+                                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                                                    .testTag("rsvp_btn_${post.id}"),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    if (isRsvped) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = null,
+                                                            tint = StatusGreen,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                    }
+                                                    Text(
+                                                        text = if (isRsvped) "Attending ✓" else "RSVP",
+                                                        style = LoopType.BodySmall,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isRsvped) StatusGreen else Color.White
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -249,13 +311,22 @@ fun CommunityPhotowalksSheet(
                                     )
                                 }
 
-                                val hostLabel = post.authorName.ifBlank { "Community Member" }
+                                val hostLabel = if (isOwnPost) "You" else post.authorName.ifBlank { "Community Member" }
                                 val locationText = if (post.location.isNotBlank()) {
                                     "${post.location}  ·  Posted by $hostLabel"
                                 } else {
                                     "Posted by $hostLabel"
                                 }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable(enabled = post.authorId.isNotBlank()) {
+                                            selectedAuthorPost = post
+                                        }
+                                        .padding(vertical = 2.dp)
+                                        .testTag("community_post_author_${post.id}")
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.LocationOn,
                                         contentDescription = null,
@@ -269,11 +340,88 @@ fun CommunityPhotowalksSheet(
                                         color = InkSecondary
                                     )
                                 }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Groups,
+                                            contentDescription = null,
+                                            tint = StatusGreen,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            text = post.attendeesOrResponses.ifBlank { "Open for neighbors" },
+                                            style = LoopType.BodySmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = StatusGreen
+                                        )
+                                    }
+
+                                    if (!isOwnPost && post.authorId.isNotBlank()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .heightIn(min = 48.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(ParchmentBg)
+                                                .border(1.dp, ParchmentBorder, RoundedCornerShape(10.dp))
+                                                .clickable {
+                                                    onDismiss()
+                                                    onMessageOrganizer(post)
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                                .testTag("message_organizer_btn_${post.id}"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                                                    contentDescription = "Message Organizer",
+                                                    tint = InkBlack,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(5.dp))
+                                                Text(
+                                                    text = "Message Organizer",
+                                                    style = LoopType.BodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = InkBlack
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+
+        selectedAuthorPost?.let { post ->
+            val isOwnAuthor = post.authorId.isNotBlank() && post.authorId == currentProfile.uid
+            val authorName = post.authorName.ifBlank { "Community Member" }
+            val authorInitials = authorName.trim().split(" ").filter { it.isNotBlank() }
+                .take(2).joinToString("") { it.take(1).uppercase() }.ifBlank { "M" }
+            MemberProfileModalSheet(
+                owner = RentalOwner(
+                    id = post.authorId,
+                    name = authorName,
+                    badge = "Community Organizer",
+                    initials = authorInitials
+                ),
+                fallbackLocation = post.location,
+                isCurrentUser = isOwnAuthor,
+                onMessageClick = {
+                    onDismiss()
+                    onMessageOrganizer(post)
+                },
+                onDismiss = { selectedAuthorPost = null }
+            )
         }
     }
 }

@@ -95,11 +95,14 @@ enum class CommunityMapFilter(val label: String, val emoji: String) {
 fun CommunityActivityMap(
     modifier: Modifier = Modifier,
     activityPoints: List<DiscoveryPinItem> = emptyList(),
+    currentUserId: String = "",
     initialCenter: LatLng? = null,
     initialZoom: Float = 15.2f,
     onPointSelected: (DiscoveryPinItem) -> Unit = {},
     onDirectionsClick: (DiscoveryPinItem) -> Unit = {},
     onRsvpClick: (DiscoveryPinItem) -> Unit = {},
+    onViewDetailsClick: (DiscoveryPinItem) -> Unit = {},
+    onMessageOwnerOrOrganizerClick: (DiscoveryPinItem) -> Unit = {},
     onRecenterMissingGps: () -> Unit = {},
     showFilterRow: Boolean = true
 ) {
@@ -150,9 +153,12 @@ fun CommunityActivityMap(
             CommunityMapFilter.HELP -> activityPoints.filter { it.type == DiscoveryPinType.HELP_REQUEST }
             CommunityMapFilter.STUDY -> activityPoints.filter { it.type == DiscoveryPinType.STUDY_GROUP }
             CommunityMapFilter.HUBS -> activityPoints.filter { it.type == DiscoveryPinType.PICKUP_HUB }
-            CommunityMapFilter.MAKERS -> activityPoints.filter { it.type == DiscoveryPinType.USER_HOST }
+            CommunityMapFilter.MAKERS -> activityPoints.filter {
+                it.type == DiscoveryPinType.USER_HOST || it.type == DiscoveryPinType.RENTAL_ITEM
+            }
         }
     }
+    val liveSelectedPin = selectedPin?.let { sel -> activityPoints.find { it.id == sel.id } ?: sel }
 
     Box(
         modifier = modifier
@@ -365,7 +371,7 @@ fun CommunityActivityMap(
 
         // Bottom Selected Activity Point Callout Card
         AnimatedVisibility(
-            visible = selectedPin != null,
+            visible = liveSelectedPin != null,
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier
@@ -373,14 +379,21 @@ fun CommunityActivityMap(
                 .navigationBarsPadding()
                 .padding(bottom = 14.dp)
         ) {
-            selectedPin?.let { pin ->
+            liveSelectedPin?.let { pin ->
                 EventMapMarkerCallout(
                     pin = pin,
+                    currentUserId = currentUserId,
                     onRsvpClick = {
                         onRsvpClick(pin)
                     },
                     onDirectionsClick = {
                         onDirectionsClick(pin)
+                    },
+                    onViewDetailsClick = {
+                        onViewDetailsClick(pin)
+                    },
+                    onMessageOwnerOrOrganizerClick = {
+                        onMessageOwnerOrOrganizerClick(pin)
                     },
                     onDismiss = {
                         selectedPin = null

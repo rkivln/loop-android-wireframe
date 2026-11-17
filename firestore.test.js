@@ -188,7 +188,8 @@ test("Authenticated user: can create community post, another member can RSVP, no
 
   const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
   await assertSucceeds(bobDb.collection("community_posts").doc("post_1").update({
-    attendeesOrResponses: "2 creators attending",
+    attendeesOrResponses: "1 creator attending",
+    attendeeIds: [BOB_UID],
     updatedAt: new Date(),
   }));
 
@@ -214,8 +215,18 @@ test("Authenticated user: can create community post, another member can RSVP, no
 });
 
 // 5. Conversations & Messages (participant-scoped)
-test("Conversation participants: can query own conversations, read and send immutable messages", async () => {
+test("Conversation participants: can query own conversations, read and send immutable messages; self-chat rejected", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+
+  // Self-conversation must fail
+  await assertFails(aliceDb.collection("conversations").doc("conv_self").set({
+    id: "conv_self",
+    participantIds: [ALICE_UID],
+    hostId: ALICE_UID,
+    renterId: ALICE_UID,
+    createdAt: new Date(),
+  }));
+
   await assertSucceeds(aliceDb.collection("conversations").doc("conv_1").set({
     id: "conv_1",
     participantIds: [ALICE_UID, BOB_UID],
@@ -284,33 +295,172 @@ test("Non-participant: cannot read conversation or list/write messages", async (
   );
 });
 
-// 6. Bookings (renter & host scoped)
-test("Bookings: renter can create and query own bookings, host can update status, third party rejected", async () => {
+// 6. Bookings & Item Booking Lock + Reviews
+test("Bookings: self-booking rejected, renter locks & reviews item, host transitions status, third party rejected", async () => {
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  await assertSucceeds(bobDb.collection("items").doc("bob_cam").set({
+    id: "bob_cam",
+    title: "Bob's Leica",
+    categoryName: "ELECTRONICS",
+    pricePerDay: 900,
+    ownerId: BOB_UID,
+    availableToday: true,
+    rating: 0,
+    reviewCount: 0,
+    createdAt: new Date(),
+  }));
+
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+
+  // Self-booking rejected
+  await assertFails(aliceDb.collection("bookings").doc("book_self").set({
+    id: "book_self",
+    renterId: ALICE_UID,
+    hostId: ALICE_UID,
+    itemId: "bob_cam",
+    totalAmount: 950,
+    status: "Confirmed",
+    handoverOtp: "1234",
+    createdAt: new Date(),
+  }));
+
   await assertSucceeds(aliceDb.collection("bookings").doc("book_1").set({
     id: "book_1",
     renterId: ALICE_UID,
     hostId: BOB_UID,
-    itemId: "item_100",
-    totalAmount: 1500,
+    itemId: "bob_cam",
+    totalAmount: 1850,
     status: "Confirmed",
     handoverOtp: "4821",
     createdAt: new Date(),
   }));
 
+  // Renter can lock Bob's item with valid activeBookingId
+  await assertSucceeds(aliceDb.collection("items").doc("bob_cam").update({
+    availableToday: false,
+    activeBookingId: "book_1",
+    updatedAt: new Date(),
+  }));
+
+  // Charlie cannot lock Bob's item with Alice's booking
+  const charlieDb = testEnv.authenticatedContext(CHARLIE_UID).firestore();
+  await assertFails(charlieDb.collection("items").doc("bob_cam").update({
+    availableToday: false,
+    activeBookingId: "book_1",
+    updatedAt: new Date(),
+  }));
+
   await assertSucceeds(aliceDb.collection("bookings").where("renterId", "==", ALICE_UID).get());
   await assertFails(aliceDb.collection("bookings").get());
 
-  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  // Host transitions Confirmed -> Active -> Completed and unlocks item
+  await assertSucceeds(bobDb.collection("bookings").doc("book_1").update({
+    status: "Active",
+    updatedAt: new Date(),
+  }));
   await assertSucceeds(bobDb.collection("bookings").doc("book_1").update({
     status: "Completed",
     updatedAt: new Date(),
   }));
+  await assertSucceeds(bobDb.collection("items").doc("bob_cam").update({
+    availableToday: true,
+    activeBookingId: null,
+    updatedAt: new Date(),
+  }));
 
-  const charlieDb = testEnv.authenticatedContext(CHARLIE_UID).firestore();
+  // Borrower can submit review & increment item rating
+  await assertSucceeds(aliceDb.collection("bookings").doc("book_1").update({
+    isReviewed: true,
+    ratingGiven: 5,
+    reviewComment: "Clean lens and smooth pickup",
+    updatedAt: new Date(),
+  }));
+  await assertSucceeds(aliceDb.collection("items").doc("bob_cam").update({
+    rating: 5.0,
+    reviewCount: 1,
+    updatedAt: new Date(),
+  }));
+
+  // Out-of-bounds rating rejected
+  await assertFails(aliceDb.collection("items").doc("bob_cam").update({
+    rating: 9.0,
+    reviewCount: 2,
+    updatedAt: new Date(),
+  }));
+
+  // Third party rejected
   await assertFails(charlieDb.collection("bookings").doc("book_1").get());
   await assertFails(charlieDb.collection("bookings").doc("book_1").update({
     status: "Cancelled",
     updatedAt: new Date(),
   }));
 });
+
+test("Bookings: atomic batch create+lock succeeds via getAfter and prevents double-booking overwrite", async () => {
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  await assertSucceeds(bobDb.collection("items").doc("atomic_cam").set({
+    id: "atomic_cam",
+    title: "Fujifilm X100VI",
+    categoryName: "ELECTRONICS",
+    pricePerDay: 950,
+    ownerId: BOB_UID,
+    availableToday: true,
+    activeBookingId: null,
+    rating: 0,
+    reviewCount: 0,
+    createdAt: new Date(),
+  }));
+
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const aliceBatch = aliceDb.batch();
+  aliceBatch.set(aliceDb.collection("bookings").doc("book_atomic_1"), {
+    id: "book_atomic_1",
+    renterId: ALICE_UID,
+    hostId: BOB_UID,
+    itemId: "atomic_cam",
+    totalAmount: 1950,
+    status: "Confirmed",
+    handoverOtp: "2468",
+    createdAt: new Date(),
+  });
+  aliceBatch.update(aliceDb.collection("items").doc("atomic_cam"), {
+    availableToday: false,
+    activeBookingId: "book_atomic_1",
+    updatedAt: new Date(),
+  });
+  await assertSucceeds(aliceBatch.commit());
+
+  // Second renter Charlie cannot overwrite an already-locked item in a concurrent batch
+  const charlieDb = testEnv.authenticatedContext(CHARLIE_UID).firestore();
+  const charlieBatch = charlieDb.batch();
+  charlieBatch.set(charlieDb.collection("bookings").doc("book_atomic_2"), {
+    id: "book_atomic_2",
+    renterId: CHARLIE_UID,
+    hostId: BOB_UID,
+    itemId: "atomic_cam",
+    totalAmount: 1950,
+    status: "Confirmed",
+    handoverOtp: "1357",
+    createdAt: new Date(),
+  });
+  charlieBatch.update(charlieDb.collection("items").doc("atomic_cam"), {
+    availableToday: false,
+    activeBookingId: "book_atomic_2",
+    updatedAt: new Date(),
+  });
+  await assertFails(charlieBatch.commit());
+
+  // Renter Alice cancels confirmed booking and unlocks item in an atomic batch
+  const cancelBatch = aliceDb.batch();
+  cancelBatch.update(aliceDb.collection("bookings").doc("book_atomic_1"), {
+    status: "Cancelled",
+    updatedAt: new Date(),
+  });
+  cancelBatch.update(aliceDb.collection("items").doc("atomic_cam"), {
+    availableToday: true,
+    activeBookingId: null,
+    updatedAt: new Date(),
+  });
+  await assertSucceeds(cancelBatch.commit());
+});
+

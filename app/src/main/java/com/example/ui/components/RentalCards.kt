@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -47,7 +49,9 @@ fun RentalItemCard(
     item: RentalItem,
     onClick: () -> Unit,
     onToggleFavorite: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isOwnedByCurrentUser: Boolean = false,
+    onPreviewImages: (() -> Unit)? = null
 ) {
     Card(
         modifier = modifier
@@ -73,37 +77,118 @@ fun RentalItemCard(
                         .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)),
                     contentScale = ContentScale.Crop
                 )
-                Box(
+                Row(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(10.dp)
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(100.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .padding(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${item.category.iconEmoji} ${item.category.title}",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(100.dp))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "${item.category.iconEmoji} ${item.category.title}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    if (!item.availableToday) {
+                        val isBooked = item.activeBookingId != null
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(
+                                    if (isBooked) MaterialTheme.colorScheme.errorContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .padding(horizontal = 9.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isBooked) "BOOKED" else "PAUSED",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isBooked) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
-                IconButton(
-                    onClick = { onToggleFavorite(item.id) },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-                        .testTag("favorite_btn_${item.id}")
-                ) {
-                    Icon(
-                        imageVector = if (item.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = if (item.isFavorite) "Remove favorite" else "Add favorite",
-                        tint = if (item.isFavorite) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
-                    )
+                if (isOwnedByCurrentUser) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "YOUR LISTING",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.surface
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = { onToggleFavorite(item.id) },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                            .testTag("favorite_btn_${item.id}")
+                    ) {
+                        Icon(
+                            imageVector = if (item.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = if (item.isFavorite) "Remove favorite" else "Add favorite",
+                            tint = if (item.isFavorite) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                if (onPreviewImages != null) {
+                    val photoTotal = when {
+                        item.imageUrls.isNotEmpty() -> item.imageUrls.size
+                        item.imageCount > 0 -> item.imageCount
+                        else -> 1
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(2.dp)
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                            .clip(RoundedCornerShape(100.dp))
+                            .clickable(onClick = onPreviewImages)
+                            .padding(8.dp)
+                            .testTag("rental_card_preview_btn_${item.id}"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.72f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoLibrary,
+                                contentDescription = "Preview photos",
+                                tint = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = if (photoTotal > 1) "$photoTotal photos" else "Preview",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.surface
+                            )
+                        }
+                    }
                 }
             }
             Column(

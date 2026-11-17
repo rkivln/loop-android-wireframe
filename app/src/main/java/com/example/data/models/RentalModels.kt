@@ -53,6 +53,7 @@ data class RentalItem(
     val isPopular: Boolean = false,
     val isFavorite: Boolean = false,
     val availableToday: Boolean = true,
+    val activeBookingId: String? = null,
     val securityDeposit: Int = 0,
     val latitude: Double? = null,
     val longitude: Double? = null
@@ -95,7 +96,10 @@ data class UserRentalBooking(
     val status: String = "Confirmed",
     val handoverOtp: String = "",
     val deliveryOption: String = "Self Pickup",
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val isReviewed: Boolean = false,
+    val ratingGiven: Int = 0,
+    val reviewComment: String = ""
 )
 
 enum class MessageStatus {
@@ -136,6 +140,9 @@ data class ChatConversation(
     val id: String,
     val owner: RentalOwner,
     val itemContext: RentalItem?,
+    val communityPostId: String? = null,
+    val communityPostTitle: String? = null,
+    val lastSenderId: String = "",
     val isOnline: Boolean = true,
     val isTyping: Boolean = false,
     val unreadCount: Int = 0,
@@ -183,6 +190,7 @@ data class DiscoveryPinItem(
     val description: String,
     val owner: RentalOwner? = null,
     val rentalItem: RentalItem? = null,
+    val communityPost: UserCommunityPost? = null,
     @DrawableRes val imageRes: Int? = null,
     val imageUrl: String? = null,
     val isAttending: Boolean = false,

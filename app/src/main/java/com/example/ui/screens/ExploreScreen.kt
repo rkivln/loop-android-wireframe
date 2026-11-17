@@ -29,10 +29,12 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,7 +56,10 @@ import com.example.data.RentalRepository
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
+import com.example.data.models.UserCommunityPost
+import com.example.ui.components.CatalogSkeletonFeed
 import com.example.ui.components.EditorialPhotoCard
+import com.example.ui.components.ItemImagePreviewModal
 import com.example.ui.components.PrimaryCTA
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
@@ -65,21 +71,29 @@ import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExploreScreen(
     onItemClick: (RentalItem) -> Unit = {},
     onContactOwner: (RentalOwner) -> Unit = {},
+    onContactHostWithItem: (RentalOwner, RentalItem?) -> Unit = { owner, _ -> onContactOwner(owner) },
+    onMessageOrganizer: (UserCommunityPost) -> Unit = {},
     onBackToCatalog: () -> Unit = {},
     onPublishClick: () -> Unit = {},
     initialShowMap: Boolean = false,
     onMapModeChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var showMapMode by remember(initialShowMap) { mutableStateOf(initialShowMap) }
+    var previewItem by remember { mutableStateOf<RentalItem?>(null) }
     val searchQuery by RentalRepository.searchQuery.collectAsStateWithLifecycle()
     val selectedCategory by RentalRepository.selectedCategory.collectAsStateWithLifecycle()
     val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
     val filteredItems by RentalRepository.filteredItems.collectAsStateWithLifecycle()
+    val userProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
+    val isCatalogLoading by RentalRepository.isCatalogLoadingFlow.collectAsStateWithLifecycle()
+    val isRefreshing by RentalRepository.isRefreshingFlow.collectAsStateWithLifecycle()
 
     if (showMapMode) {
         BackHandler {
@@ -95,6 +109,8 @@ fun ExploreScreen(
                 },
                 onItemClick = onItemClick,
                 onContactOwner = onContactOwner,
+                onContactHostWithItem = onContactHostWithItem,
+                onMessageOrganizer = onMessageOrganizer,
                 onPublishPiece = onPublishClick,
                 modifier = Modifier.fillMaxSize()
             )
@@ -286,83 +302,110 @@ fun ExploreScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        if (filteredItems.isEmpty()) {
+        if (isCatalogLoading && allItems.isEmpty()) {
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(32.dp)
-                    .testTag(if (allItems.isEmpty()) "empty_catalog_state" else "empty_search_state"),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 22.dp, vertical = 4.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.SearchOff,
-                        contentDescription = "No results",
-                        tint = InkMuted,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    if (allItems.isEmpty()) {
-                        Text(
-                            text = "No pieces listed yet",
-                            style = LoopType.HeadlineMedium,
-                            color = InkCharcoal,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Publish the first item with your own photos to start the community marketplace.",
-                            style = LoopType.BodySmall,
-                            color = InkSecondary,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        PrimaryCTA(
-                            text = "Publish Piece",
-                            onClick = onPublishClick,
-                            testTag = "empty_catalog_publish_button"
-                        )
-                    } else {
-                        Text(
-                            text = "No objects match your filter",
-                            style = LoopType.HeadlineMedium,
-                            color = InkCharcoal
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Try clearing your search or choosing another department.",
-                            style = LoopType.BodySmall,
-                            color = InkSecondary,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        TextButton(onClick = {
-                            RentalRepository.setSearchQuery("")
-                            RentalRepository.setSelectedCategory(null)
-                        }) {
-                            Text("Reset Catalog Filters", color = InkCharcoal)
+                CatalogSkeletonFeed(count = 3)
+            }
+        } else {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { RentalRepository.refreshSessionData(context) },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                if (filteredItems.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp)
+                            .testTag(if (allItems.isEmpty()) "empty_catalog_state" else "empty_search_state"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.SearchOff,
+                                contentDescription = "No results",
+                                tint = InkMuted,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            if (allItems.isEmpty()) {
+                                Text(
+                                    text = "No pieces listed yet",
+                                    style = LoopType.HeadlineMedium,
+                                    color = InkCharcoal,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Publish the first item with your own photos to start the community marketplace.",
+                                    style = LoopType.BodySmall,
+                                    color = InkSecondary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                PrimaryCTA(
+                                    text = "Publish Piece",
+                                    onClick = onPublishClick,
+                                    testTag = "empty_catalog_publish_button"
+                                )
+                            } else {
+                                Text(
+                                    text = "No objects match your filter",
+                                    style = LoopType.HeadlineMedium,
+                                    color = InkCharcoal
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Try clearing your search or choosing another department.",
+                                    style = LoopType.BodySmall,
+                                    color = InkSecondary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                TextButton(onClick = {
+                                    RentalRepository.setSearchQuery("")
+                                    RentalRepository.setSelectedCategory(null)
+                                }) {
+                                    Text("Reset Catalog Filters", color = InkCharcoal)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 4.dp, bottom = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(filteredItems, key = { it.id }) { item ->
+                            val isOwn = item.owner.id.isNotBlank() && item.owner.id == userProfile.uid
+                            EditorialPhotoCard(
+                                item = item,
+                                onClick = { onItemClick(item) },
+                                onToggleFavorite = { RentalRepository.toggleFavorite(item.id) },
+                                isLarge = true,
+                                isOwnedByCurrentUser = isOwn,
+                                onPreviewImages = { previewItem = item }
+                            )
                         }
                     }
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 4.dp, bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(filteredItems, key = { it.id }) { item ->
-                    EditorialPhotoCard(
-                        item = item,
-                        onClick = { onItemClick(item) },
-                        onToggleFavorite = { RentalRepository.toggleFavorite(item.id) },
-                        isLarge = true
-                    )
-                }
-            }
         }
+    }
+
+    previewItem?.let { itemToPreview ->
+        ItemImagePreviewModal(
+            item = itemToPreview,
+            onDismiss = { previewItem = null },
+            onViewDetails = { onItemClick(itemToPreview) }
+        )
     }
 }

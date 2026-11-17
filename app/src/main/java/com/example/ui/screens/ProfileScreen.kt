@@ -102,6 +102,8 @@ import com.example.data.models.AVATAR_PRESETS
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
 import com.example.data.models.LocationSharingPreference
+import com.example.data.models.RentalItem
+import com.example.data.models.RentalOwner
 import com.example.data.models.UserActivityItem
 import com.example.data.models.UserActivityType
 import com.example.data.models.UserCommunityPost
@@ -109,6 +111,7 @@ import com.example.data.models.UserProfile
 import com.example.ui.components.ListingPhoto
 import com.example.ui.components.PhotoBitmapProcessor
 import com.example.ui.components.PrimaryCTA
+import com.example.ui.components.ProfileOverviewSkeleton
 import com.example.ui.components.SecondaryCTA
 import com.example.ui.components.SectionLabel
 import com.example.update.AppUpdateCoordinator
@@ -148,21 +151,30 @@ fun ProfileScreen(
     onEditProfile: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onSignOut: () -> Unit = {},
+    initialOpenBookings: Boolean = false,
+    onBookingsSheetOpened: () -> Unit = {},
+    initialOpenCreatePost: Boolean = false,
+    onCreatePostOpened: () -> Unit = {},
+    onOpenItem: (RentalItem) -> Unit = {},
+    onMessageUser: (RentalOwner, RentalItem?) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val userProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
     val userActivities by RentalRepository.userActivityFlow.collectAsStateWithLifecycle()
-    val userPosts by RentalRepository.userCommunityPostsFlow.collectAsStateWithLifecycle()
+    val userPosts by RentalRepository.myCommunityPostsFlow.collectAsStateWithLifecycle()
+    val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
     val bookings by RentalRepository.bookingsFlow.collectAsStateWithLifecycle()
+    val isProfileLoading by RentalRepository.isProfileLoadingFlow.collectAsStateWithLifecycle()
+    val isBookingsLoading by RentalRepository.isBookingsLoadingFlow.collectAsStateWithLifecycle()
     val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
     val availableUpdateTag = (updateState as? AppUpdateUiState.UpdateAvailable)?.release?.tagName
 
-    var selectedTab by remember { mutableStateOf(ProfileTab.OVERVIEW) }
+    var selectedTab by remember { mutableStateOf(if (initialOpenCreatePost) ProfileTab.MY_POSTS else ProfileTab.OVERVIEW) }
     var isEditingProfile by remember { mutableStateOf(false) }
-    var isCreatingPost by remember { mutableStateOf(false) }
+    var isCreatingPost by remember { mutableStateOf(initialOpenCreatePost) }
     var editingPost by remember { mutableStateOf<UserCommunityPost?>(null) }
     var pendingDeletePost by remember { mutableStateOf<UserCommunityPost?>(null) }
-    var isShowingBookings by remember { mutableStateOf(false) }
+    var isShowingBookings by remember { mutableStateOf(initialOpenBookings) }
     var selectedPostFilter by remember { mutableStateOf<CommunityPostType?>(null) }
     var saveSuccessMessage by remember { mutableStateOf<String?>(null) }
 
@@ -173,6 +185,21 @@ fun ProfileScreen(
         coroutineScope.launch {
             delay(2600)
             saveSuccessMessage = null
+        }
+    }
+
+    LaunchedEffect(initialOpenBookings) {
+        if (initialOpenBookings) {
+            isShowingBookings = true
+            onBookingsSheetOpened()
+        }
+    }
+
+    LaunchedEffect(initialOpenCreatePost) {
+        if (initialOpenCreatePost) {
+            selectedTab = ProfileTab.MY_POSTS
+            isCreatingPost = true
+            onCreatePostOpened()
         }
     }
 
@@ -467,17 +494,22 @@ fun ProfileScreen(
             // Tab Content Rendering
             when (selectedTab) {
                 ProfileTab.OVERVIEW -> {
-                    // Creator Bio Box
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 22.dp, vertical = 6.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(PaperPureWhite)
-                                .border(1.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
-                                .padding(18.dp)
-                        ) {
+                    if (isProfileLoading && userProfile.uid.isBlank()) {
+                        item {
+                            ProfileOverviewSkeleton()
+                        }
+                    } else {
+                        // Creator Bio Box
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 22.dp, vertical = 6.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(PaperPureWhite)
+                                    .border(1.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
+                                    .padding(18.dp)
+                            ) {
                             Column {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -549,13 +581,13 @@ fun ProfileScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             EditorialMetricBox(
-                                count = "${userProfile.rentalsCompleted}",
-                                label = "Pieces Borrowed",
+                                count = "${userProfile.listingsCount}",
+                                label = "Pieces Listed",
                                 modifier = Modifier.weight(1f)
                             )
                             EditorialMetricBox(
-                                count = "${userPosts.size}",
-                                label = "Posted Activities",
+                                count = "${userProfile.rentalsCompleted}",
+                                label = "Completed",
                                 modifier = Modifier.weight(1f)
                             )
                             EditorialMetricBox(
@@ -636,6 +668,7 @@ fun ProfileScreen(
                                 style = LoopType.BodyMedium.copy(fontWeight = FontWeight.SemiBold)
                             )
                         }
+                    }
                     }
                 }
 
@@ -833,7 +866,23 @@ fun ProfileScreen(
                         }
                     } else {
                         items(userActivities, key = { it.id }) { activity ->
-                            ActivityTimelineItem(activity = activity)
+                            ActivityTimelineItem(
+                                activity = activity,
+                                onClick = {
+                                    when (activity.type) {
+                                        UserActivityType.RESERVATION -> isShowingBookings = true
+                                        UserActivityType.LISTING_PUBLISHED -> {
+                                            allItems.find { it.id == activity.relatedId }?.let(onOpenItem)
+                                        }
+                                        UserActivityType.COMMUNITY_EVENT,
+                                        UserActivityType.HELP_REQUEST,
+                                        UserActivityType.STUDY_GROUP -> {
+                                            selectedTab = ProfileTab.MY_POSTS
+                                        }
+                                        UserActivityType.HUB_CHECKIN -> Unit
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -850,9 +899,12 @@ fun ProfileScreen(
             EditProfileModalSheet(
                 currentProfile = userProfile,
                 onSave = { updatedProfile ->
-                    RentalRepository.updateUserProfile(updatedProfile)
+                    RentalRepository.updateUserProfile(updatedProfile) { res ->
+                        res.onSuccess {
+                            showFeedback("Bio & profile updated successfully.")
+                        }
+                    }
                     isEditingProfile = false
-                    showFeedback("Bio & profile updated successfully.")
                 },
                 onDismiss = { isEditingProfile = false }
             )
@@ -909,9 +961,44 @@ fun ProfileScreen(
         ) {
             BookingsModalSheet(
                 bookings = bookings,
-                onUpdateStatus = { bookingId, status ->
-                    RentalRepository.updateBookingStatus(bookingId, status)
-                    showFeedback("Reservation marked as $status.")
+                currentUserId = userProfile.uid,
+                isLoading = isBookingsLoading,
+                onVerifyHandoverPin = { bookingId, pin ->
+                    RentalRepository.verifyHandoverPin(bookingId, pin).onSuccess {
+                        showFeedback("Handover verified — rental is now active!")
+                    }
+                },
+                onCompleteBooking = { bookingId ->
+                    RentalRepository.completeBooking(bookingId).onSuccess {
+                        showFeedback("Gear marked returned and relisted!")
+                    }
+                },
+                onCancelBooking = { bookingId ->
+                    RentalRepository.cancelBooking(bookingId).onSuccess {
+                        showFeedback("Reservation cancelled and gear relisted.")
+                    }
+                },
+                onSubmitReview = { bookingId, stars, comment ->
+                    RentalRepository.submitBookingReview(bookingId, stars, comment).onSuccess {
+                        showFeedback("Thank you for rating!")
+                    }
+                },
+                onOpenItem = onOpenItem,
+                onMessageCounterparty = { booking ->
+                    val isHost = booking.hostId == userProfile.uid
+                    val target = if (isHost) {
+                        val name = booking.renterName.ifBlank { "Member" }
+                        RentalOwner(
+                            id = booking.renterId,
+                            name = name,
+                            badge = "Verified Borrower",
+                            initials = name.trim().split(" ").filter { it.isNotBlank() }
+                                .take(2).joinToString("") { it.take(1).uppercase() }.ifBlank { "M" }
+                        )
+                    } else {
+                        booking.item.owner
+                    }
+                    onMessageUser(target, booking.item)
                 },
                 onDismiss = { isShowingBookings = false }
             )
@@ -1248,7 +1335,10 @@ private fun CommunityPostCard(
 }
 
 @Composable
-private fun ActivityTimelineItem(activity: UserActivityItem) {
+private fun ActivityTimelineItem(
+    activity: UserActivityItem,
+    onClick: () -> Unit = {}
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1256,6 +1346,7 @@ private fun ActivityTimelineItem(activity: UserActivityItem) {
             .clip(RoundedCornerShape(18.dp))
             .background(PaperPureWhite)
             .border(1.dp, PaperBorderSubtle, RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
             .padding(14.dp)
     ) {
         Row(
