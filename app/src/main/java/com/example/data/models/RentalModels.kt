@@ -5,17 +5,16 @@ import com.example.R
 
 enum class RentalCategory(
     val title: String,
-    val iconEmoji: String,
     val bgHex: Long,
     val iconHex: Long
 ) {
-    ELECTRONICS("Electronics", "💻", 0xFFEFF6FF, 0xFF2563EB),
-    FURNITURE("Furniture", "🪑", 0xFFFFF7ED, 0xFFEA580C),
-    VEHICLES("Vehicles", "🛵", 0xFFF0FDFA, 0xFF0D9488),
-    TOOLS("Tools", "🔧", 0xFFFEF3C7, 0xFFD97706),
-    EVENTS("Events", "🎁", 0xFFFDF2F8, 0xFFDB2777),
-    STUDY_OFFICE("Study & Office", "🖥️", 0xFFEFF6FF, 0xFF2563EB),
-    HOME_LIVING("Home & Living", "🛋️", 0xFFFFF7ED, 0xFFEA580C)
+    ELECTRONICS("Electronics", 0xFFEFF6FF, 0xFF2563EB),
+    FURNITURE("Furniture", 0xFFFFF7ED, 0xFFEA580C),
+    VEHICLES("Vehicles", 0xFFF0FDFA, 0xFF0D9488),
+    TOOLS("Tools", 0xFFFEF3C7, 0xFFD97706),
+    EVENTS("Events", 0xFFFDF2F8, 0xFFDB2777),
+    STUDY_OFFICE("Study & Office", 0xFFEFF6FF, 0xFF2563EB),
+    HOME_LIVING("Home & Living", 0xFFFFF7ED, 0xFFEA580C)
 }
 
 data class SpecFeature(
@@ -163,15 +162,14 @@ enum class DiscoveryPinType {
 
 enum class MapCategoryFilter(
     val title: String,
-    val emoji: String,
     val subtitle: String
 ) {
-    ALL("All", "✨", "All neighborhood discoveries"),
-    STUDY_GROUPS("Study Groups", "📚", "Co-working & study tables"),
-    HELP_NEEDED("Help Needed", "🤝", "Gear setup & skill sharing"),
-    LOCAL_EVENTS("Local Events", "📸", "Photowalks & gatherings"),
-    GEAR_HUBS("Gear Hubs", "🔒", "24/7 Smart pickup hubs"),
-    MAKERS("Makers", "🛠️", "Community creators & hosts")
+    ALL("All", "All neighborhood discoveries"),
+    STUDY_GROUPS("Study Groups", "Co-working & study tables"),
+    HELP_NEEDED("Help Needed", "Gear setup & skill sharing"),
+    LOCAL_EVENTS("Local Events", "Photowalks & gatherings"),
+    GEAR_HUBS("Gear Hubs", "24/7 Smart pickup hubs"),
+    MAKERS("Makers", "Community creators & hosts")
 }
 
 data class DiscoveryPinItem(

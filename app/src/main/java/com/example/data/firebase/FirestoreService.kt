@@ -119,6 +119,7 @@ class FirestoreService(
             badges = badgesList,
             favoriteItemIds = favoritesList,
             legacyResetVersion = snapshot.getLong("legacyResetVersion")?.toInt() ?: 0,
+            fcmToken = snapshot.getString("fcmToken") ?: "",
             settings = parsedSettings
         )
     }
@@ -211,6 +212,7 @@ class FirestoreService(
                 "badges" to profile.badges,
                 "favoriteItemIds" to profile.favoriteItemIds,
                 "legacyResetVersion" to profile.legacyResetVersion,
+                "fcmToken" to profile.fcmToken.takeIf { it.isNotBlank() },
                 "appearanceMode" to profile.settings.appearanceMode.name,
                 "profileVisibility" to profile.settings.profileVisibility.name,
                 "locationSharing" to profile.settings.locationSharing.name,
@@ -242,6 +244,36 @@ class FirestoreService(
             throw e
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.WRITE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateFcmToken(token: String): Result<Unit> {
+        val cleanToken = token.trim().take(512)
+        if (cleanToken.isBlank()) return Result.success(Unit)
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val docRef = firestore.collection("users").document(uid)
+        return try {
+            val snap = docRef.get().await()
+            if (!snap.exists()) {
+                return Result.success(Unit)
+            }
+            docRef.update(
+                mapOf(
+                    "fcmToken" to cleanToken,
+                    "fcmTokenUpdatedAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
             Result.failure(e)
         }
     }
@@ -1742,6 +1774,250 @@ class FirestoreService(
 
     private fun imageResForCategory(category: RentalCategory): Int {
         return 0
+    }
+
+    suspend fun fetchConversationsOnce(uid: String, knownItems: List<RentalItem> = emptyList()): Result<List<ChatConversation>> {
+        if (uid.isBlank()) return Result.success(emptyList())
+        val collectionRef = firestore.collection("conversations")
+        return try {
+            val snapshot = collectionRef.whereArrayContains("participantIds", uid).get().await()
+            val list = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val hostId = doc.getString("hostId") ?: ""
+                    val hostName = doc.getString("hostName") ?: "Host"
+                    val renterId = doc.getString("renterId") ?: ""
+                    val renterName = doc.getString("renterName") ?: "Member"
+                    val isHost = uid == hostId && renterId.isNotBlank() && hostId != renterId
+                    val displayOtherName = if (isHost && renterName.isNotBlank()) renterName else hostName
+                    val otherInitials = if (isHost) computeInitials(displayOtherName)
+                    else doc.getString("hostInitials")?.takeIf { it.isNotBlank() } ?: computeInitials(displayOtherName)
+                    val counterparty = RentalOwner(
+                        id = if (isHost) renterId else hostId,
+                        name = displayOtherName,
+                        badge = if (isHost) "Community Member" else (doc.getString("hostBadge") ?: "Community Member"),
+                        initials = otherInitials,
+                        phone = if (isHost) "" else (doc.getString("hostPhone") ?: "")
+                    )
+                    val lastSenderId = doc.getString("lastSenderId").orEmpty()
+                    val lastMessageText = doc.getString("lastMessageText").orEmpty()
+                    val lastMessages = if (lastMessageText.isNotBlank()) {
+                        listOf(
+                            RentalMessage(
+                                id = "last_${doc.id}",
+                                senderName = if (lastSenderId == uid) "You" else displayOtherName,
+                                text = lastMessageText,
+                                timestamp = doc.getString("lastMessageTimestamp") ?: "Just now",
+                                isFromMe = lastSenderId == uid,
+                                senderId = lastSenderId,
+                                status = MessageStatus.READ
+                            )
+                        )
+                    } else emptyList()
+                    val itemId = doc.getString("itemId")?.takeIf { it.isNotBlank() }
+                    val itemContext = itemId?.let { id ->
+                        knownItems.find { it.id == id } ?: doc.getString("itemTitle")?.let { title ->
+                            RentalItem(
+                                id = id,
+                                title = title,
+                                category = RentalCategory.ELECTRONICS,
+                                pricePerDay = doc.getLong("itemPricePerDay")?.toInt() ?: 0,
+                                location = "",
+                                rating = 0f,
+                                reviewCount = 0,
+                                description = "",
+                                primaryImageRes = 0,
+                                features = emptyList(),
+                                owner = counterparty
+                            )
+                        }
+                    }
+                    val storedUnread = doc.getLong("unreadCount")?.toInt() ?: 0
+                    val effectiveUnread = if (lastSenderId.isNotBlank() && lastSenderId == uid) 0 else storedUnread
+                    ChatConversation(
+                        id = doc.id,
+                        owner = counterparty,
+                        itemContext = itemContext,
+                        communityPostId = doc.getString("communityPostId")?.takeIf { it.isNotBlank() },
+                        communityPostTitle = doc.getString("communityPostTitle")?.takeIf { it.isNotBlank() },
+                        lastSenderId = lastSenderId,
+                        isOnline = doc.getBoolean("isOnline") ?: true,
+                        isTyping = doc.getBoolean("isTyping") ?: false,
+                        unreadCount = effectiveUnread,
+                        isPinned = doc.getBoolean("isPinned") ?: false,
+                        messages = lastMessages
+                    )
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            Result.success(list)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.LIST, collectionRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchBookingsOnce(uid: String, knownItems: List<RentalItem> = emptyList()): Result<List<UserRentalBooking>> {
+        if (uid.isBlank()) return Result.success(emptyList())
+        val collectionRef = firestore.collection("bookings")
+        return try {
+            val renterDocs = collectionRef.whereEqualTo("renterId", uid).get().await().documents
+            val hostDocs = collectionRef.whereEqualTo("hostId", uid).get().await().documents
+            val mergedDocs = linkedMapOf<String, DocumentSnapshot>()
+            renterDocs.forEach { mergedDocs[it.id] = it }
+            hostDocs.forEach { mergedDocs[it.id] = it }
+
+            val list = mergedDocs.values.mapNotNull { doc ->
+                try {
+                    val itemId = doc.getString("itemId") ?: ""
+                    val itemTitle = doc.getString("itemTitle") ?: "Gear Rental"
+                    val pricePerDay = doc.getLong("pricePerDay")?.toInt() ?: 0
+                    val hostId = doc.getString("hostId") ?: ""
+                    val hostName = doc.getString("hostName") ?: "Host"
+                    val status = doc.getString("status") ?: "Confirmed"
+                    val resolvedItem = knownItems.find { it.id == itemId } ?: RentalItem(
+                        id = itemId,
+                        title = itemTitle,
+                        category = RentalCategory.ELECTRONICS,
+                        pricePerDay = pricePerDay,
+                        location = "",
+                        rating = 0f,
+                        reviewCount = 0,
+                        description = "",
+                        primaryImageRes = 0,
+                        features = emptyList(),
+                        owner = RentalOwner(id = hostId, name = hostName)
+                    )
+                    UserRentalBooking(
+                        id = doc.id,
+                        item = resolvedItem,
+                        hostId = hostId,
+                        hostName = hostName,
+                        renterId = doc.getString("renterId") ?: "",
+                        renterName = doc.getString("renterName") ?: "",
+                        startDate = doc.getString("startDate") ?: "",
+                        endDate = doc.getString("endDate") ?: "",
+                        daysRemaining = doc.getLong("daysCount")?.toInt() ?: 1,
+                        totalPaid = doc.getLong("totalAmount")?.toInt() ?: 0,
+                        status = status,
+                        handoverOtp = doc.getString("handoverOtp") ?: "",
+                        deliveryOption = doc.getString("deliveryOption") ?: "Self Pickup",
+                        isCompleted = status.equals("Completed", ignoreCase = true) ||
+                            status.equals("Cancelled", ignoreCase = true),
+                        isReviewed = doc.getBoolean("isReviewed") ?: false,
+                        ratingGiven = doc.getLong("ratingGiven")?.toInt() ?: 0,
+                        reviewComment = doc.getString("reviewComment") ?: ""
+                    )
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            Result.success(list)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.LIST, collectionRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchCommunityPostsOnce(): Result<List<UserCommunityPost>> {
+        val collectionRef = firestore.collection("community_posts")
+        return try {
+            val snapshot = collectionRef.get().await()
+            val list = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val type = try {
+                        CommunityPostType.valueOf(doc.getString("typeStr") ?: "EVENT")
+                    } catch (_: Exception) {
+                        CommunityPostType.EVENT
+                    }
+                    val status = try {
+                        CommunityPostStatus.valueOf(doc.getString("statusStr") ?: "ACTIVE")
+                    } catch (_: Exception) {
+                        CommunityPostStatus.ACTIVE
+                    }
+                    val attendeeIdsList = (doc.get("attendeeIds") as? List<*>)
+                        ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+                        ?: emptyList()
+                    UserCommunityPost(
+                        id = doc.id,
+                        title = doc.getString("title") ?: "",
+                        type = type,
+                        categoryName = doc.getString("categoryName") ?: "CREATIVE_PHOTO",
+                        description = doc.getString("description") ?: "",
+                        location = doc.getString("location") ?: "",
+                        dateTime = doc.getString("dateTime") ?: "",
+                        attendeesOrResponses = doc.getString("attendeesOrResponses") ?: "0 participating",
+                        attendeeIds = attendeeIdsList,
+                        status = status,
+                        createdAt = "",
+                        createdAtEpoch = doc.getTimestamp("createdAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                        latitude = doc.getDouble("latitude"),
+                        longitude = doc.getDouble("longitude"),
+                        authorId = doc.getString("authorId") ?: "",
+                        authorName = doc.getString("authorName") ?: "Community Member",
+                        imageUrl = doc.getString("imageUrl")?.takeIf { it.isNotBlank() }
+                    )
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            Result.success(list)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.LIST, collectionRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchOwnedItemsOnce(uid: String): Result<List<RentalItem>> {
+        if (uid.isBlank()) return Result.success(emptyList())
+        val collectionRef = firestore.collection("items")
+        return try {
+            val snapshot = collectionRef.whereEqualTo("ownerId", uid).get().await()
+            val list = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val category = try {
+                        RentalCategory.valueOf(doc.getString("categoryName") ?: "ELECTRONICS")
+                    } catch (_: Exception) {
+                        RentalCategory.ELECTRONICS
+                    }
+                    val ownerName = doc.getString("ownerName") ?: "Community Member"
+                    RentalItem(
+                        id = doc.id,
+                        title = doc.getString("title") ?: "",
+                        category = category,
+                        pricePerDay = doc.getLong("pricePerDay")?.toInt() ?: 0,
+                        location = doc.getString("location") ?: "",
+                        rating = (doc.getDouble("rating") ?: 0.0).toFloat(),
+                        reviewCount = doc.getLong("reviewCount")?.toInt() ?: 0,
+                        description = doc.getString("description") ?: "",
+                        primaryImageRes = 0,
+                        features = emptyList(),
+                        owner = RentalOwner(
+                            id = doc.getString("ownerId") ?: "",
+                            name = ownerName,
+                            badge = doc.getString("ownerBadge") ?: "Community Member",
+                            initials = doc.getString("ownerInitials") ?: computeInitials(ownerName)
+                        ),
+                        availableToday = doc.getBoolean("availableToday") ?: true,
+                        activeBookingId = doc.getString("activeBookingId")?.takeIf { it.isNotBlank() }
+                    )
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            Result.success(list)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.LIST, collectionRef.path)
+            Result.failure(e)
+        }
     }
 
     companion object {

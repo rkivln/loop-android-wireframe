@@ -89,6 +89,7 @@ import com.example.data.models.AVATAR_PRESETS
 import com.example.data.models.AppearanceMode
 import com.example.data.models.RentalItem
 import com.example.data.models.UserCommunityPost
+import com.example.notifications.LoopNotificationManager
 import com.example.ui.components.EditorialTopBar
 import com.example.ui.components.GitHubRepoConfigDialog
 import com.example.update.AppUpdateCoordinator
@@ -444,7 +445,7 @@ fun SettingsScreen(
                                 title = "Push Notifications",
                                 subtitle = when {
                                     !isOsNotificationGranted -> "Android permission required"
-                                    settings.notifications.pushEnabled -> "Enabled for live neighborhood updates"
+                                    settings.notifications.pushEnabled -> "FCM & background sync active"
                                     else -> "Paused for all categories"
                                 },
                                 checked = pushEffective,
@@ -567,6 +568,31 @@ fun SettingsScreen(
                                     )
                                 },
                                 testTag = "settings_notify_announcements_toggle"
+                            )
+                            SettingsDivider()
+                            SettingsNavRow(
+                                icon = Icons.Default.NotificationsActive,
+                                title = "Send test notification",
+                                subtitle = notificationStatusHint
+                                    ?: "Verify push alert delivery & tap routing on this phone",
+                                badgeText = if (pushEffective) "Ready" else "Off",
+                                onClick = {
+                                    if (!ThemePreferencesStore.isNotificationPermissionGranted(context)) {
+                                        requestNotificationsFlow()
+                                    } else {
+                                        LoopNotificationManager.sendTestNotification(context).fold(
+                                            onSuccess = {
+                                                notificationStatusHint = "Test notification sent to your status bar."
+                                                RentalRepository.syncNotificationsForCurrentUser(context)
+                                            },
+                                            onFailure = { err ->
+                                                notificationStatusHint = err.localizedMessage
+                                                    ?: "Unable to post test notification."
+                                            }
+                                        )
+                                    }
+                                },
+                                testTag = "settings_send_test_notification_btn"
                             )
                         }
                     }

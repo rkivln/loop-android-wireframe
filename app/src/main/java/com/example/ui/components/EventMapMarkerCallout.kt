@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
@@ -397,7 +398,17 @@ fun EventMapMarkerCallout(
                                     .heightIn(min = 48.dp)
                                     .testTag("callout_rsvp_btn")
                             ) {
-                                Text(if (pin.isAttending) "Attending ✓" else "RSVP", maxLines = 1)
+                                if (pin.isAttending) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Attending", maxLines = 1)
+                                } else {
+                                    Text("RSVP", maxLines = 1)
+                                }
                             }
                             if (pin.communityPost?.authorId?.isNotBlank() == true) {
                                 OutlinedButton(

@@ -83,6 +83,7 @@ import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
 import com.example.ui.theme.InkSecondary
 import com.example.ui.theme.InkWhite
+import com.example.ui.theme.getIconVector
 import com.example.ui.theme.LoopType
 import com.example.ui.theme.PaperBorder
 import com.example.ui.theme.PaperBorderSubtle
@@ -888,9 +889,11 @@ fun CategoryTile(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = category.iconEmoji,
-                fontSize = 26.sp
+            Icon(
+                imageVector = category.getIconVector(),
+                contentDescription = null,
+                tint = if (isSelected) InkWhite else Color(category.iconHex),
+                modifier = Modifier.size(28.dp)
             )
         }
 

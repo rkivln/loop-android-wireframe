@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -37,6 +38,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -84,6 +86,7 @@ private enum class BookingsRoleFilter(val label: String) {
 fun BookingsModalSheet(
     bookings: List<UserRentalBooking>,
     currentUserId: String = "",
+    highlightedBookingId: String? = null,
     isLoading: Boolean = false,
     onVerifyHandoverPin: suspend (bookingId: String, pin: String) -> Result<Unit> = { _, _ -> Result.success(Unit) },
     onCompleteBooking: suspend (bookingId: String) -> Result<Unit> = { Result.success(Unit) },
@@ -101,12 +104,26 @@ fun BookingsModalSheet(
     var reviewDialogBooking by remember { mutableStateOf<UserRentalBooking?>(null) }
     var actionBusyBookingId by remember { mutableStateOf<String?>(null) }
     var sheetError by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
 
     val filteredBookings = remember(bookings, roleFilter, currentUserId) {
         when (roleFilter) {
             BookingsRoleFilter.ALL -> bookings
             BookingsRoleFilter.BORROWING -> bookings.filter { currentUserId.isBlank() || it.hostId != currentUserId }
             BookingsRoleFilter.HOSTING -> bookings.filter { currentUserId.isNotBlank() && it.hostId == currentUserId }
+        }
+    }
+
+    LaunchedEffect(highlightedBookingId, bookings, filteredBookings) {
+        val targetId = highlightedBookingId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val existsInAll = bookings.any { it.id == targetId }
+        if (existsInAll) {
+            val filteredIndex = filteredBookings.indexOfFirst { it.id == targetId }
+            if (filteredIndex >= 0) {
+                listState.animateScrollToItem(filteredIndex)
+            } else if (roleFilter != BookingsRoleFilter.ALL) {
+                roleFilter = BookingsRoleFilter.ALL
+            }
         }
     }
 
@@ -217,6 +234,7 @@ fun BookingsModalSheet(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.height(380.dp),
                         contentPadding = PaddingValues(vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -228,6 +246,7 @@ fun BookingsModalSheet(
                             val isCompletedStatus = booking.status.equals("Completed", ignoreCase = true)
                             val isCancelled = booking.status.equals("Cancelled", ignoreCase = true)
                             val isBusy = actionBusyBookingId == booking.id
+                            val isHighlighted = !highlightedBookingId.isNullOrBlank() && booking.id == highlightedBookingId
 
                             val statusBg = when {
                                 isActive -> AccentPowderBlue
@@ -247,7 +266,11 @@ fun BookingsModalSheet(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(18.dp))
                                     .background(PaperIvory)
-                                    .border(1.dp, PaperBorderSubtle, RoundedCornerShape(18.dp))
+                                    .border(
+                                        width = if (isHighlighted) 2.dp else 1.dp,
+                                        color = if (isHighlighted) AccentForestGreen else PaperBorderSubtle,
+                                        shape = RoundedCornerShape(18.dp)
+                                    )
                                     .padding(14.dp)
                                     .testTag("booking_row_${booking.id}")
                             ) {

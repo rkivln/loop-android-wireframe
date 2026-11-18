@@ -142,15 +142,6 @@ fun MapLibreGLMapView(
                 put("locationName", point.locationName)
                 put("tag", point.tag)
                 put("priceOrAttendees", point.priceOrAttendees)
-                val emoji = when (point.type.name) {
-                    "COMMUNITY_EVENT" -> "📅"
-                    "HELP_REQUEST" -> "🤝"
-                    "STUDY_GROUP" -> "📚"
-                    "PICKUP_HUB" -> "🔒"
-                    "USER_HOST", "RENTAL_ITEM" -> "📦"
-                    else -> "📍"
-                }
-                put("emoji", emoji)
             }
             array.put(obj)
         }

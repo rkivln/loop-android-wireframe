@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.models.RentalCategory
+import com.example.ui.theme.getIconVector
 
 @Composable
 fun SearchBarComponent(
@@ -103,7 +104,8 @@ fun SearchBarComponent(
             RentalCategory.entries.forEach { category ->
                 val isSelected = selectedCategory.equals(category.title, ignoreCase = true)
                 CategoryFilterPill(
-                    label = "${category.iconEmoji} ${category.title}",
+                    label = category.title,
+                    iconVector = category.getIconVector(),
                     isSelected = isSelected,
                     onClick = {
                         onCategorySelect(if (isSelected) null else category.title)
@@ -118,6 +120,7 @@ fun SearchBarComponent(
 @Composable
 private fun CategoryFilterPill(
     label: String,
+    iconVector: androidx.compose.ui.graphics.vector.ImageVector? = null,
     isSelected: Boolean,
     onClick: () -> Unit,
     testTag: String
@@ -139,12 +142,25 @@ private fun CategoryFilterPill(
             .testTag(testTag),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-            ),
-            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (iconVector != null) {
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = null,
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                ),
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }

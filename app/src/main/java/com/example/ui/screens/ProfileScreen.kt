@@ -134,15 +134,16 @@ import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
 import com.example.ui.theme.PaperWarm
+import com.example.ui.theme.getIconVector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class ProfileTab(val label: String, val emoji: String) {
-    OVERVIEW("Overview & Bio", "👤"),
-    MY_POSTS("Posted Activities", "🤝"),
-    ACTIVITY("Activity Ledger", "⏱️")
+enum class ProfileTab(val label: String) {
+    OVERVIEW("Overview & Bio"),
+    MY_POSTS("Posted Activities"),
+    ACTIVITY("Activity Ledger")
 }
 
 @Composable
@@ -152,7 +153,9 @@ fun ProfileScreen(
     onOpenSettings: () -> Unit = {},
     onSignOut: () -> Unit = {},
     initialOpenBookings: Boolean = false,
+    highlightedBookingId: String? = null,
     onBookingsSheetOpened: () -> Unit = {},
+    onBookingsSheetDismissed: () -> Unit = {},
     initialOpenCreatePost: Boolean = false,
     onCreatePostOpened: () -> Unit = {},
     onOpenItem: (RentalItem) -> Unit = {},
@@ -476,16 +479,27 @@ fun ProfileScreen(
                                 .padding(vertical = 9.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "${tab.emoji} ${tab.label}",
-                                style = LoopType.Metadata.copy(
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                ),
-                                color = if (isSelected) InkWhite else InkCharcoal,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = tab.getIconVector(),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(13.dp),
+                                    tint = if (isSelected) InkWhite else InkCharcoal
+                                )
+                                Text(
+                                    text = tab.label,
+                                    style = LoopType.Metadata.copy(
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (isSelected) InkWhite else InkCharcoal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -753,14 +767,25 @@ fun ProfileScreen(
                                         .clickable { selectedPostFilter = if (isSelected) null else pType }
                                         .padding(horizontal = 12.dp, vertical = 5.dp)
                                 ) {
-                                    Text(
-                                        text = "${pType.emoji} ${pType.title} ($count)",
-                                        style = LoopType.Metadata.copy(
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                        ),
-                                        color = if (isSelected) InkWhite else InkCharcoal
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = pType.getIconVector(),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(13.dp),
+                                            tint = if (isSelected) InkWhite else InkCharcoal
+                                        )
+                                        Text(
+                                            text = "${pType.title} ($count)",
+                                            style = LoopType.Metadata.copy(
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                            ),
+                                            color = if (isSelected) InkWhite else InkCharcoal
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -783,9 +808,11 @@ fun ProfileScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = "🤝",
-                                        fontSize = 32.sp
+                                    Icon(
+                                        imageVector = Icons.Default.Handshake,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(32.dp),
+                                        tint = InkCharcoal
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
@@ -962,6 +989,7 @@ fun ProfileScreen(
             BookingsModalSheet(
                 bookings = bookings,
                 currentUserId = userProfile.uid,
+                highlightedBookingId = highlightedBookingId,
                 isLoading = isBookingsLoading,
                 onVerifyHandoverPin = { bookingId, pin ->
                     RentalRepository.verifyHandoverPin(bookingId, pin).onSuccess {
@@ -1000,7 +1028,10 @@ fun ProfileScreen(
                     }
                     onMessageUser(target, booking.item)
                 },
-                onDismiss = { isShowingBookings = false }
+                onDismiss = {
+                    isShowingBookings = false
+                    onBookingsSheetDismissed()
+                }
             )
         }
 
@@ -1093,11 +1124,22 @@ private fun CommunityPostCard(
                             .background(badgeBg)
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
-                        Text(
-                            text = "${post.type.emoji} ${post.type.title}",
-                            style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                            color = InkCharcoal
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = post.type.getIconVector(),
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = InkCharcoal
+                            )
+                            Text(
+                                text = post.type.title,
+                                style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                                color = InkCharcoal
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1320,14 +1362,27 @@ private fun CommunityPostCard(
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (isCompleted) "Reopen" else "✓ Mark Resolved",
-                        style = LoopType.Metadata.copy(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isCompleted) InkCharcoal else InkWhite
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (!isCompleted) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = InkWhite
+                            )
+                        }
+                        Text(
+                            text = if (isCompleted) "Reopen" else "Mark Resolved",
+                            style = LoopType.Metadata.copy(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isCompleted) InkCharcoal else InkWhite
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -1369,9 +1424,11 @@ private fun ActivityTimelineItem(
                     .background(iconBg),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = activity.iconEmoji,
-                    fontSize = 20.sp
+                Icon(
+                    imageVector = activity.getIconVector(),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = InkCharcoal
                 )
             }
 
@@ -1625,9 +1682,11 @@ fun EditProfileModalSheet(
                                     .clickable { selectedAvatarIndex = preset.id },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = preset.emoji,
-                                    fontSize = 18.sp
+                                Icon(
+                                    imageVector = preset.getIconVector(),
+                                    contentDescription = preset.label,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = InkWhite
                                 )
                             }
                         }
@@ -1967,14 +2026,25 @@ fun CreateCommunityPostModalSheet(
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "${type.emoji} ${type.title}",
-                                style = LoopType.Metadata.copy(
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                ),
-                                color = if (isSelected) InkWhite else InkCharcoal
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = type.getIconVector(),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(13.dp),
+                                    tint = if (isSelected) InkWhite else InkCharcoal
+                                )
+                                Text(
+                                    text = type.title,
+                                    style = LoopType.Metadata.copy(
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (isSelected) InkWhite else InkCharcoal
+                                )
+                            }
                         }
                     }
                 }

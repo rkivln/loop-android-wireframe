@@ -47,12 +47,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
@@ -74,6 +77,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -117,6 +121,7 @@ import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
 import com.example.ui.theme.PaperWarm
+import com.example.ui.theme.getIconVector
 import kotlinx.coroutines.launch
 
 // Light & Dark Themed Architectural Map Palette
@@ -130,10 +135,18 @@ private val MapRoadPrimaryDark = Color(0xFF232B28)
 private val MapHubRadiusFillDark = Color(0xFF1A332B)
 private val MapHubRadiusStrokeDark = Color(0xFF5EEAD4)
 
-enum class MapEngineMode(val displayName: String, val emoji: String) {
-    MAPLIBRE("MapLibre GL", "🗺️"),
-    GOOGLE_MAP("Google Map", "🌐"),
-    CANVAS("Canvas", "🏛️")
+enum class MapEngineMode(val displayName: String) {
+    MAPLIBRE("MapLibre GL"),
+    GOOGLE_MAP("Google Map"),
+    CANVAS("Canvas")
+}
+
+fun MapEngineMode.getIconVector(): ImageVector {
+    return when (this) {
+        MapEngineMode.MAPLIBRE -> Icons.Default.Map
+        MapEngineMode.GOOGLE_MAP -> Icons.Default.Public
+        MapEngineMode.CANVAS -> Icons.Default.Architecture
+    }
 }
 
 @Composable
@@ -675,11 +688,20 @@ fun DiscoveryMapScreen(
                             .testTag("map_mode_toggle_btn"),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "${mapMode.emoji} ${mapMode.displayName}",
-                            style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                            color = if (mapMode != MapEngineMode.CANVAS) InkWhite else InkCharcoal
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = mapMode.getIconVector(),
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = if (mapMode != MapEngineMode.CANVAS) InkWhite else InkCharcoal
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = mapMode.displayName,
+                                style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                                color = if (mapMode != MapEngineMode.CANVAS) InkWhite else InkCharcoal
+                            )
+                        }
                     }
 
                     // Locate Me GPS Action Button
@@ -735,7 +757,12 @@ fun DiscoveryMapScreen(
                             .testTag("map_filter_chip_${filter.name}")
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = filter.emoji, fontSize = 12.sp)
+                            Icon(
+                                imageVector = filter.getIconVector(),
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = if (isSelected) InkWhite else InkCharcoal
+                            )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = filter.title,

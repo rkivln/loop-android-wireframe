@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,6 +110,8 @@ fun HomeScreen(
     onPublishClick: () -> Unit = {},
     onCreateCommunityPostClick: () -> Unit = {},
     onMessageOrganizer: (UserCommunityPost) -> Unit = {},
+    initialCommunityPostId: String? = null,
+    onCommunityPostOpened: () -> Unit = {},
     isLocationGranted: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -120,7 +123,16 @@ fun HomeScreen(
     val isRefreshing by RentalRepository.isRefreshingFlow.collectAsStateWithLifecycle()
     val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
     var showEventsSheet by remember { mutableStateOf(false) }
+    var highlightedCommunityPostId by remember { mutableStateOf<String?>(null) }
     var previewItem by remember { mutableStateOf<RentalItem?>(null) }
+
+    LaunchedEffect(initialCommunityPostId) {
+        if (!initialCommunityPostId.isNullOrBlank()) {
+            highlightedCommunityPostId = initialCommunityPostId
+            showEventsSheet = true
+            onCommunityPostOpened()
+        }
+    }
 
     val featuredItem = allItems.firstOrNull()
     val circulationItems = if (allItems.size > 1) allItems.drop(1) else emptyList()
@@ -651,7 +663,11 @@ fun HomeScreen(
 
         if (showEventsSheet) {
             CommunityPhotowalksSheet(
-                onDismiss = { showEventsSheet = false },
+                highlightedPostId = highlightedCommunityPostId,
+                onDismiss = {
+                    showEventsSheet = false
+                    highlightedCommunityPostId = null
+                },
                 onCreatePostClick = onCreateCommunityPostClick,
                 onMessageOrganizer = onMessageOrganizer
             )

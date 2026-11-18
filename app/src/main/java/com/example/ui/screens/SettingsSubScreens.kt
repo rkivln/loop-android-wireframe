@@ -32,7 +32,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkRemove
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
@@ -40,6 +42,8 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -88,6 +92,7 @@ import com.example.ui.theme.AccentWarmYellow
 import com.example.ui.theme.AlertCrimson
 import com.example.ui.theme.InkCharcoal
 import com.example.ui.theme.InkMuted
+import com.example.ui.theme.getIconVector
 import com.example.ui.theme.InkSecondary
 import com.example.ui.theme.InkWhite
 import com.example.ui.theme.LoopType
@@ -160,7 +165,7 @@ fun MyPostsSubScreen(
 
         if (isEmpty) {
             SettingsEmptyStateCard(
-                emoji = "📸",
+                icon = Icons.Default.CameraAlt,
                 title = "No posts published yet",
                 subtitle = "Listings you publish and neighborhood community posts will appear here for easy management.",
                 actionText = "Publish a Piece",
@@ -361,14 +366,22 @@ fun MyPostsSubScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
+                                Row(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(100.dp))
                                         .background(if (isResolved) AccentBeigeOat else AccentMint)
-                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                                 ) {
+                                    Icon(
+                                        imageVector = post.type.getIconVector(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(13.dp),
+                                        tint = if (isResolved) InkSecondary else AccentForestGreen
+                                    )
                                     Text(
-                                        text = "${post.type.emoji} ${if (isResolved) "Resolved" else "Active"}",
+                                        text = if (isResolved) "Resolved" else "Active",
                                         style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
                                         color = if (isResolved) InkSecondary else AccentForestGreen
                                     )
@@ -474,7 +487,7 @@ fun SavedPostsSubScreen(
 
         if (savedItems.isEmpty()) {
             SettingsEmptyStateCard(
-                emoji = "🔖",
+                icon = Icons.Default.Bookmark,
                 title = "No saved posts yet",
                 subtitle = "Tap the heart icon on any marketplace listing to save it here for quick booking later."
             )
@@ -598,7 +611,7 @@ fun MyActivitySubScreen(
 
         if (filtered.isEmpty()) {
             SettingsEmptyStateCard(
-                emoji = "⏱️",
+                icon = Icons.Default.Schedule,
                 title = "No activity recorded yet",
                 subtitle = "Your reservations, published listings, and community posts will appear here automatically."
             )
@@ -625,7 +638,12 @@ fun MyActivitySubScreen(
                                 .background(AccentMint),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = act.iconEmoji, fontSize = 19.sp)
+                            Icon(
+                                imageVector = act.getIconVector(),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = AccentForestGreen
+                            )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -728,7 +746,7 @@ fun BlockedUsersSubScreen(
 
         if (blockedUsers.isEmpty()) {
             SettingsEmptyStateCard(
-                emoji = "🛡️",
+                icon = Icons.Default.Security,
                 title = "No blocked accounts",
                 subtitle = "You can block a member anytime from a chat thread or listing page. Blocked users' pieces, posts, and chats are hidden from your feeds."
             )
@@ -1176,7 +1194,7 @@ private fun PermissionStatusCard(
 
 @Composable
 private fun SettingsEmptyStateCard(
-    emoji: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     subtitle: String,
     actionText: String? = null,
@@ -1193,7 +1211,12 @@ private fun SettingsEmptyStateCard(
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = emoji, fontSize = 32.sp)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = InkCharcoal
+            )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = title,

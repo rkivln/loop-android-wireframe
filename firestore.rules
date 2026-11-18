@@ -51,7 +51,9 @@ service cloud.firestore {
              (!('notifyLikes' in data) || data.notifyLikes is bool) &&
              (!('notifyAnnouncements' in data) || data.notifyAnnouncements is bool) &&
              (!('blockedUserIds' in data) || (data.blockedUserIds is list && data.blockedUserIds.size() <= 200)) &&
-             (!('blockedUsers' in data) || (data.blockedUsers is list && data.blockedUsers.size() <= 200));
+             (!('blockedUsers' in data) || (data.blockedUsers is list && data.blockedUsers.size() <= 200)) &&
+             (!('fcmToken' in data) || data.fcmToken == null || (data.fcmToken is string && data.fcmToken.size() <= 512)) &&
+             (!('fcmTokenUpdatedAt' in data) || data.fcmTokenUpdatedAt == null || (data.fcmTokenUpdatedAt is timestamp && data.fcmTokenUpdatedAt <= request.time));
     }
 
     function isValidRentalItem(data) {
@@ -188,7 +190,7 @@ service cloud.firestore {
                          'badges', 'favoriteItemIds', 'legacyResetVersion', 'appearanceMode', 'profileVisibility',
                          'locationSharing', 'notifyPush', 'notifyNewPosts', 'notifyCommentReplies',
                          'notifyLikes', 'notifyAnnouncements', 'blockedUserIds', 'blockedUsers',
-                         'updatedAt'
+                         'fcmToken', 'fcmTokenUpdatedAt', 'updatedAt'
                        ]);
       allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
     }

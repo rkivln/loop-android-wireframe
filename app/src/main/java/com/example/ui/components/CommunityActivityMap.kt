@@ -27,7 +27,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -62,6 +68,7 @@ import com.example.ui.theme.LoopType
 import com.example.ui.theme.PaperBorder
 import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperPureWhite
+import com.example.ui.theme.getIconVector
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -78,13 +85,16 @@ import kotlinx.coroutines.launch
 /**
  * Filter tags for community activity map points.
  */
-enum class CommunityMapFilter(val label: String, val emoji: String) {
-    ALL("All Activities", "📍"),
-    EVENTS("Photo & Gatherings", "📸"),
-    HELP("Skill & Help", "🤝"),
-    STUDY("Study Circles", "📚"),
-    HUBS("Smart Hubs", "🔒"),
-    MAKERS("Creators", "🛠️")
+enum class CommunityMapFilter(
+    val label: String,
+    val iconVector: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    ALL("All Activities", Icons.Default.LocationOn),
+    EVENTS("Photo & Gatherings", Icons.Default.CameraAlt),
+    HELP("Skill & Help", Icons.Default.Handshake),
+    STUDY("Study Circles", Icons.Default.MenuBook),
+    HUBS("Smart Hubs", Icons.Default.Lock),
+    MAKERS("Creators", Icons.Default.Build)
 }
 
 /**
@@ -256,7 +266,12 @@ fun CommunityActivityMap(
                             contentAlignment = Alignment.Center
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = filter.emoji, fontSize = 12.sp)
+                                Icon(
+                                    imageVector = filter.iconVector,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(13.dp),
+                                    tint = if (isSelected) InkWhite else InkCharcoal
+                                )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
                                     text = filter.label,
@@ -412,15 +427,13 @@ private fun CommunityActivityMapMarker(
     point: DiscoveryPinItem,
     isSelected: Boolean
 ) {
-    val bgColor: Color
-    val emoji: String
-    when (point.type) {
-        DiscoveryPinType.COMMUNITY_EVENT -> { bgColor = AccentWarmYellow; emoji = "📸" }
-        DiscoveryPinType.HELP_REQUEST -> { bgColor = AccentPeach; emoji = "🤝" }
-        DiscoveryPinType.STUDY_GROUP -> { bgColor = AccentMint; emoji = "📚" }
-        DiscoveryPinType.PICKUP_HUB -> { bgColor = AccentPowderBlue; emoji = "🔒" }
-        DiscoveryPinType.USER_HOST -> { bgColor = PaperPureWhite; emoji = "🛠️" }
-        DiscoveryPinType.RENTAL_ITEM -> { bgColor = AccentMint; emoji = "📦" }
+    val bgColor = when (point.type) {
+        DiscoveryPinType.COMMUNITY_EVENT -> AccentWarmYellow
+        DiscoveryPinType.HELP_REQUEST -> AccentPeach
+        DiscoveryPinType.STUDY_GROUP -> AccentMint
+        DiscoveryPinType.PICKUP_HUB -> AccentPowderBlue
+        DiscoveryPinType.USER_HOST -> PaperPureWhite
+        DiscoveryPinType.RENTAL_ITEM -> AccentMint
     }
 
     Column(
@@ -459,9 +472,11 @@ private fun CommunityActivityMapMarker(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = emoji,
-                fontSize = if (isSelected) 18.sp else 15.sp
+            Icon(
+                imageVector = point.type.getIconVector(),
+                contentDescription = null,
+                modifier = Modifier.size(if (isSelected) 20.dp else 16.dp),
+                tint = InkCharcoal
             )
         }
 

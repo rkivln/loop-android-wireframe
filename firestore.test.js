@@ -82,10 +82,16 @@ test("Authenticated user: can create and update their own profile", async () => 
     notifyAnnouncements: true,
     blockedUserIds: [BOB_UID],
     blockedUsers: [{ userId: BOB_UID, displayName: "Bob", blockedAtLabel: "Today" }],
+    fcmToken: "fcm_device_token_xyz_12345",
+    fcmTokenUpdatedAt: new Date(Date.now() - 1000),
     updatedAt: new Date(),
   }));
   await assertFails(aliceDb.collection("users").doc(ALICE_UID).update({
     appearanceMode: "NEON_MODE",
+    updatedAt: new Date(),
+  }));
+  await assertFails(aliceDb.collection("users").doc(ALICE_UID).update({
+    fcmToken: "x".repeat(600),
     updatedAt: new Date(),
   }));
 });

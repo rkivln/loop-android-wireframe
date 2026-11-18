@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -31,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +50,7 @@ import com.example.data.RentalRepository
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.RentalOwner
 import com.example.data.models.UserCommunityPost
+import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.CaptionTechnical
 import com.example.ui.theme.H1
@@ -60,6 +63,7 @@ import com.example.ui.theme.ParchmentBg
 import com.example.ui.theme.ParchmentBorder
 import com.example.ui.theme.ParchmentWhite
 import com.example.ui.theme.StatusGreen
+import com.example.ui.theme.getIconVector
 import com.example.ui.theme.StatusGreenBg
 
 @Composable
@@ -67,6 +71,7 @@ fun CommunityPhotowalksSheet(
     onDismiss: () -> Unit,
     onCreatePostClick: (() -> Unit)? = null,
     onMessageOrganizer: (UserCommunityPost) -> Unit = {},
+    highlightedPostId: String? = null,
     modifier: Modifier = Modifier
 ) {
     BackHandler(onBack = onDismiss)
@@ -75,6 +80,15 @@ fun CommunityPhotowalksSheet(
     val rsvpIds by RentalRepository.rsvpIdsFlow.collectAsStateWithLifecycle()
     val currentProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
     var selectedAuthorPost by remember { mutableStateOf<UserCommunityPost?>(null) }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(highlightedPostId, communityPosts) {
+        val targetId = highlightedPostId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val index = communityPosts.indexOfFirst { it.id == targetId }
+        if (index >= 0) {
+            listState.animateScrollToItem(index + 1)
+        }
+    }
 
     Box(
         modifier = modifier
@@ -93,6 +107,7 @@ fun CommunityPhotowalksSheet(
                 .navigationBarsPadding()
         ) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -192,13 +207,18 @@ fun CommunityPhotowalksSheet(
                         val isOwnPost = post.authorId.isNotBlank() && post.authorId == currentProfile.uid
                         val isResolved = post.status == CommunityPostStatus.COMPLETED
                         val isRsvped = post.id in rsvpIds
+                        val isHighlighted = !highlightedPostId.isNullOrBlank() && post.id == highlightedPostId
 
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(ParchmentWhite)
-                                .border(1.dp, ParchmentBorder, RoundedCornerShape(14.dp))
+                                .border(
+                                    width = if (isHighlighted) 2.dp else 1.dp,
+                                    color = if (isHighlighted) AccentForestGreen else ParchmentBorder,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
                                 .padding(14.dp)
                                 .testTag("community_post_item_${post.id}")
                         ) {
@@ -216,15 +236,26 @@ fun CommunityPhotowalksSheet(
                                             .border(1.dp, ParchmentBorder, RoundedCornerShape(6.dp))
                                             .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
-                                        Text(
-                                            text = if (post.dateTime.isNotBlank()) {
-                                                "${post.type.emoji} ${post.type.title} · ${post.dateTime}"
-                                            } else {
-                                                "${post.type.emoji} ${post.type.title}"
-                                            },
-                                            style = LoopType.CaptionTechnical,
-                                            color = InkBlack
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = post.type.getIconVector(),
+                                                contentDescription = null,
+                                                tint = InkBlack,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Text(
+                                                text = if (post.dateTime.isNotBlank()) {
+                                                    "${post.type.title} · ${post.dateTime}"
+                                                } else {
+                                                    post.type.title
+                                                },
+                                                style = LoopType.CaptionTechnical,
+                                                color = InkBlack
+                                            )
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -288,7 +319,7 @@ fun CommunityPhotowalksSheet(
                                                         Spacer(modifier = Modifier.width(4.dp))
                                                     }
                                                     Text(
-                                                        text = if (isRsvped) "Attending ✓" else "RSVP",
+                                                        text = if (isRsvped) "Attending" else "RSVP",
                                                         style = LoopType.BodySmall,
                                                         fontWeight = FontWeight.Bold,
                                                         color = if (isRsvped) StatusGreen else Color.White

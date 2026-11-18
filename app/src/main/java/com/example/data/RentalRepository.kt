@@ -31,6 +31,11 @@ import com.example.data.models.UserProfile
 import com.example.data.models.UserRentalBooking
 import com.example.data.models.UserSettings
 import com.example.data.repository.CommunityEventRepository
+import com.example.notifications.FcmTokenSyncHelper
+import com.example.notifications.LoopNotificationManager
+import com.example.notifications.NotificationCheckpointStore
+import com.example.notifications.NotificationDeltaEvaluator
+import com.example.notifications.NotificationSyncWorker
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.CancellationException
@@ -60,12 +65,37 @@ object RentalRepository {
     private const val TAG = "RentalRepository"
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var sessionAppContext: Context? = null
     private var firestoreService: FirestoreService? = null
     private var communityRepo: CommunityEventRepository? = null
     private var activeSessionUid: String? = null
+    private var activeOpenConversationId: String? = null
+    private var isAppInForeground: Boolean = true
     private var syncJobs = mutableListOf<Job>()
     private var messageListenerJob: Job? = null
     private val memberProfileCache = java.util.concurrent.ConcurrentHashMap<String, UserProfile>()
+
+    fun setActiveOpenConversationId(conversationId: String?) {
+        activeOpenConversationId = conversationId?.takeIf { it.isNotBlank() }
+    }
+
+    fun setAppForegroundState(inForeground: Boolean) {
+        isAppInForeground = inForeground
+    }
+
+    fun syncNotificationsForCurrentUser(context: Context) {
+        val uid = activeSessionUid ?: Firebase.auth.currentUser?.uid ?: return
+        val appContext = context.applicationContext
+        ThemePreferencesStore.ensureNotificationChannel(appContext)
+        NotificationSyncWorker.schedulePeriodic(appContext)
+        repositoryScope.launch {
+            FcmTokenSyncHelper.syncTokenAndTopics(
+                context = appContext,
+                uid = uid,
+                preferences = _userProfileFlow.value.settings.notifications
+            )
+        }
+    }
 
     val items: List<RentalItem> = emptyList()
 
@@ -219,7 +249,6 @@ object RentalRepository {
                 type = UserActivityType.RESERVATION,
                 timestamp = "${booking.startDate} – ${booking.endDate}",
                 statusBadge = booking.status,
-                iconEmoji = if (isHost) "🤝" else "📦",
                 relatedId = booking.id
             )
         }
@@ -242,7 +271,6 @@ object RentalRepository {
                 type = UserActivityType.LISTING_PUBLISHED,
                 timestamp = timestampText,
                 statusBadge = statusText,
-                iconEmoji = item.category.iconEmoji,
                 relatedId = item.id
             )
         }
@@ -258,7 +286,6 @@ object RentalRepository {
                 },
                 timestamp = post.dateTime.ifBlank { "Community post" },
                 statusBadge = post.status.label,
-                iconEmoji = post.type.emoji,
                 relatedId = post.id
             )
         }
@@ -406,6 +433,8 @@ object RentalRepository {
         if (activeSessionUid == uid && syncJobs.any { it.isActive }) return
 
         clearSession()
+        val appContext = context.applicationContext
+        sessionAppContext = appContext
         activeSessionUid = uid
         _syncErrorFlow.value = null
         _syncAlertFlow.value = null
@@ -414,9 +443,12 @@ object RentalRepository {
         _isBookingsLoadingFlow.value = true
         _isConversationsLoadingFlow.value = true
 
-        val service = FirestoreService.getInstance(context)
+        ThemePreferencesStore.ensureNotificationChannel(appContext)
+        NotificationSyncWorker.schedulePeriodic(appContext)
+
+        val service = FirestoreService.getInstance(appContext)
         firestoreService = service
-        val cRepo = CommunityEventRepository.getInstance(context)
+        val cRepo = CommunityEventRepository.getInstance(appContext)
         communityRepo = cRepo
 
         syncJobs += repositoryScope.launch {
@@ -482,6 +514,15 @@ object RentalRepository {
             var profileLoaded = false
             var itemsLoaded = false
             var bookingsLoaded = false
+            var convsLoaded = false
+            var communityLoaded = false
+
+            // Ensure device FCM token & topic subscriptions are synced after profile initializes
+            FcmTokenSyncHelper.syncTokenAndTopics(
+                context = appContext,
+                uid = uid,
+                preferences = _userProfileFlow.value.settings.notifications
+            )
 
             // 1. User Profile real-time sync
             syncJobs += repositoryScope.launch {
@@ -522,11 +563,13 @@ object RentalRepository {
             syncJobs += repositoryScope.launch {
                 try {
                     cRepo.allEvents.collect { events ->
+                        communityLoaded = true
                         _rawCommunityPostsFlow.value = events
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    communityLoaded = true
                     Log.e(TAG, "Community sync error: ${e.message}", e)
                 }
             }
@@ -535,6 +578,7 @@ object RentalRepository {
             syncJobs += repositoryScope.launch {
                 try {
                     service.listenToConversations(uid, _rawItemsFlow.value).collect { cloudConvs ->
+                        convsLoaded = true
                         _isConversationsLoadingFlow.value = false
                         val currentMap = _activeConversationMessagesFlow.value
                         _rawConversationsFlow.value = cloudConvs.map { conv ->
@@ -631,6 +675,60 @@ object RentalRepository {
                     Log.e(TAG, "Profile stats reconciliation error: ${e.message}", e)
                 }
             }
+
+            // 7. Real-time mobile push delta monitor (messages, bookings/PINs, community posts/RSVPs, reviews & payouts)
+            syncJobs += repositoryScope.launch {
+                try {
+                    combine(
+                        _userProfileFlow,
+                        conversationsFlow,
+                        bookingsFlow,
+                        userCommunityPostsFlow,
+                        myPublishedItemsFlow
+                    ) { profile, convs, bookings, posts, myItems ->
+                        NotificationWatchSnapshot(profile, convs, bookings, posts, myItems)
+                    }.collect { snap ->
+                        if (!profileLoaded || !itemsLoaded || !bookingsLoaded || !convsLoaded || !communityLoaded) {
+                            return@collect
+                        }
+                        if (snap.profile.uid != uid || uid.isBlank()) return@collect
+
+                        val (previousBaseline, alreadyNotified) =
+                            NotificationCheckpointStore.loadBaselineAndNotifiedKeys(appContext, uid)
+
+                        val eval = NotificationDeltaEvaluator.evaluateDeltas(
+                            currentUid = uid,
+                            profile = snap.profile,
+                            previousBaseline = previousBaseline,
+                            alreadyNotifiedKeys = alreadyNotified,
+                            conversations = snap.conversations,
+                            bookings = snap.bookings,
+                            communityPosts = snap.posts,
+                            ownedItems = snap.myItems,
+                            activeOpenConversationId = activeOpenConversationId,
+                            isAppInForeground = isAppInForeground
+                        )
+
+                        val postedKeys = mutableSetOf<String>()
+                        eval.events.forEach { event ->
+                            if (LoopNotificationManager.postAlert(appContext, event)) {
+                                postedKeys += event.eventKey
+                            }
+                        }
+
+                        NotificationCheckpointStore.saveBaselineAndNotifiedKeys(
+                            context = appContext,
+                            uid = uid,
+                            baseline = eval.updatedBaseline,
+                            newlyNotifiedKeys = postedKeys
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Real-time notification monitor error: ${e.message}", e)
+                }
+            }
         }
     }
 
@@ -639,6 +737,14 @@ object RentalRepository {
         val myItems: List<RentalItem>,
         val bookings: List<UserRentalBooking>,
         val myPosts: List<UserCommunityPost>
+    )
+
+    private data class NotificationWatchSnapshot(
+        val profile: UserProfile,
+        val conversations: List<ChatConversation>,
+        val bookings: List<UserRentalBooking>,
+        val posts: List<UserCommunityPost>,
+        val myItems: List<RentalItem>
     )
 
     fun observeConversationMessages(conversationId: String) {
@@ -671,7 +777,9 @@ object RentalRepository {
         messageListenerJob?.cancel()
         messageListenerJob = null
         communityRepo?.stopSync()
+        sessionAppContext?.let { NotificationSyncWorker.cancel(it) }
         activeSessionUid = null
+        activeOpenConversationId = null
         memberProfileCache.clear()
         _rawConversationsFlow.value = emptyList()
         _activeConversationMessagesFlow.value = emptyMap()
@@ -842,7 +950,9 @@ object RentalRepository {
             ThemePreferencesStore.saveAppearanceMode(context, updatedSettings.appearanceMode)
             val res = firestoreService?.updateUserSettings(updatedSettings, updatedProfile)
                 ?: Result.failure(IllegalStateException("Not connected to cloud session."))
-            res.onFailure { err ->
+            res.onSuccess {
+                FcmTokenSyncHelper.syncTopics(updatedSettings.notifications)
+            }.onFailure { err ->
                 _userProfileFlow.value = previousProfile
                 ThemePreferencesStore.saveAppearanceMode(context, previousProfile.settings.appearanceMode)
                 emitSyncAlert(

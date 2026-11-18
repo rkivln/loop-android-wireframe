@@ -70,6 +70,7 @@ import com.example.ui.theme.PaperBorder
 import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
+import com.example.ui.theme.getIconVector
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -288,14 +289,25 @@ fun ExploreScreen(
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                         .testTag("category_chip_${category.name.lowercase()}")
                 ) {
-                    Text(
-                        text = "${category.iconEmoji} ${category.title}",
-                        style = LoopType.Metadata.copy(
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        ),
-                        color = if (isSelected) InkWhite else InkCharcoal
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = category.getIconVector(),
+                            contentDescription = null,
+                            tint = if (isSelected) InkWhite else InkCharcoal,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Text(
+                            text = category.title,
+                            style = LoopType.Metadata.copy(
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            ),
+                            color = if (isSelected) InkWhite else InkCharcoal
+                        )
+                    }
                 }
             }
         }

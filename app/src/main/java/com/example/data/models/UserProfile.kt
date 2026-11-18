@@ -19,6 +19,7 @@ data class UserProfile(
     val badges: List<String> = emptyList(),
     val favoriteItemIds: List<String> = emptyList(),
     val legacyResetVersion: Int = 0,
+    val fcmToken: String = "",
     val settings: UserSettings = UserSettings()
 ) {
     val initials: String
@@ -37,17 +38,16 @@ data class AvatarPreset(
     val id: Int,
     val label: String,
     val bgHex1: Long,
-    val bgHex2: Long,
-    val emoji: String
+    val bgHex2: Long
 )
 
 val AVATAR_PRESETS = listOf(
-    AvatarPreset(0, "Midnight Slate", 0xFF0F172A, 0xFF334155, "👤"),
-    AvatarPreset(1, "Ocean Blue", 0xFF1D4ED8, 0xFF3B82F6, "📸"),
-    AvatarPreset(2, "Emerald Forest", 0xFF065F46, 0xFF10B981, "🌱"),
-    AvatarPreset(3, "Sunset Amber", 0xFFC2410C, 0xFFF97316, "⚡"),
-    AvatarPreset(4, "Royal Purple", 0xFF5B21B6, 0xFF8B5CF6, "🎧"),
-    AvatarPreset(5, "Rose Quartz", 0xFF9F1239, 0xFFF43F5E, "✨")
+    AvatarPreset(0, "Midnight Slate", 0xFF0F172A, 0xFF334155),
+    AvatarPreset(1, "Ocean Blue", 0xFF1D4ED8, 0xFF3B82F6),
+    AvatarPreset(2, "Emerald Forest", 0xFF065F46, 0xFF10B981),
+    AvatarPreset(3, "Sunset Amber", 0xFFC2410C, 0xFFF97316),
+    AvatarPreset(4, "Royal Purple", 0xFF5B21B6, 0xFF8B5CF6),
+    AvatarPreset(5, "Rose Quartz", 0xFF9F1239, 0xFFF43F5E)
 )
 
 enum class UserActivityType {
@@ -66,14 +66,13 @@ data class UserActivityItem(
     val type: UserActivityType,
     val timestamp: String,
     val statusBadge: String,
-    val iconEmoji: String,
     val relatedId: String? = null
 )
 
-enum class CommunityPostType(val title: String, val emoji: String) {
-    EVENT("Local Event", "📸"),
-    HELP_REQUEST("Help Needed", "🤝"),
-    STUDY_GROUP("Study Group", "📚")
+enum class CommunityPostType(val title: String) {
+    EVENT("Local Event"),
+    HELP_REQUEST("Help Needed"),
+    STUDY_GROUP("Study Group")
 }
 
 enum class CommunityPostStatus(val label: String) {

@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.Manifest
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.RentalRepository
 import com.example.data.ThemePreferencesStore
@@ -36,12 +40,16 @@ import com.example.data.models.RentalOwner
 import com.example.data.models.UserCommunityPost
 import com.example.location.LocationAccessState
 import com.example.location.LocationPermissionManager
+import com.example.notifications.NotificationCheckpointStore
+import com.example.notifications.NotificationDeepLink
+import com.example.notifications.NotificationSyncWorker
 import com.example.ui.auth.AuthManager
 import com.example.ui.auth.AuthScreen
 import com.example.ui.auth.WelcomeScreen
 import com.example.ui.components.BottomNavBar
 import com.example.ui.components.LocationPermissionPromptDialog
 import com.example.ui.components.LoopTab
+import com.example.ui.components.NotificationPermissionPromptDialog
 import com.example.ui.components.ReleaseNotesDialog
 import com.example.update.AppUpdateCoordinator
 import com.example.update.AppUpdateUiState
@@ -72,7 +80,10 @@ sealed class ScreenState {
 }
 
 @Composable
-fun LoopApp() {
+fun LoopApp(
+    pendingDeepLink: NotificationDeepLink? = null,
+    onDeepLinkConsumed: () -> Unit = {}
+) {
     val context = LocalContext.current
     val appearanceMode by ThemePreferencesStore.observeAppearanceMode(context)
         .collectAsStateWithLifecycle(initialValue = AppearanceMode.SYSTEM)
@@ -113,6 +124,8 @@ fun LoopApp() {
             key(currentUser!!.uid) {
                 LoopMainContent(
                     currentUserId = currentUser!!.uid,
+                    pendingDeepLink = pendingDeepLink,
+                    onDeepLinkConsumed = onDeepLinkConsumed,
                     onSignedOut = {
                         showWelcome = true
                     }
@@ -125,9 +138,12 @@ fun LoopApp() {
 @Composable
 fun LoopMainContent(
     currentUserId: String,
+    pendingDeepLink: NotificationDeepLink? = null,
+    onDeepLinkConsumed: () -> Unit = {},
     onSignedOut: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
     val credentialManager = remember { CredentialManager.create(context) }
     val locationPermissionManager = remember { LocationPermissionManager(context) }
@@ -137,6 +153,22 @@ fun LoopMainContent(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showPermissionDialog by remember { mutableStateOf(false) }
+    var showNotificationPermissionDialog by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> RentalRepository.setAppForegroundState(true)
+                Lifecycle.Event.ON_STOP -> RentalRepository.setAppForegroundState(false)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            RentalRepository.setAppForegroundState(false)
+        }
+    }
 
     LaunchedEffect(currentUserId) {
         RentalRepository.startSession(context, currentUserId)
@@ -163,12 +195,33 @@ fun LoopMainContent(
         showPermissionDialog = false
     }
 
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        showNotificationPermissionDialog = false
+        if (granted) {
+            ThemePreferencesStore.ensureNotificationChannel(context)
+            RentalRepository.syncNotificationsForCurrentUser(context)
+            NotificationSyncWorker.triggerImmediateSync(context)
+        }
+    }
+
     LaunchedEffect(Unit) {
         val status = locationPermissionManager.checkCurrentPermissionStatus()
         if (status == LocationAccessState.PromptNeeded) {
             showPermissionDialog = true
         }
         AppUpdateCoordinator.initializeAndCheckOnStartup(context)
+    }
+
+    LaunchedEffect(currentUserId, showPermissionDialog) {
+        if (!showPermissionDialog &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !ThemePreferencesStore.isNotificationPermissionGranted(context) &&
+            !NotificationCheckpointStore.hasPromptedPermission(context, currentUserId)
+        ) {
+            showNotificationPermissionDialog = true
+        }
     }
 
     val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
@@ -179,7 +232,32 @@ fun LoopMainContent(
     var openExploreInMapMode by remember { mutableStateOf(false) }
     var activeConversationId by remember { mutableStateOf<String?>(null) }
     var openBookingsOnProfile by remember { mutableStateOf(false) }
+    var highlightedBookingId by remember { mutableStateOf<String?>(null) }
+    var openCommunityPostId by remember { mutableStateOf<String?>(null) }
     var openCreatePostOnProfile by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pendingDeepLink, currentUserId) {
+        val link = pendingDeepLink ?: return@LaunchedEffect
+        when (link) {
+            is NotificationDeepLink.Conversation -> {
+                activeConversationId = link.conversationId
+                currentTab = LoopTab.STUDIO
+                currentScreen = ScreenState.Main
+            }
+            is NotificationDeepLink.Booking -> {
+                highlightedBookingId = link.bookingId
+                openBookingsOnProfile = true
+                currentTab = LoopTab.PROFILE
+                currentScreen = ScreenState.Main
+            }
+            is NotificationDeepLink.CommunityPost -> {
+                openCommunityPostId = link.postId
+                currentTab = LoopTab.CATALOG
+                currentScreen = ScreenState.Main
+            }
+        }
+        onDeepLinkConsumed()
+    }
 
     val unreadCount = conversations
         .filter { it.lastSenderId != currentUserId }
@@ -369,6 +447,8 @@ fun LoopMainContent(
                                     currentTab = LoopTab.PROFILE
                                 },
                                 onMessageOrganizer = openConversationWithOrganizer,
+                                initialCommunityPostId = openCommunityPostId,
+                                onCommunityPostOpened = { openCommunityPostId = null },
                                 isLocationGranted = isFineLocationGranted,
                                 modifier = Modifier.padding(innerPadding)
                             )
@@ -427,7 +507,9 @@ fun LoopMainContent(
                                     )
                                 },
                                 initialOpenBookings = openBookingsOnProfile,
+                                highlightedBookingId = highlightedBookingId,
                                 onBookingsSheetOpened = { openBookingsOnProfile = false },
+                                onBookingsSheetDismissed = { highlightedBookingId = null },
                                 initialOpenCreatePost = openCreatePostOnProfile,
                                 onCreatePostOpened = { openCreatePostOnProfile = false },
                                 onOpenItem = { item ->
@@ -457,6 +539,27 @@ fun LoopMainContent(
                 onDismiss = {
                     locationPermissionManager.dismissPrompt()
                     showPermissionDialog = false
+                }
+            )
+        } else if (showNotificationPermissionDialog) {
+            NotificationPermissionPromptDialog(
+                onEnableNotifications = {
+                    coroutineScope.launch {
+                        NotificationCheckpointStore.markPermissionPromptShown(context, currentUserId)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        showNotificationPermissionDialog = false
+                        ThemePreferencesStore.ensureNotificationChannel(context)
+                        RentalRepository.syncNotificationsForCurrentUser(context)
+                    }
+                },
+                onDismiss = {
+                    coroutineScope.launch {
+                        NotificationCheckpointStore.markPermissionPromptShown(context, currentUserId)
+                    }
+                    showNotificationPermissionDialog = false
                 }
             )
         }

@@ -33,6 +33,8 @@
         "notifyAnnouncements": { "type": "boolean", "description": "Platform announcements preference" },
         "blockedUserIds": { "type": "array", "description": "List of blocked user UIDs filtered from feeds" },
         "blockedUsers": { "type": "array", "description": "Blocked user records containing userId and displayName" },
+        "fcmToken": { "type": "string", "description": "Firebase Cloud Messaging device registration token" },
+        "fcmTokenUpdatedAt": { "type": "string", "format": "date-time", "description": "Last FCM token registration timestamp" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp via serverTimestamp" }
       },

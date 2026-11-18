@@ -348,7 +348,7 @@ fun GearInspectionModal(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = if (isSigned) "✓ Digitally Signed by Renter & Host" else "Tap to Sign Handover Receipt",
+                                        text = if (isSigned) "Digitally Signed by Renter & Host" else "Tap to Sign Handover Receipt",
                                         style = LoopType.BodyMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isSigned) StatusGreen else InkBlack
