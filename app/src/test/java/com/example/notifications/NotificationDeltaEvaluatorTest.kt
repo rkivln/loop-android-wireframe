@@ -2,6 +2,7 @@ package com.example.notifications
 
 import com.example.data.models.BlockedUserEntry
 import com.example.data.models.ChatConversation
+import com.example.data.models.ChatPrivacySettings
 import com.example.data.models.CommunityPostType
 import com.example.data.models.NotificationPreferences
 import com.example.data.models.RentalCategory
@@ -13,6 +14,8 @@ import com.example.data.models.UserProfile
 import com.example.data.models.UserRentalBooking
 import com.example.data.models.UserSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -330,5 +333,72 @@ class NotificationDeltaEvaluatorTest {
             it.category == NotificationCategory.COMMUNITY_RSVP &&
                 it.deepLink == NotificationDeepLink.CommunityPost("post_own")
         })
+    }
+
+    @Test
+    fun incomingChatDelta_mutedConversation_suppressesNotification() {
+        val initial = NotificationDeltaEvaluator.buildBaseline(
+            currentUid = currentUid,
+            conversations = emptyList(),
+            bookings = emptyList(),
+            communityPosts = emptyList(),
+            ownedItems = emptyList()
+        )
+        val mutedConv = makeConv().copy(mutedByUserIds = listOf(currentUid))
+
+        val result = NotificationDeltaEvaluator.evaluateDeltas(
+            currentUid = currentUid,
+            profile = makeProfile(),
+            previousBaseline = initial,
+            alreadyNotifiedKeys = emptySet(),
+            conversations = listOf(mutedConv),
+            bookings = emptyList(),
+            communityPosts = emptyList(),
+            ownedItems = emptyList(),
+            activeOpenConversationId = null,
+            isAppInForeground = false
+        )
+
+        assertTrue(result.events.isEmpty())
+    }
+
+    @Test
+    fun incomingChatDelta_hideNotificationPreviews_masksSenderAndBody() {
+        val initial = NotificationDeltaEvaluator.buildBaseline(
+            currentUid = currentUid,
+            conversations = emptyList(),
+            bookings = emptyList(),
+            communityPosts = emptyList(),
+            ownedItems = emptyList()
+        )
+        val incoming = makeConv(text = "Pickup code is 9921 at gate B")
+        val privacyProfile = makeProfile().let { p ->
+            p.copy(
+                settings = p.settings.copy(
+                    chatPrivacy = ChatPrivacySettings(hideNotificationPreviews = true)
+                )
+            )
+        }
+
+        val result = NotificationDeltaEvaluator.evaluateDeltas(
+            currentUid = currentUid,
+            profile = privacyProfile,
+            previousBaseline = initial,
+            alreadyNotifiedKeys = emptySet(),
+            conversations = listOf(incoming),
+            bookings = emptyList(),
+            communityPosts = emptyList(),
+            ownedItems = emptyList(),
+            activeOpenConversationId = null,
+            isAppInForeground = false
+        )
+
+        assertEquals(1, result.events.size)
+        val alert = result.events.first()
+        assertEquals("Studio Dispatch", alert.title)
+        assertEquals("New encrypted message · Tap to open", alert.body)
+        assertNull(alert.senderName)
+        assertTrue(alert.hidePreview)
+        assertFalse(alert.body.contains("9921"))
     }
 }

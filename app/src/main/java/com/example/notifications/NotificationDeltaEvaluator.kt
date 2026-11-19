@@ -36,6 +36,7 @@ data class NotificationAlertEvent(
     val title: String,
     val body: String,
     val senderName: String? = null,
+    val hidePreview: Boolean = false,
     val deepLink: NotificationDeepLink
 )
 
@@ -112,6 +113,7 @@ object NotificationDeltaEvaluator {
         }
 
         val blockedIds = profile.settings.blockedUserIds
+        val hideMessagePreviews = profile.settings.chatPrivacy.hideNotificationPreviews
         val events = mutableListOf<NotificationAlertEvent>()
 
         // 1. Direct Chat Messages
@@ -128,25 +130,39 @@ object NotificationDeltaEvaluator {
                 lastSenderId != currentUid &&
                 lastSenderId !in blockedIds &&
                 conv.owner.id !in blockedIds &&
+                !conv.isMutedFor(currentUid) &&
                 conv.unreadCount > 0 &&
                 !isViewingThisChat
             ) {
                 val eventKey = "msg:${conv.id}:$sig"
                 if (eventKey !in alreadyNotifiedKeys) {
                     val contextPrefix = conv.itemContext?.title ?: conv.communityPostTitle
-                    val title = if (!contextPrefix.isNullOrBlank()) {
+                    val normalTitle = if (!contextPrefix.isNullOrBlank()) {
                         "${conv.owner.name} · $contextPrefix"
                     } else {
                         conv.owner.name
                     }
-                    events += NotificationAlertEvent(
-                        eventKey = eventKey,
-                        category = NotificationCategory.MESSAGE,
-                        title = title,
-                        body = lastText,
-                        senderName = conv.owner.name,
-                        deepLink = NotificationDeepLink.Conversation(conv.id)
-                    )
+                    events += if (hideMessagePreviews) {
+                        NotificationAlertEvent(
+                            eventKey = eventKey,
+                            category = NotificationCategory.MESSAGE,
+                            title = "Studio Dispatch",
+                            body = "New encrypted message · Tap to open",
+                            senderName = null,
+                            hidePreview = true,
+                            deepLink = NotificationDeepLink.Conversation(conv.id)
+                        )
+                    } else {
+                        NotificationAlertEvent(
+                            eventKey = eventKey,
+                            category = NotificationCategory.MESSAGE,
+                            title = normalTitle,
+                            body = lastText,
+                            senderName = conv.owner.name,
+                            hidePreview = false,
+                            deepLink = NotificationDeepLink.Conversation(conv.id)
+                        )
+                    }
                 }
             }
         }

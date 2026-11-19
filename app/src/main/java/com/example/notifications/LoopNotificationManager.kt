@@ -64,17 +64,24 @@ object LoopNotificationManager {
 
         when (event.category) {
             NotificationCategory.MESSAGE -> {
-                val senderPerson = Person.Builder()
-                    .setName(event.senderName?.takeIf { it.isNotBlank() } ?: event.title)
-                    .build()
-                val mePerson = Person.Builder().setName("You").build()
-                builder
-                    .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-                    .setStyle(
-                        NotificationCompat.MessagingStyle(mePerson)
-                            .setConversationTitle(event.title)
-                            .addMessage(event.body, System.currentTimeMillis(), senderPerson)
-                    )
+                if (event.hidePreview) {
+                    builder
+                        .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                        .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                        .setStyle(NotificationCompat.BigTextStyle().bigText(event.body))
+                } else {
+                    val senderPerson = Person.Builder()
+                        .setName(event.senderName?.takeIf { it.isNotBlank() } ?: event.title)
+                        .build()
+                    val mePerson = Person.Builder().setName("You").build()
+                    builder
+                        .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                        .setStyle(
+                            NotificationCompat.MessagingStyle(mePerson)
+                                .setConversationTitle(event.title)
+                                .addMessage(event.body, System.currentTimeMillis(), senderPerson)
+                        )
+                }
             }
             NotificationCategory.BOOKING_PIN,
             NotificationCategory.REVIEW_PAYOUT -> {

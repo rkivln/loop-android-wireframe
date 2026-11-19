@@ -1,7 +1,11 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,8 +43,11 @@ import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -52,7 +59,9 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Source
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -87,11 +96,14 @@ import com.example.data.RentalRepository
 import com.example.data.ThemePreferencesStore
 import com.example.data.models.AVATAR_PRESETS
 import com.example.data.models.AppearanceMode
+import com.example.data.models.DisappearingMessageTimer
 import com.example.data.models.RentalItem
 import com.example.data.models.UserCommunityPost
 import com.example.notifications.LoopNotificationManager
 import com.example.ui.components.EditorialTopBar
 import com.example.ui.components.GitHubRepoConfigDialog
+import com.example.ui.components.chat.DisappearingTimerSheet
+import com.example.ui.components.chat.MyEncryptionKeyDialog
 import com.example.update.AppUpdateCoordinator
 import com.example.update.AppUpdateUiState
 import com.example.update.UpdatePreferencesStore
@@ -139,12 +151,15 @@ fun SettingsScreen(
     val myCommunityPosts by RentalRepository.myCommunityPostsFlow.collectAsStateWithLifecycle()
     val savedItems by RentalRepository.savedItemsFlow.collectAsStateWithLifecycle()
     val userActivities by RentalRepository.userActivityFlow.collectAsStateWithLifecycle()
+    val ownFingerprint by RentalRepository.ownE2eeFingerprintFlow.collectAsStateWithLifecycle()
 
     var activeSubScreen by remember(initialOpenMyPosts) {
         mutableStateOf(if (initialOpenMyPosts) SettingsSubScreen.MY_POSTS else SettingsSubScreen.HOME)
     }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showRepoConfigDialog by remember { mutableStateOf(false) }
+    var showOwnKeyDialog by remember { mutableStateOf(false) }
+    var showDefaultDisappearingDialog by remember { mutableStateOf(false) }
     var pendingDeleteItemId by remember { mutableStateOf<String?>(null) }
     var pendingDeletePostId by remember { mutableStateOf<String?>(null) }
     var pendingEditPost by remember { mutableStateOf<UserCommunityPost?>(null) }
@@ -597,6 +612,92 @@ fun SettingsScreen(
                         }
                     }
 
+                    // 2B. CHAT & END-TO-END PRIVACY
+                    item {
+                        SettingsGroupHeader("CHAT & END-TO-END PRIVACY")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(PaperPureWhite)
+                                .border(1.dp, PaperBorderSubtle, RoundedCornerShape(22.dp))
+                        ) {
+                            SettingsNavRow(
+                                icon = Icons.Default.Key,
+                                title = "My encryption key",
+                                subtitle = if (ownFingerprint.isNotBlank()) {
+                                    "Fingerprint: $ownFingerprint"
+                                } else {
+                                    "Syncing P-256 ECDH device key..."
+                                },
+                                badgeText = "E2EE",
+                                onClick = { showOwnKeyDialog = true },
+                                testTag = "settings_chat_e2ee_key_row"
+                            )
+                            SettingsDivider()
+                            SettingsSwitchRow(
+                                icon = Icons.Default.DoneAll,
+                                title = "Read receipts",
+                                subtitle = "Let neighbors see when you've opened their messages",
+                                checked = settings.chatPrivacy.sendReadReceipts,
+                                onCheckedChange = { checked ->
+                                    RentalRepository.updateUserSettings(
+                                        context,
+                                        settings.copy(
+                                            chatPrivacy = settings.chatPrivacy.copy(sendReadReceipts = checked)
+                                        )
+                                    )
+                                },
+                                testTag = "settings_chat_read_receipts_toggle"
+                            )
+                            SettingsDivider()
+                            SettingsSwitchRow(
+                                icon = Icons.Default.Keyboard,
+                                title = "Typing indicators",
+                                subtitle = "Show when you are composing a reply",
+                                checked = settings.chatPrivacy.showTypingStatus,
+                                onCheckedChange = { checked ->
+                                    RentalRepository.updateUserSettings(
+                                        context,
+                                        settings.copy(
+                                            chatPrivacy = settings.chatPrivacy.copy(showTypingStatus = checked)
+                                        )
+                                    )
+                                },
+                                testTag = "settings_chat_typing_toggle"
+                            )
+                            SettingsDivider()
+                            val defaultTimer = DisappearingMessageTimer.fromSecondsOrDefault(
+                                settings.chatPrivacy.defaultDisappearingSeconds
+                            )
+                            SettingsNavRow(
+                                icon = Icons.Default.Timer,
+                                title = "Default disappearing timer",
+                                subtitle = defaultTimer.label,
+                                badgeText = if (defaultTimer != DisappearingMessageTimer.OFF) defaultTimer.shortLabel else null,
+                                onClick = { showDefaultDisappearingDialog = true },
+                                testTag = "settings_chat_disappearing_row"
+                            )
+                            SettingsDivider()
+                            SettingsSwitchRow(
+                                icon = Icons.Default.VisibilityOff,
+                                title = "Hide notification previews",
+                                subtitle = "Mask sender names and message text in alerts",
+                                checked = settings.chatPrivacy.hideNotificationPreviews,
+                                onCheckedChange = { checked ->
+                                    RentalRepository.updateUserSettings(
+                                        context,
+                                        settings.copy(
+                                            chatPrivacy = settings.chatPrivacy.copy(hideNotificationPreviews = checked)
+                                        )
+                                    )
+                                },
+                                testTag = "settings_chat_hide_previews_toggle"
+                            )
+                        }
+                    }
+
                     // 3. PRIVACY & SECURITY
                     item {
                         SettingsGroupHeader("PRIVACY & SECURITY")
@@ -1004,6 +1105,37 @@ fun SettingsScreen(
                     AppUpdateCoordinator.resetRepositoryToDefault(context)
                 },
                 onDismiss = { showRepoConfigDialog = false }
+            )
+        }
+
+        if (showOwnKeyDialog) {
+            MyEncryptionKeyDialog(
+                ownFingerprint = ownFingerprint,
+                onCopyFingerprint = { fp ->
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                    clipboard?.setPrimaryClip(ClipData.newPlainText("Loop E2EE Key Fingerprint", fp))
+                    Toast.makeText(context, "Encryption fingerprint copied", Toast.LENGTH_SHORT).show()
+                },
+                onDismiss = { showOwnKeyDialog = false }
+            )
+        }
+
+        if (showDefaultDisappearingDialog) {
+            DisappearingTimerSheet(
+                title = "Default Disappearing Timer",
+                subtitle = "Applied automatically when starting new Studio Dispatch conversations.",
+                selectedSeconds = settings.chatPrivacy.defaultDisappearingSeconds,
+                onSelectTimer = { timer ->
+                    RentalRepository.updateUserSettings(
+                        context,
+                        settings.copy(
+                            chatPrivacy = settings.chatPrivacy.copy(
+                                defaultDisappearingSeconds = timer.seconds
+                            )
+                        )
+                    )
+                },
+                onDismiss = { showDefaultDisappearingDialog = false }
             )
         }
     }

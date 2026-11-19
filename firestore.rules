@@ -53,7 +53,13 @@ service cloud.firestore {
              (!('blockedUserIds' in data) || (data.blockedUserIds is list && data.blockedUserIds.size() <= 200)) &&
              (!('blockedUsers' in data) || (data.blockedUsers is list && data.blockedUsers.size() <= 200)) &&
              (!('fcmToken' in data) || data.fcmToken == null || (data.fcmToken is string && data.fcmToken.size() <= 512)) &&
-             (!('fcmTokenUpdatedAt' in data) || data.fcmTokenUpdatedAt == null || (data.fcmTokenUpdatedAt is timestamp && data.fcmTokenUpdatedAt <= request.time));
+             (!('fcmTokenUpdatedAt' in data) || data.fcmTokenUpdatedAt == null || (data.fcmTokenUpdatedAt is timestamp && data.fcmTokenUpdatedAt <= request.time)) &&
+             (!('e2eePublicKey' in data) || data.e2eePublicKey == null || (data.e2eePublicKey is string && data.e2eePublicKey.size() <= 512)) &&
+             (!('e2eeKeyFingerprint' in data) || data.e2eeKeyFingerprint == null || (data.e2eeKeyFingerprint is string && data.e2eeKeyFingerprint.size() <= 128)) &&
+             (!('sendReadReceipts' in data) || data.sendReadReceipts is bool) &&
+             (!('showTypingStatus' in data) || data.showTypingStatus is bool) &&
+             (!('defaultDisappearingSeconds' in data) || (data.defaultDisappearingSeconds is int && data.defaultDisappearingSeconds >= 0 && data.defaultDisappearingSeconds <= 2592000)) &&
+             (!('hideNotificationPreviews' in data) || data.hideNotificationPreviews is bool);
     }
 
     function isValidRentalItem(data) {
@@ -119,6 +125,9 @@ service cloud.firestore {
              (!('isTyping' in data) || data.isTyping is bool) &&
              (!('unreadCount' in data) || data.unreadCount is int) &&
              (!('isPinned' in data) || data.isPinned is bool) &&
+             (!('mutedByUserIds' in data) || (data.mutedByUserIds is list && data.mutedByUserIds.size() <= 10)) &&
+             (!('disappearingTimerSeconds' in data) || (data.disappearingTimerSeconds is int && data.disappearingTimerSeconds >= 0 && data.disappearingTimerSeconds <= 2592000)) &&
+             (!('e2eeEnabled' in data) || data.e2eeEnabled is bool) &&
              (!('lastMessageText' in data) || (data.lastMessageText is string && data.lastMessageText.size() <= 1000)) &&
              (!('lastMessageTimestamp' in data) || (data.lastMessageTimestamp is string && data.lastMessageTimestamp.size() <= 50));
     }
@@ -134,10 +143,22 @@ service cloud.firestore {
              (!('timestampEpoch' in data) || data.timestampEpoch is number) &&
              (!('isFromMe' in data) || data.isFromMe is bool) &&
              (!('audioDuration' in data) || data.audioDuration == null || (data.audioDuration is string && data.audioDuration.size() <= 30)) &&
+             (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 400000)) &&
              (!('locationTitle' in data) || data.locationTitle == null || (data.locationTitle is string && data.locationTitle.size() <= 150)) &&
              (!('locationAddress' in data) || data.locationAddress == null || (data.locationAddress is string && data.locationAddress.size() <= 250)) &&
+             (!('latitude' in data) || data.latitude == null || data.latitude is number) &&
+             (!('longitude' in data) || data.longitude == null || data.longitude is number) &&
              (!('itemTitle' in data) || data.itemTitle == null || (data.itemTitle is string && data.itemTitle.size() <= 150)) &&
-             (!('itemPricePerDay' in data) || data.itemPricePerDay == null || data.itemPricePerDay is int);
+             (!('itemPricePerDay' in data) || data.itemPricePerDay == null || data.itemPricePerDay is int) &&
+             (!('isEncrypted' in data) || data.isEncrypted is bool) &&
+             (!('keyVersion' in data) || (data.keyVersion is int && data.keyVersion >= 1 && data.keyVersion <= 100)) &&
+             (!('ciphertext' in data) || data.ciphertext == null || (data.ciphertext is string && data.ciphertext.size() <= 450000)) &&
+             (!('iv' in data) || data.iv == null || (data.iv is string && data.iv.size() <= 64)) &&
+             (!('senderPublicKey' in data) || data.senderPublicKey == null || (data.senderPublicKey is string && data.senderPublicKey.size() <= 512)) &&
+             (!('recipientPublicKey' in data) || data.recipientPublicKey == null || (data.recipientPublicKey is string && data.recipientPublicKey.size() <= 512)) &&
+             (!('replyToMessageId' in data) || data.replyToMessageId == null || (data.replyToMessageId is string && data.replyToMessageId.size() <= 128)) &&
+             (!('replyToSenderName' in data) || data.replyToSenderName == null || (data.replyToSenderName is string && data.replyToSenderName.size() <= 100)) &&
+             (!('expiresAtEpoch' in data) || (data.expiresAtEpoch is int && data.expiresAtEpoch >= 0));
     }
 
     function isValidBooking(data) {
@@ -190,7 +211,9 @@ service cloud.firestore {
                          'badges', 'favoriteItemIds', 'legacyResetVersion', 'appearanceMode', 'profileVisibility',
                          'locationSharing', 'notifyPush', 'notifyNewPosts', 'notifyCommentReplies',
                          'notifyLikes', 'notifyAnnouncements', 'blockedUserIds', 'blockedUsers',
-                         'fcmToken', 'fcmTokenUpdatedAt', 'updatedAt'
+                         'fcmToken', 'fcmTokenUpdatedAt', 'e2eePublicKey', 'e2eeKeyFingerprint',
+                         'sendReadReceipts', 'showTypingStatus', 'defaultDisappearingSeconds',
+                         'hideNotificationPreviews', 'updatedAt'
                        ]);
       allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
     }
@@ -331,7 +354,8 @@ service cloud.firestore {
                        isValidConversation(incoming()) &&
                        incoming().diff(existing()).affectedKeys().hasOnly([
                          'lastMessageText', 'lastMessageTimestamp', 'lastSenderId', 'unreadCount',
-                         'isPinned', 'isOnline', 'isTyping', 'updatedAt'
+                         'isPinned', 'isOnline', 'isTyping', 'mutedByUserIds',
+                         'disappearingTimerSeconds', 'e2eeEnabled', 'updatedAt'
                        ]);
       allow delete: if isSignedIn() && isValidId(convId) &&
                        (existing().hostId == request.auth.uid || existing().renterId == request.auth.uid);

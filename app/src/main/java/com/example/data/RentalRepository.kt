@@ -3,12 +3,17 @@ package com.example.data
 import android.content.Context
 import android.util.Log
 import com.example.R
+import com.example.crypto.ChatE2eeCrypto
+import com.example.crypto.ChatKeyVault
+import com.example.crypto.DecryptedChatPayload
+import com.example.crypto.SafetyNumberInfo
 import com.example.data.firebase.FirestoreBooking
 import com.example.data.firebase.FirestoreService
 import com.example.data.models.AppearanceMode
 import com.example.data.models.BlockedUserEntry
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
+import com.example.data.models.ChatPrivacySettings
 import com.example.data.models.CommunityEvent
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
@@ -53,6 +58,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 data class SyncAlert(
     val id: Long = System.nanoTime(),
@@ -60,6 +66,19 @@ data class SyncAlert(
     val retryLabel: String? = null,
     val onRetry: (suspend () -> Unit)? = null
 )
+
+data class PeerEncryptionState(
+    val peerUid: String,
+    val peerPublicKey: String = "",
+    val peerFingerprint: String = "",
+    val ownFingerprint: String = "",
+    val safetyNumber: SafetyNumberInfo? = null,
+    val isVerified: Boolean = false,
+    val keyChangedWarning: Boolean = false
+) {
+    val isE2eeReady: Boolean
+        get() = peerPublicKey.isNotBlank() && ownFingerprint.isNotBlank()
+}
 
 object RentalRepository {
     private const val TAG = "RentalRepository"
@@ -171,24 +190,42 @@ object RentalRepository {
         _selectedCategory.value = cat
     }
 
+    private val _ownE2eeFingerprintFlow = MutableStateFlow("")
+    val ownE2eeFingerprintFlow: StateFlow<String> = _ownE2eeFingerprintFlow.asStateFlow()
+
+    private val _peerEncryptionStatesFlow = MutableStateFlow<Map<String, PeerEncryptionState>>(emptyMap())
+    val peerEncryptionStatesFlow: StateFlow<Map<String, PeerEncryptionState>> = _peerEncryptionStatesFlow.asStateFlow()
+
+    private val _locallyReadSignaturesFlow = MutableStateFlow<Map<String, String>>(emptyMap())
+
     private val _rawConversationsFlow = MutableStateFlow<List<ChatConversation>>(emptyList())
+    private val _activeConversationMessagesFlow = MutableStateFlow<Map<String, List<RentalMessage>>>(emptyMap())
+    val activeConversationMessagesFlow: StateFlow<Map<String, List<RentalMessage>>> =
+        _activeConversationMessagesFlow.asStateFlow()
+
     val conversationsFlow: StateFlow<List<ChatConversation>> = combine(
         _rawConversationsFlow,
         _rawItemsFlow,
-        _userProfileFlow
-    ) { rawConvs, itemsList, profile ->
+        _userProfileFlow,
+        _locallyReadSignaturesFlow,
+        _peerEncryptionStatesFlow
+    ) { rawConvs, itemsList, profile, locallyReadSigs, peerStates ->
         val blockedIds = profile.settings.blockedUserIds
         rawConvs
             .filter { it.owner.id !in blockedIds }
             .map { conv ->
                 val liveItem = conv.itemContext?.id?.let { id -> itemsList.find { it.id == id } }
-                if (liveItem != null) conv.copy(itemContext = liveItem) else conv
+                val sig = "${conv.unreadCount}_${conv.lastSenderId}_${conv.lastMessage?.text.orEmpty()}"
+                val isLocallyRead = locallyReadSigs[conv.id] == sig
+                val peerState = peerStates[conv.owner.id]
+                conv.copy(
+                    itemContext = liveItem ?: conv.itemContext,
+                    unreadCount = if (isLocallyRead) 0 else conv.unreadCount,
+                    peerPublicKey = peerState?.peerPublicKey ?: conv.peerPublicKey,
+                    peerKeyFingerprint = peerState?.peerFingerprint ?: conv.peerKeyFingerprint
+                )
             }
     }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
-
-    private val _activeConversationMessagesFlow = MutableStateFlow<Map<String, List<RentalMessage>>>(emptyMap())
-    val activeConversationMessagesFlow: StateFlow<Map<String, List<RentalMessage>>> =
-        _activeConversationMessagesFlow.asStateFlow()
 
     private val _rawBookingsFlow = MutableStateFlow<List<UserRentalBooking>>(emptyList())
     val bookingsFlow: StateFlow<List<UserRentalBooking>> = combine(
@@ -454,6 +491,9 @@ object RentalRepository {
         syncJobs += repositoryScope.launch {
             cRepo.clearLocalCache()
 
+            val identityKeyPair = ChatKeyVault.getOrCreateIdentityKeyPair(appContext, uid)
+            _ownE2eeFingerprintFlow.value = identityKeyPair.fingerprint
+
             val existingDoc = try {
                 service.firestore.collection("users").document(uid).get().await()
             } catch (_: Exception) {
@@ -476,7 +516,13 @@ object RentalRepository {
                     UserSettings(
                         appearanceMode = AppearanceMode.fromNameOrDefault(existingDoc.getString("appearanceMode")),
                         profileVisibility = ProfileVisibility.fromNameOrDefault(existingDoc.getString("profileVisibility")),
-                        locationSharing = LocationSharingPreference.fromNameOrDefault(existingDoc.getString("locationSharing"))
+                        locationSharing = LocationSharingPreference.fromNameOrDefault(existingDoc.getString("locationSharing")),
+                        chatPrivacy = ChatPrivacySettings(
+                            sendReadReceipts = existingDoc.getBoolean("sendReadReceipts") ?: true,
+                            showTypingStatus = existingDoc.getBoolean("showTypingStatus") ?: true,
+                            defaultDisappearingSeconds = existingDoc.getLong("defaultDisappearingSeconds") ?: 0L,
+                            hideNotificationPreviews = existingDoc.getBoolean("hideNotificationPreviews") ?: false
+                        )
                     )
                 } else {
                     UserSettings()
@@ -503,10 +549,20 @@ object RentalRepository {
                     badges = emptyList(),
                     favoriteItemIds = emptyList(),
                     legacyResetVersion = LEGACY_RESET_VERSION,
+                    e2eePublicKey = identityKeyPair.publicKeyBase64,
+                    e2eeKeyFingerprint = identityKeyPair.fingerprint,
                     settings = preservedSettings
                 )
                 _userProfileFlow.value = resetProfile
                 service.saveUserProfile(resetProfile)
+            } else {
+                val remotePub = existingDoc?.getString("e2eePublicKey").orEmpty()
+                if (remotePub != identityKeyPair.publicKeyBase64) {
+                    service.updateE2eePublicKey(
+                        publicKeyBase64 = identityKeyPair.publicKeyBase64,
+                        fingerprint = identityKeyPair.fingerprint
+                    )
+                }
             }
 
             cRepo.startAuthenticatedSync()
@@ -530,8 +586,22 @@ object RentalRepository {
                     service.listenToUserProfile(uid).collect { cloudProfile ->
                         profileLoaded = true
                         _isProfileLoadingFlow.value = false
-                        _userProfileFlow.value = cloudProfile
-                        ThemePreferencesStore.saveAppearanceMode(context, cloudProfile.settings.appearanceMode)
+                        val effectiveProfile = if (cloudProfile.e2eePublicKey != identityKeyPair.publicKeyBase64) {
+                            repositoryScope.launch {
+                                service.updateE2eePublicKey(
+                                    publicKeyBase64 = identityKeyPair.publicKeyBase64,
+                                    fingerprint = identityKeyPair.fingerprint
+                                )
+                            }
+                            cloudProfile.copy(
+                                e2eePublicKey = identityKeyPair.publicKeyBase64,
+                                e2eeKeyFingerprint = identityKeyPair.fingerprint
+                            )
+                        } else {
+                            cloudProfile
+                        }
+                        _userProfileFlow.value = effectiveProfile
+                        ThemePreferencesStore.saveAppearanceMode(context, effectiveProfile.settings.appearanceMode)
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -584,6 +654,12 @@ object RentalRepository {
                         _rawConversationsFlow.value = cloudConvs.map { conv ->
                             val cachedMsgs = currentMap[conv.id]
                             if (!cachedMsgs.isNullOrEmpty()) conv.copy(messages = cachedMsgs) else conv
+                        }
+                        cloudConvs.forEach { conv ->
+                            val peerId = conv.owner.id
+                            if (peerId.isNotBlank() && !_peerEncryptionStatesFlow.value.containsKey(peerId)) {
+                                repositoryScope.launch { refreshPeerEncryptionState(peerId) }
+                            }
                         }
                     }
                 } catch (e: CancellationException) {
@@ -749,18 +825,49 @@ object RentalRepository {
 
     fun observeConversationMessages(conversationId: String) {
         val service = firestoreService ?: return
-        if (Firebase.auth.currentUser == null) return
+        val currentUid = Firebase.auth.currentUser?.uid ?: activeSessionUid ?: return
+        val peerUid = _rawConversationsFlow.value.find { it.id == conversationId }?.owner?.id.orEmpty()
         messageListenerJob?.cancel()
         messageListenerJob = repositoryScope.launch {
-            service.markConversationRead(conversationId)
+            if (peerUid.isNotBlank()) {
+                launch { refreshPeerEncryptionState(peerUid, forceRefresh = true) }
+            }
+            val sendReceipts = _userProfileFlow.value.settings.chatPrivacy.sendReadReceipts
+            if (sendReceipts) {
+                service.markConversationRead(conversationId)
+            } else {
+                markConversationLocallyRead(conversationId)
+            }
             try {
-                service.listenToMessages(conversationId).collect { msgs ->
-                    _activeConversationMessagesFlow.value =
-                        _activeConversationMessagesFlow.value + (conversationId to msgs)
-                    _rawConversationsFlow.value = _rawConversationsFlow.value.map { conv ->
-                        if (conv.id == conversationId) conv.copy(messages = msgs, unreadCount = 0) else conv
+                service.listenToMessages(conversationId).collect { rawMsgs ->
+                    val now = System.currentTimeMillis()
+                    val expiredOwn = rawMsgs.filter { it.expiresAtEpoch in 1L..now && it.senderId == currentUid }
+                    if (expiredOwn.isNotEmpty()) {
+                        expiredOwn.forEach { expired ->
+                            launch { service.deleteMessage(conversationId, expired.id) }
+                        }
                     }
-                    service.markConversationRead(conversationId)
+                    val activeRaw = rawMsgs.filter { it.expiresAtEpoch <= 0L || it.expiresAtEpoch > now }
+                    val resolvedMsgs = resolveAndDecryptMessages(
+                        conversationId = conversationId,
+                        rawMessages = activeRaw,
+                        currentUid = currentUid,
+                        knownPeerUid = peerUid
+                    )
+                    _activeConversationMessagesFlow.value =
+                        _activeConversationMessagesFlow.value + (conversationId to resolvedMsgs)
+                    val shouldSendReceipt = _userProfileFlow.value.settings.chatPrivacy.sendReadReceipts
+                    if (shouldSendReceipt) {
+                        _rawConversationsFlow.value = _rawConversationsFlow.value.map { conv ->
+                            if (conv.id == conversationId) conv.copy(messages = resolvedMsgs, unreadCount = 0) else conv
+                        }
+                        service.markConversationRead(conversationId)
+                    } else {
+                        _rawConversationsFlow.value = _rawConversationsFlow.value.map { conv ->
+                            if (conv.id == conversationId) conv.copy(messages = resolvedMsgs) else conv
+                        }
+                        markConversationLocallyRead(conversationId)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -771,6 +878,169 @@ object RentalRepository {
         }
     }
 
+    private fun markConversationLocallyRead(conversationId: String) {
+        val conv = _rawConversationsFlow.value.find { it.id == conversationId } ?: return
+        val sig = "${conv.unreadCount}_${conv.lastSenderId}_${conv.lastMessage?.text.orEmpty()}"
+        _locallyReadSignaturesFlow.value = _locallyReadSignaturesFlow.value + (conversationId to sig)
+    }
+
+    private suspend fun resolveAndDecryptMessages(
+        conversationId: String,
+        rawMessages: List<RentalMessage>,
+        currentUid: String,
+        knownPeerUid: String
+    ): List<RentalMessage> {
+        val conv = _rawConversationsFlow.value.find { it.id == conversationId }
+        val peerUid = knownPeerUid.ifBlank { conv?.owner?.id.orEmpty() }
+        val ownKeyPair = sessionAppContext?.let { ChatKeyVault.getOrCreateIdentityKeyPair(it, currentUid) }
+            ?: ChatKeyVault.getCachedIdentityKeyPair(currentUid)
+        var cachedPeerPublicKey = _peerEncryptionStatesFlow.value[peerUid]?.peerPublicKey.orEmpty()
+        if (cachedPeerPublicKey.isBlank() && peerUid.isNotBlank()) {
+            cachedPeerPublicKey = fetchMemberProfile(peerUid)?.e2eePublicKey.orEmpty()
+        }
+
+        return withContext(Dispatchers.Default) {
+            rawMessages.map { msg ->
+                if (!msg.isEncrypted || msg.ciphertext.isNullOrBlank() || msg.iv.isNullOrBlank()) {
+                    return@map msg
+                }
+                if (ownKeyPair == null) {
+                    return@map msg.copy(
+                        decryptionFailed = true,
+                        text = "Encrypted message (device key unavailable)"
+                    )
+                }
+                val otherUid: String
+                val otherPub: String
+                if (msg.senderId == currentUid) {
+                    otherUid = peerUid
+                    otherPub = msg.recipientPublicKey?.takeIf { it.isNotBlank() } ?: cachedPeerPublicKey
+                } else {
+                    otherUid = msg.senderId.ifBlank { peerUid }
+                    otherPub = msg.senderPublicKey?.takeIf { it.isNotBlank() } ?: cachedPeerPublicKey
+                }
+                if (otherUid.isBlank() || otherPub.isBlank()) {
+                    return@map msg.copy(
+                        decryptionFailed = true,
+                        text = "Encrypted message (awaiting peer key)"
+                    )
+                }
+                val ownPubForMessage = if (msg.senderId == currentUid) {
+                    msg.senderPublicKey?.takeIf { it.isNotBlank() } ?: ownKeyPair.publicKeyBase64
+                } else {
+                    msg.recipientPublicKey?.takeIf { it.isNotBlank() } ?: ownKeyPair.publicKeyBase64
+                }
+                if (ownPubForMessage != ownKeyPair.publicKeyBase64) {
+                    return@map msg.copy(
+                        decryptionFailed = true,
+                        text = "Encrypted with a previous device key"
+                    )
+                }
+                val decrypted = ChatE2eeCrypto.decryptPayload(
+                    ciphertextBase64 = msg.ciphertext,
+                    ivBase64 = msg.iv,
+                    conversationId = conversationId,
+                    senderUid = msg.senderId,
+                    messageId = msg.id,
+                    ownPrivateKeyPkcs8 = ownKeyPair.privateKeyPkcs8,
+                    ownUid = currentUid,
+                    ownPublicKeyBase64 = ownPubForMessage,
+                    otherUid = otherUid,
+                    otherPublicKeyBase64 = otherPub
+                )
+                decrypted.fold(
+                    onSuccess = { payload ->
+                        msg.copy(
+                            text = payload.text,
+                            replyToSnippet = payload.replyToSnippet ?: msg.replyToSnippet,
+                            imageUrl = payload.imageUrl ?: msg.imageUrl,
+                            locationTitle = payload.locationTitle ?: msg.locationTitle,
+                            locationAddress = payload.locationAddress ?: msg.locationAddress,
+                            latitude = payload.latitude ?: msg.latitude,
+                            longitude = payload.longitude ?: msg.longitude,
+                            decryptionFailed = false
+                        )
+                    },
+                    onFailure = {
+                        msg.copy(
+                            decryptionFailed = true,
+                            text = "Unable to decrypt message with current key"
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    suspend fun refreshPeerEncryptionState(peerUid: String, forceRefresh: Boolean = false) {
+        if (peerUid.isBlank()) return
+        val ownUid = activeSessionUid ?: Firebase.auth.currentUser?.uid.orEmpty()
+        val appContext = sessionAppContext
+        val ownKeys = when {
+            ownUid.isBlank() -> null
+            appContext != null -> ChatKeyVault.getOrCreateIdentityKeyPair(appContext, ownUid)
+            else -> ChatKeyVault.getCachedIdentityKeyPair(ownUid)
+        }
+        val peerProfile = fetchMemberProfile(peerUid, forceRefresh = forceRefresh)
+        val peerPub = peerProfile?.e2eePublicKey.orEmpty().trim()
+        val peerFp = peerProfile?.e2eeKeyFingerprint?.ifBlank {
+            ChatE2eeCrypto.computeKeyFingerprint(peerPub)
+        }?.trim().orEmpty()
+        val ownPub = ownKeys?.publicKeyBase64.orEmpty()
+        val ownFp = ownKeys?.fingerprint.orEmpty()
+        val safetyNumber = if (ownUid.isNotBlank() && ownPub.isNotBlank() && peerPub.isNotBlank()) {
+            ChatE2eeCrypto.computeSafetyNumber(
+                ownUid = ownUid,
+                ownPublicKeyBase64 = ownPub,
+                peerUid = peerUid,
+                peerPublicKeyBase64 = peerPub
+            )
+        } else {
+            null
+        }
+        val isVerified = if (appContext != null && ownUid.isNotBlank() && peerFp.isNotBlank()) {
+            ChatKeyVault.isPeerFingerprintVerified(appContext, ownUid, peerUid, peerFp)
+        } else {
+            false
+        }
+        val keyChanged = if (appContext != null && ownUid.isNotBlank() && peerFp.isNotBlank()) {
+            ChatKeyVault.hasPeerKeyChanged(appContext, ownUid, peerUid, peerFp)
+        } else {
+            false
+        }
+        val state = PeerEncryptionState(
+            peerUid = peerUid,
+            peerPublicKey = peerPub,
+            peerFingerprint = peerFp,
+            ownFingerprint = ownFp,
+            safetyNumber = safetyNumber,
+            isVerified = isVerified,
+            keyChangedWarning = keyChanged
+        )
+        _peerEncryptionStatesFlow.value = _peerEncryptionStatesFlow.value + (peerUid to state)
+    }
+
+    fun verifyPeerSafetyNumber(peerUid: String, peerFingerprint: String, verified: Boolean) {
+        val appContext = sessionAppContext ?: return
+        val ownUid = activeSessionUid ?: Firebase.auth.currentUser?.uid ?: return
+        ChatKeyVault.setPeerVerified(
+            context = appContext,
+            ownUid = ownUid,
+            peerUid = peerUid,
+            peerFingerprint = peerFingerprint,
+            verified = verified
+        )
+        val current = _peerEncryptionStatesFlow.value[peerUid]
+        if (current != null) {
+            _peerEncryptionStatesFlow.value = _peerEncryptionStatesFlow.value + (
+                peerUid to current.copy(
+                    isVerified = verified && peerFingerprint.isNotBlank(),
+                    keyChangedWarning = false
+                )
+            )
+        }
+    }
+
     fun clearSession() {
         syncJobs.forEach { it.cancel() }
         syncJobs.clear()
@@ -778,9 +1048,13 @@ object RentalRepository {
         messageListenerJob = null
         communityRepo?.stopSync()
         sessionAppContext?.let { NotificationSyncWorker.cancel(it) }
+        ChatKeyVault.clearInMemoryCache()
         activeSessionUid = null
         activeOpenConversationId = null
         memberProfileCache.clear()
+        _ownE2eeFingerprintFlow.value = ""
+        _peerEncryptionStatesFlow.value = emptyMap()
+        _locallyReadSignaturesFlow.value = emptyMap()
         _rawConversationsFlow.value = emptyList()
         _activeConversationMessagesFlow.value = emptyMap()
         _rawBookingsFlow.value = emptyList()
@@ -886,11 +1160,16 @@ object RentalRepository {
             return Result.success(existing)
         }
 
+        val defaultDisappearing = _userProfileFlow.value.settings.chatPrivacy.defaultDisappearingSeconds
         return service.createOrGetConversation(
             host = host,
             item = item,
-            communityPost = communityPost
-        ).onFailure { err ->
+            communityPost = communityPost,
+            defaultDisappearingSeconds = defaultDisappearing,
+            e2eeEnabled = true
+        ).onSuccess { conv ->
+            repositoryScope.launch { refreshPeerEncryptionState(conv.owner.id) }
+        }.onFailure { err ->
             _syncErrorFlow.value = err.localizedMessage ?: "Unable to open conversation."
         }
     }
@@ -988,26 +1267,103 @@ object RentalRepository {
         text: String,
         messageType: ChatMessageType = ChatMessageType.TEXT,
         locationTitle: String? = null,
-        locationAddress: String? = null
+        locationAddress: String? = null,
+        imageUrl: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        replyToMessage: RentalMessage? = null
     ) {
         val currentUid = Firebase.auth.currentUser?.uid ?: return
         val senderDisplay = _userProfileFlow.value.displayName.ifBlank {
             Firebase.auth.currentUser?.displayName ?: "Me"
         }
-        val newMsg = RentalMessage(
-            id = "msg_${System.currentTimeMillis()}",
-            senderName = senderDisplay,
-            text = text,
-            timestamp = "Just now",
-            isFromMe = true,
-            senderId = currentUid,
-            messageType = messageType,
-            status = MessageStatus.SENT,
-            locationTitle = locationTitle,
-            locationAddress = locationAddress
-        )
+        val cleanText = text.trim()
+        val now = System.currentTimeMillis()
+        val messageId = "msg_$now"
+        val replySnippet = replyToMessage?.let { target ->
+            when {
+                target.messageType == ChatMessageType.IMAGE_MEDIA ->
+                    target.text.takeIf { it.isNotBlank() && it != "Photo" }?.let { "Photo: $it" } ?: "Photo attachment"
+                target.messageType == ChatMessageType.LOCATION_PIN ->
+                    "Pickup Pin: ${target.locationTitle ?: target.text}"
+                else -> target.text
+            }.take(120)
+        }
+
+        val conv = _rawConversationsFlow.value.find { it.id == conversationId }
+        val convTimer = conv?.disappearingTimerSeconds ?: 0L
+        val expiresAtEpoch = if (convTimer > 0L) now + convTimer * 1000L else 0L
 
         repositoryScope.launch {
+            val peerUid = conv?.owner?.id.orEmpty()
+            val ownKeyPair = sessionAppContext?.let { ChatKeyVault.getOrCreateIdentityKeyPair(it, currentUid) }
+                ?: ChatKeyVault.getCachedIdentityKeyPair(currentUid)
+            val peerPub = if (peerUid.isNotBlank()) {
+                _peerEncryptionStatesFlow.value[peerUid]?.peerPublicKey?.takeIf { it.isNotBlank() }
+                    ?: fetchMemberProfile(peerUid, forceRefresh = true)?.e2eePublicKey.orEmpty()
+            } else {
+                ""
+            }
+
+            val encryptedEnvelope = if (
+                conv?.e2eeEnabled != false &&
+                ownKeyPair != null &&
+                peerUid.isNotBlank() &&
+                peerPub.isNotBlank()
+            ) {
+                withContext(Dispatchers.Default) {
+                    runCatching {
+                        ChatE2eeCrypto.encryptPayload(
+                            payload = DecryptedChatPayload(
+                                text = cleanText,
+                                replyToSnippet = replySnippet,
+                                imageUrl = imageUrl,
+                                locationTitle = locationTitle,
+                                locationAddress = locationAddress,
+                                latitude = latitude,
+                                longitude = longitude
+                            ),
+                            conversationId = conversationId,
+                            senderUid = currentUid,
+                            messageId = messageId,
+                            ownPrivateKeyPkcs8 = ownKeyPair.privateKeyPkcs8,
+                            ownPublicKeyBase64 = ownKeyPair.publicKeyBase64,
+                            peerUid = peerUid,
+                            peerPublicKeyBase64 = peerPub
+                        )
+                    }.getOrNull()
+                }
+            } else {
+                null
+            }
+
+            val newMsg = RentalMessage(
+                id = messageId,
+                senderName = senderDisplay,
+                text = cleanText,
+                timestamp = "Just now",
+                isFromMe = true,
+                senderId = currentUid,
+                messageType = messageType,
+                status = MessageStatus.SENT,
+                imageUrl = imageUrl,
+                locationTitle = locationTitle,
+                locationAddress = locationAddress,
+                latitude = latitude,
+                longitude = longitude,
+                isEncrypted = encryptedEnvelope != null,
+                keyVersion = encryptedEnvelope?.keyVersion ?: 1,
+                ciphertext = encryptedEnvelope?.ciphertextBase64,
+                iv = encryptedEnvelope?.ivBase64,
+                senderPublicKey = if (encryptedEnvelope != null) ownKeyPair?.publicKeyBase64 else null,
+                recipientPublicKey = if (encryptedEnvelope != null) peerPub else null,
+                replyToMessageId = replyToMessage?.id,
+                replyToSenderName = replyToMessage?.let { if (it.isFromMe) "You" else it.senderName },
+                replyToSnippet = replySnippet,
+                timestampEpoch = now,
+                expiresAtEpoch = expiresAtEpoch
+            )
+
             val res = firestoreService?.sendMessage(conversationId, newMsg)
                 ?: Result.failure(IllegalStateException("Not connected to cloud session."))
             res.onFailure { err ->
@@ -1019,6 +1375,92 @@ object RentalRepository {
                         emitSyncAlert("Retry failed: ${retryErr.localizedMessage}")
                     }
                 }
+            }
+        }
+    }
+
+    fun setTypingStatus(conversationId: String, isTyping: Boolean) {
+        if (!_userProfileFlow.value.settings.chatPrivacy.showTypingStatus && isTyping) {
+            return
+        }
+        repositoryScope.launch {
+            firestoreService?.updateConversationTyping(conversationId, isTyping)
+        }
+    }
+
+    fun toggleConversationMute(conversationId: String) {
+        val uid = activeSessionUid ?: Firebase.auth.currentUser?.uid ?: return
+        val previousConvs = _rawConversationsFlow.value
+        val currentConv = previousConvs.find { it.id == conversationId } ?: return
+        val nextMuted = !currentConv.isMutedFor(uid)
+        val nextMutedList = if (nextMuted) {
+            (currentConv.mutedByUserIds + uid).distinct()
+        } else {
+            currentConv.mutedByUserIds.filterNot { it == uid }
+        }
+        _rawConversationsFlow.value = previousConvs.map { conv ->
+            if (conv.id == conversationId) conv.copy(mutedByUserIds = nextMutedList) else conv
+        }
+        repositoryScope.launch {
+            val res = firestoreService?.updateConversationMute(conversationId, uid, nextMuted)
+                ?: Result.failure(IllegalStateException("Not connected to cloud session."))
+            res.onFailure { err ->
+                _rawConversationsFlow.value = previousConvs
+                emitSyncAlert("Could not update mute setting: ${err.localizedMessage}")
+            }
+        }
+    }
+
+    fun setConversationDisappearingTimer(conversationId: String, seconds: Long) {
+        val safeSeconds = seconds.coerceIn(0L, 2_592_000L)
+        val previousConvs = _rawConversationsFlow.value
+        _rawConversationsFlow.value = previousConvs.map { conv ->
+            if (conv.id == conversationId) conv.copy(disappearingTimerSeconds = safeSeconds) else conv
+        }
+        repositoryScope.launch {
+            val res = firestoreService?.updateConversationDisappearingTimer(conversationId, safeSeconds)
+                ?: Result.failure(IllegalStateException("Not connected to cloud session."))
+            res.onFailure { err ->
+                _rawConversationsFlow.value = previousConvs
+                emitSyncAlert("Could not update disappearing timer: ${err.localizedMessage}")
+            }
+        }
+    }
+
+    fun deleteMessage(conversationId: String, message: RentalMessage) {
+        val currentUid = activeSessionUid ?: Firebase.auth.currentUser?.uid ?: return
+        if (message.senderId != currentUid) {
+            emitSyncAlert("You can only delete your own messages.")
+            return
+        }
+        val previousMap = _activeConversationMessagesFlow.value
+        val currentMsgs = previousMap[conversationId].orEmpty()
+        val remaining = currentMsgs.filterNot { it.id == message.id }
+        _activeConversationMessagesFlow.value = previousMap + (conversationId to remaining)
+
+        val wasLast = currentMsgs.lastOrNull()?.id == message.id
+        val prevMsg = remaining.lastOrNull()
+        val fallbackLastText = if (wasLast) {
+            when {
+                prevMsg == null -> "No messages yet"
+                prevMsg.isEncrypted -> "Encrypted message"
+                else -> prevMsg.text
+            }
+        } else {
+            null
+        }
+        val fallbackLastSender = if (wasLast) (prevMsg?.senderId ?: "") else null
+
+        repositoryScope.launch {
+            val res = firestoreService?.deleteMessage(
+                conversationId = conversationId,
+                messageId = message.id,
+                fallbackLastMessageText = fallbackLastText,
+                fallbackLastSenderId = fallbackLastSender
+            ) ?: Result.failure(IllegalStateException("Not connected to cloud session."))
+            res.onFailure { err ->
+                _activeConversationMessagesFlow.value = previousMap
+                emitSyncAlert("Could not delete message: ${err.localizedMessage}")
             }
         }
     }
@@ -1490,17 +1932,56 @@ object RentalRepository {
         )
         repositoryScope.launch {
             try {
-                val conv = service.createOrGetConversation(host = counterpartyOwner, item = item).getOrNull()
-                    ?: return@launch
+                val defaultTimer = _userProfileFlow.value.settings.chatPrivacy.defaultDisappearingSeconds
+                val conv = service.createOrGetConversation(
+                    host = counterpartyOwner,
+                    item = item,
+                    defaultDisappearingSeconds = defaultTimer,
+                    e2eeEnabled = true
+                ).getOrNull() ?: return@launch
+
+                val now = System.currentTimeMillis()
+                val msgId = "msg_status_$now"
+                val ownKeyPair = sessionAppContext?.let { ChatKeyVault.getOrCreateIdentityKeyPair(it, currentUid) }
+                    ?: ChatKeyVault.getCachedIdentityKeyPair(currentUid)
+                val peerPub = fetchMemberProfile(targetId, forceRefresh = true)?.e2eePublicKey.orEmpty()
+                val envelope = if (conv.e2eeEnabled && ownKeyPair != null && peerPub.isNotBlank()) {
+                    withContext(Dispatchers.Default) {
+                        runCatching {
+                            ChatE2eeCrypto.encryptPayload(
+                                payload = DecryptedChatPayload(text = messageText),
+                                conversationId = conv.id,
+                                senderUid = currentUid,
+                                messageId = msgId,
+                                ownPrivateKeyPkcs8 = ownKeyPair.privateKeyPkcs8,
+                                ownPublicKeyBase64 = ownKeyPair.publicKeyBase64,
+                                peerUid = targetId,
+                                peerPublicKeyBase64 = peerPub
+                            )
+                        }.getOrNull()
+                    }
+                } else {
+                    null
+                }
+                val convTimer = conv.disappearingTimerSeconds
+                val expiresAt = if (convTimer > 0L) now + convTimer * 1000L else 0L
                 val msg = RentalMessage(
-                    id = "msg_status_${System.currentTimeMillis()}",
+                    id = msgId,
                     senderName = senderDisplay,
                     text = messageText,
                     timestamp = "Just now",
                     isFromMe = true,
                     senderId = currentUid,
                     messageType = ChatMessageType.TEXT,
-                    status = MessageStatus.SENT
+                    status = MessageStatus.SENT,
+                    isEncrypted = envelope != null,
+                    keyVersion = envelope?.keyVersion ?: 1,
+                    ciphertext = envelope?.ciphertextBase64,
+                    iv = envelope?.ivBase64,
+                    senderPublicKey = if (envelope != null) ownKeyPair?.publicKeyBase64 else null,
+                    recipientPublicKey = if (envelope != null) peerPub else null,
+                    timestampEpoch = now,
+                    expiresAtEpoch = expiresAt
                 )
                 service.sendMessage(conv.id, msg)
             } catch (e: CancellationException) {

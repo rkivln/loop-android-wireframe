@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +53,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.RentalRepository
@@ -114,13 +116,20 @@ fun CommunityActivityMap(
     onViewDetailsClick: (DiscoveryPinItem) -> Unit = {},
     onMessageOwnerOrOrganizerClick: (DiscoveryPinItem) -> Unit = {},
     onRecenterMissingGps: () -> Unit = {},
-    showFilterRow: Boolean = true
+    onMapTap: () -> Unit = {},
+    showFilterRow: Boolean = true,
+    showFloatingControls: Boolean = true,
+    showNearbyBadge: Boolean = true,
+    nearbyBadgeTopPadding: Dp = 10.dp,
+    externalSatelliteView: Boolean? = null,
+    recenterTrigger: Int = 0
 ) {
     val coroutineScope = rememberCoroutineScope()
 
     var selectedFilter by remember { mutableStateOf(CommunityMapFilter.ALL) }
     var selectedPin by remember { mutableStateOf<DiscoveryPinItem?>(null) }
-    var isSatelliteView by remember { mutableStateOf(false) }
+    var internalSatelliteView by remember { mutableStateOf(false) }
+    val isSatelliteView = externalSatelliteView ?: internalSatelliteView
 
     val cameraPositionState = rememberCameraPositionState {
         position = if (initialCenter != null) {
@@ -132,6 +141,15 @@ fun CommunityActivityMap(
 
     LaunchedEffect(initialCenter) {
         if (initialCenter != null) {
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(initialCenter, initialZoom),
+                600
+            )
+        }
+    }
+
+    LaunchedEffect(recenterTrigger) {
+        if (recenterTrigger > 0 && initialCenter != null) {
             cameraPositionState.animate(
                 CameraUpdateFactory.newLatLngZoom(initialCenter, initialZoom),
                 600
@@ -185,6 +203,7 @@ fun CommunityActivityMap(
             uiSettings = mapUiSettings,
             onMapClick = {
                 selectedPin = null
+                onMapTap()
             }
         ) {
             // Walkable Nearby Radius Circle (500m) centered on user's live GPS
@@ -205,7 +224,7 @@ fun CommunityActivityMap(
                 val markerState = rememberMarkerState(key = point.id, position = pointLatLng)
 
                 MarkerComposable(
-                    keys = arrayOf(point.id, isSelected, selectedFilter),
+                    keys = arrayOf(point.id, isSelected.toString(), selectedFilter.name),
                     state = markerState,
                     title = point.title,
                     snippet = point.locationName,
@@ -234,7 +253,7 @@ fun CommunityActivityMap(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(top = 10.dp)
+                .padding(top = nearbyBadgeTopPadding)
         ) {
             if (showFilterRow) {
                 // Category Filter Pills
@@ -287,100 +306,108 @@ fun CommunityActivityMap(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (showFilterRow && showNearbyBadge) {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
-            // Nearby Points Count Badge
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
+            if (showNearbyBadge) {
+                // Nearby Points Count Badge
+                Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(PaperPureWhite.copy(alpha = 0.95f))
-                        .border(1.dp, PaperBorderSubtle, RoundedCornerShape(100.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (initialCenter != null) {
-                            "● ${filteredPoints.size} Points in 500m Nearby Zone"
-                        } else {
-                            "● ${filteredPoints.size} Community Points"
-                        },
-                        style = LoopType.Metadata.copy(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AccentForestGreen
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(PaperPureWhite.copy(alpha = 0.95f))
+                            .border(1.dp, PaperBorderSubtle, RoundedCornerShape(100.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = if (initialCenter != null) {
+                                "● ${filteredPoints.size} Points in 500m Nearby Zone"
+                            } else {
+                                "● ${filteredPoints.size} Community Points"
+                            },
+                            style = LoopType.Metadata.copy(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentForestGreen
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
 
-        // Floating Control Buttons: Recenter & Map Type Toggle
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 64.dp, end = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Recenter to User's Live GPS Position
-            Box(
+        if (showFloatingControls) {
+            // Floating Control Buttons: Recenter & Map Type Toggle
+            Column(
                 modifier = Modifier
-                    .size(48.dp)
-                    .shadow(6.dp, CircleShape)
-                    .clip(CircleShape)
-                    .background(PaperPureWhite)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = true),
-                        onClick = {
-                            if (initialCenter != null) {
-                                coroutineScope.launch {
-                                    cameraPositionState.animate(
-                                        CameraUpdateFactory.newLatLngZoom(initialCenter, initialZoom),
-                                        600
-                                    )
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 64.dp, end = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Recenter to User's Live GPS Position
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .minimumInteractiveComponentSize()
+                        .shadow(6.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(PaperPureWhite)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true),
+                            onClick = {
+                                if (initialCenter != null) {
+                                    coroutineScope.launch {
+                                        cameraPositionState.animate(
+                                            CameraUpdateFactory.newLatLngZoom(initialCenter, initialZoom),
+                                            600
+                                        )
+                                    }
+                                } else {
+                                    onRecenterMissingGps()
                                 }
-                            } else {
-                                onRecenterMissingGps()
                             }
-                        }
+                        )
+                        .testTag("map_recenter_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MyLocation,
+                        contentDescription = "Recenter Map",
+                        tint = InkCharcoal,
+                        modifier = Modifier.size(20.dp)
                     )
-                    .testTag("map_recenter_button"),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MyLocation,
-                    contentDescription = "Recenter Map",
-                    tint = InkCharcoal,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+                }
 
-            // Map Layer Toggle (Normal vs Hybrid)
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .shadow(6.dp, CircleShape)
-                    .clip(CircleShape)
-                    .background(if (isSatelliteView) InkCharcoal else PaperPureWhite)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = true),
-                        onClick = { isSatelliteView = !isSatelliteView }
+                // Map Layer Toggle (Normal vs Hybrid)
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .minimumInteractiveComponentSize()
+                        .shadow(6.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(if (isSatelliteView) InkCharcoal else PaperPureWhite)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true),
+                            onClick = { internalSatelliteView = !internalSatelliteView }
+                        )
+                        .testTag("map_type_toggle_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Layers,
+                        contentDescription = "Toggle Satellite View",
+                        tint = if (isSatelliteView) InkWhite else InkCharcoal,
+                        modifier = Modifier.size(20.dp)
                     )
-                    .testTag("map_type_toggle_button"),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Layers,
-                    contentDescription = "Toggle Satellite View",
-                    tint = if (isSatelliteView) InkWhite else InkCharcoal,
-                    modifier = Modifier.size(20.dp)
-                )
+                }
             }
         }
 

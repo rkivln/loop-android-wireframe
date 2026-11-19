@@ -7,6 +7,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -32,12 +34,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -48,8 +52,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Architecture
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MyLocation
@@ -57,15 +63,19 @@ import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Satellite
+import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,6 +83,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -135,17 +146,21 @@ private val MapRoadPrimaryDark = Color(0xFF232B28)
 private val MapHubRadiusFillDark = Color(0xFF1A332B)
 private val MapHubRadiusStrokeDark = Color(0xFF5EEAD4)
 
-enum class MapEngineMode(val displayName: String) {
-    MAPLIBRE("MapLibre GL"),
-    GOOGLE_MAP("Google Map"),
-    CANVAS("Canvas")
+enum class MapLayerOption(val label: String, val subtitle: String) {
+    STREET_VECTOR("Street Vector", "Clean vector streets"),
+    OSM_CLASSIC("OSM Classic", "OpenStreetMap tiles"),
+    GOOGLE_STANDARD("Standard Map", "Google road layer"),
+    GOOGLE_SATELLITE("Satellite", "Aerial hybrid view"),
+    ARCHITECTURAL_GRID("Grid Blueprint", "Minimal architectural")
 }
 
-fun MapEngineMode.getIconVector(): ImageVector {
+fun MapLayerOption.getIconVector(): ImageVector {
     return when (this) {
-        MapEngineMode.MAPLIBRE -> Icons.Default.Map
-        MapEngineMode.GOOGLE_MAP -> Icons.Default.Public
-        MapEngineMode.CANVAS -> Icons.Default.Architecture
+        MapLayerOption.STREET_VECTOR -> Icons.Default.Map
+        MapLayerOption.OSM_CLASSIC -> Icons.Default.Terrain
+        MapLayerOption.GOOGLE_STANDARD -> Icons.Default.Public
+        MapLayerOption.GOOGLE_SATELLITE -> Icons.Default.Satellite
+        MapLayerOption.ARCHITECTURAL_GRID -> Icons.Default.Architecture
     }
 }
 
@@ -267,7 +282,9 @@ fun DiscoveryMapScreen(
     }
 
     val carouselState = rememberLazyListState()
-    var mapMode by remember { mutableStateOf(MapEngineMode.MAPLIBRE) }
+    var selectedLayer by remember { mutableStateOf(MapLayerOption.STREET_VECTOR) }
+    var isLayerMenuOpen by remember { mutableStateOf(false) }
+    var recenterTrigger by remember { mutableIntStateOf(0) }
     val isDarkTheme = LoopTheme.colors.isDark
     val mapGroundColor = if (isDarkTheme) MapGroundPaperDark else MapGroundPaperLight
     val mapRoadColor = if (isDarkTheme) MapRoadPrimaryDark else MapRoadPrimaryLight
@@ -279,15 +296,22 @@ fun DiscoveryMapScreen(
             .fillMaxSize()
             .background(mapGroundColor)
     ) {
-        when (mapMode) {
-            MapEngineMode.MAPLIBRE -> {
+        when (selectedLayer) {
+            MapLayerOption.STREET_VECTOR,
+            MapLayerOption.OSM_CLASSIC -> {
                 MapLibreGLMapView(
                     modifier = Modifier.fillMaxSize(),
                     activityPoints = filteredPins,
                     selectedPin = selectedPin,
                     centerLat = userLat,
                     centerLng = userLng,
+                    styleKey = if (selectedLayer == MapLayerOption.OSM_CLASSIC) "osm" else "vector",
+                    recenterTrigger = recenterTrigger,
+                    showOverlayControls = false,
+                    showAttributionBadge = true,
+                    attributionTopPadding = 114.dp,
                     onPointSelected = { pin ->
+                        isLayerMenuOpen = false
                         selectedPin = pin
                         val pinIndex = filteredPins.indexOf(pin)
                         if (pinIndex >= 0) {
@@ -297,6 +321,7 @@ fun DiscoveryMapScreen(
                         }
                     },
                     onMapClick = {
+                        isLayerMenuOpen = false
                         selectedPin = null
                     },
                     onRequestGpsRecenter = {
@@ -308,7 +333,8 @@ fun DiscoveryMapScreen(
                     }
                 )
             }
-            MapEngineMode.GOOGLE_MAP -> {
+            MapLayerOption.GOOGLE_STANDARD,
+            MapLayerOption.GOOGLE_SATELLITE -> {
                 val liveLatLng = if (userLat != null && userLng != null) {
                     LatLng(userLat!!, userLng!!)
                 } else {
@@ -320,6 +346,7 @@ fun DiscoveryMapScreen(
                     currentUserId = userProfile.uid,
                     initialCenter = liveLatLng,
                     onPointSelected = { pin ->
+                        isLayerMenuOpen = false
                         selectedPin = pin
                         val pinIndex = filteredPins.indexOf(pin)
                         if (pinIndex >= 0) {
@@ -356,14 +383,29 @@ fun DiscoveryMapScreen(
                             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                         }
                     },
-                    showFilterRow = false
+                    onMapTap = {
+                        isLayerMenuOpen = false
+                    },
+                    showFilterRow = false,
+                    showFloatingControls = false,
+                    showNearbyBadge = true,
+                    nearbyBadgeTopPadding = 114.dp,
+                    externalSatelliteView = selectedLayer == MapLayerOption.GOOGLE_SATELLITE,
+                    recenterTrigger = recenterTrigger
                 )
             }
-            MapEngineMode.CANVAS -> {
+            MapLayerOption.ARCHITECTURAL_GRID -> {
                 // Light Architectural Grid Map Canvas
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            isLayerMenuOpen = false
+                            selectedPin = null
+                        }
                         .pointerInput(Unit) {
                             detectTransformGestures { _, pan, zoom, _ ->
                                 zoomScale = (zoomScale * zoom).coerceIn(0.8f, 2.2f)
@@ -592,25 +634,25 @@ fun DiscoveryMapScreen(
         }
         }
 
-        // Top Navigation & Filter Bar (Light Themed)
-    Column(
-        modifier = Modifier
-            .align(Alignment.TopCenter)
-            .fillMaxWidth()
-            .statusBarsPadding()
-    ) {
-            // Header Row
+        // Uncrowded Top Navigation & Filter Bar
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+        ) {
+            // Balanced Header Row: Back Button + Centered Spacious Live GPS Pill
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Back Button (Pure White Pill)
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(48.dp)
+                        .minimumInteractiveComponentSize()
+                        .shadow(3.dp, CircleShape)
                         .clip(CircleShape)
                         .background(PaperPureWhite)
                         .border(1.dp, PaperBorder, CircleShape)
@@ -626,109 +668,70 @@ fun DiscoveryMapScreen(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = InkCharcoal,
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
-                // Live GPS Location Indicator
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(PaperPureWhite)
-                        .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                        .weight(1f)
+                        .padding(horizontal = 10.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(if (isGpsActive && userLat != null) Color(0xFF2563EB) else InkMuted)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        val gpsHeaderText = when {
-                            isGpsActive && userLat != null && userLng != null -> {
-                                resolvedAreaLabel?.let { "GPS LIVE · ${it.uppercase()}" }
-                                    ?: "GPS LIVE · %.3f, %.3f".format(userLat, userLng)
-                            }
-                            else -> "ENABLE GPS LOCATION"
-                        }
-                        Text(
-                            text = gpsHeaderText,
-                            style = LoopType.EditorialTag.copy(fontSize = 10.sp),
-                            color = InkCharcoal,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Map Mode Toggle (MapLibre GL vs Google Map vs Canvas)
                     Box(
                         modifier = Modifier
+                            .heightIn(min = 40.dp)
+                            .shadow(3.dp, RoundedCornerShape(100.dp))
                             .clip(RoundedCornerShape(100.dp))
-                            .background(if (mapMode != MapEngineMode.CANVAS) InkCharcoal else PaperPureWhite)
-                            .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
+                            .background(PaperPureWhite)
+                            .border(
+                                1.dp,
+                                if (isGpsActive) AccentForestGreen.copy(alpha = 0.4f) else PaperBorder,
+                                RoundedCornerShape(100.dp)
+                            )
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(bounded = true),
-                                onClick = {
-                                    mapMode = when (mapMode) {
-                                        MapEngineMode.MAPLIBRE -> MapEngineMode.GOOGLE_MAP
-                                        MapEngineMode.GOOGLE_MAP -> MapEngineMode.CANVAS
-                                        MapEngineMode.CANVAS -> MapEngineMode.MAPLIBRE
-                                    }
-                                }
-                            )
-                            .padding(horizontal = 10.dp, vertical = 7.dp)
-                            .testTag("map_mode_toggle_btn"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = mapMode.getIconVector(),
-                                contentDescription = null,
-                                modifier = Modifier.size(13.dp),
-                                tint = if (mapMode != MapEngineMode.CANVAS) InkWhite else InkCharcoal
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = mapMode.displayName,
-                                style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                                color = if (mapMode != MapEngineMode.CANVAS) InkWhite else InkCharcoal
-                            )
-                        }
-                    }
-
-                    // Locate Me GPS Action Button
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(if (isGpsActive) AccentMint else PaperPureWhite)
-                            .border(1.dp, if (isGpsActive) AccentForestGreen else PaperBorder, CircleShape)
-                            .clickable {
+                                indication = ripple(bounded = true)
+                            ) {
+                                isLayerMenuOpen = false
                                 if (LocationHelper.hasLocationPermission(context)) {
                                     refreshLiveGps()
                                 } else {
                                     locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                                 }
                             }
-                            .testTag("map_locate_me_btn"),
+                            .padding(horizontal = 16.dp, vertical = 9.dp)
+                            .testTag("map_gps_status_pill"),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.MyLocation,
-                            contentDescription = "Locate Me",
-                            tint = if (isGpsActive) AccentForestGreen else InkCharcoal,
-                            modifier = Modifier.size(19.dp)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isGpsActive && userLat != null) Color(0xFF2563EB) else InkMuted)
+                            )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            val gpsHeaderText = when {
+                                isGpsActive && userLat != null && userLng != null -> {
+                                    resolvedAreaLabel?.let { "GPS LIVE · ${it.uppercase()}" }
+                                        ?: "GPS LIVE · %.3f, %.3f".format(userLat, userLng)
+                                }
+                                else -> "TAP TO ENABLE GPS"
+                            }
+                            Text(
+                                text = gpsHeaderText,
+                                style = LoopType.EditorialTag.copy(fontSize = 10.5.sp),
+                                color = InkCharcoal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
+
+                // Optical balance matching the 48dp Back button
+                Spacer(modifier = Modifier.size(48.dp))
             }
 
             // Category Filter Chip Group for Discovery Map
@@ -736,7 +739,7 @@ fun DiscoveryMapScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 MapCategoryFilter.values().forEach { filter ->
@@ -750,7 +753,11 @@ fun DiscoveryMapScreen(
                                 if (isSelected) InkCharcoal else PaperBorder,
                                 RoundedCornerShape(100.dp)
                             )
-                            .clickable {
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true)
+                            ) {
+                                isLayerMenuOpen = false
                                 selectedCategoryFilter = filter
                             }
                             .padding(horizontal = 14.dp, vertical = 7.dp)
@@ -774,6 +781,176 @@ fun DiscoveryMapScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+
+        // Unified Right-Edge Map Controls: Icon-Only Layer Switcher + Single GPS Recenter
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 114.dp, end = 16.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            AnimatedVisibility(
+                visible = isLayerMenuOpen,
+                enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.92f, animationSpec = tween(180)),
+                exit = fadeOut(tween(140)) + scaleOut(targetScale = 0.92f, animationSpec = tween(140))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(min = 204.dp, max = 236.dp)
+                        .shadow(10.dp, RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(PaperPureWhite.copy(alpha = 0.98f))
+                        .border(1.dp, PaperBorder, RoundedCornerShape(18.dp))
+                        .padding(8.dp)
+                        .testTag("map_layer_menu"),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "MAP LAYERS",
+                        style = LoopType.EditorialTag.copy(fontSize = 10.sp),
+                        color = InkMuted,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                    MapLayerOption.values().forEach { option ->
+                        val isOptionSelected = selectedLayer == option
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isOptionSelected) AccentMint.copy(alpha = 0.5f) else Color.Transparent
+                                )
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(bounded = true)
+                                ) {
+                                    selectedLayer = option
+                                    isLayerMenuOpen = false
+                                }
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                                .testTag("map_layer_option_${option.name}"),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = option.getIconVector(),
+                                contentDescription = null,
+                                tint = if (isOptionSelected) AccentForestGreen else InkCharcoal,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = option.label,
+                                    style = LoopType.Metadata.copy(
+                                        fontSize = 12.5.sp,
+                                        fontWeight = if (isOptionSelected) FontWeight.Bold else FontWeight.SemiBold
+                                    ),
+                                    color = InkCharcoal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = option.subtitle,
+                                    style = LoopType.Metadata.copy(fontSize = 10.sp),
+                                    color = InkSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (isOptionSelected) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = AccentForestGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                // Icon-only Layer Switcher Button
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .minimumInteractiveComponentSize()
+                        .shadow(5.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(if (isLayerMenuOpen) InkCharcoal else PaperPureWhite)
+                        .border(
+                            1.dp,
+                            if (isLayerMenuOpen) InkCharcoal else PaperBorder,
+                            CircleShape
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true)
+                        ) {
+                            isLayerMenuOpen = !isLayerMenuOpen
+                        }
+                        .testTag("map_layer_switcher_btn"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Layers,
+                        contentDescription = "Switch map layer",
+                        tint = if (isLayerMenuOpen) InkWhite else InkCharcoal,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Single Unified GPS Recenter Button
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .minimumInteractiveComponentSize()
+                        .shadow(5.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(if (isGpsActive) AccentMint else PaperPureWhite)
+                        .border(
+                            1.dp,
+                            if (isGpsActive) AccentForestGreen else PaperBorder,
+                            CircleShape
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true)
+                        ) {
+                            isLayerMenuOpen = false
+                            if (LocationHelper.hasLocationPermission(context)) {
+                                if (userLat != null && userLng != null) {
+                                    recenterTrigger++
+                                    panOffsetX = 0f
+                                    panOffsetY = 0f
+                                    zoomScale = 1.2f
+                                } else {
+                                    refreshLiveGps()
+                                }
+                            } else {
+                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            }
+                        }
+                        .testTag("map_recenter_btn"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MyLocation,
+                        contentDescription = "Recenter on my location",
+                        tint = if (isGpsActive) AccentForestGreen else InkCharcoal,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -827,7 +1004,10 @@ fun DiscoveryMapScreen(
 
         // Bottom Discovery Marker Callout & Carousel Drawer for MapLibre & Canvas modes
         val liveSelectedPin = selectedPin?.let { sel -> filteredPins.find { it.id == sel.id } ?: sel }
-        if (mapMode != MapEngineMode.GOOGLE_MAP && filteredPins.isNotEmpty()) {
+        if (selectedLayer != MapLayerOption.GOOGLE_STANDARD &&
+            selectedLayer != MapLayerOption.GOOGLE_SATELLITE &&
+            filteredPins.isNotEmpty()
+        ) {
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)

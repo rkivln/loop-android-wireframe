@@ -899,6 +899,10 @@ fun PrivacyPolicySubScreen(
                 title = "4. Blocking & User Safety",
                 body = "Blocking a member immediately hides their catalog pieces, neighborhood posts, map pins, and conversation threads from your feeds. You can review or unblock accounts at any time."
             )
+            PolicySectionCard(
+                title = "5. End-to-End Encrypted Chats",
+                body = "Studio Dispatch messages, shared photos, and pickup location pins are encrypted on-device with P-256 ECDH + AES-256-GCM before leaving your phone. Your private key stays protected inside Android Keystore, and you can verify 60-digit Safety Numbers, configure disappearing timers, or mask notification previews anytime."
+            )
         }
     }
 }

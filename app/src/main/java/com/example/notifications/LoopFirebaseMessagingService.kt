@@ -94,14 +94,18 @@ class LoopFirebaseMessagingService : FirebaseMessagingService() {
             )
             if (!isUnseen) return@launch
 
+            val hideMessagePreview = category == NotificationCategory.MESSAGE &&
+                settings?.chatPrivacy?.hideNotificationPreviews == true
+
             LoopNotificationManager.postAlert(
                 context = appContext,
                 event = NotificationAlertEvent(
                     eventKey = "fcm:$messageId",
                     category = category,
-                    title = title,
-                    body = body,
-                    senderName = senderName,
+                    title = if (hideMessagePreview) "Studio Dispatch" else title,
+                    body = if (hideMessagePreview) "New encrypted message · Tap to open" else body,
+                    senderName = if (hideMessagePreview) null else senderName,
+                    hidePreview = hideMessagePreview,
                     deepLink = deepLink
                 )
             )

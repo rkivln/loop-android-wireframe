@@ -20,6 +20,8 @@ data class UserProfile(
     val favoriteItemIds: List<String> = emptyList(),
     val legacyResetVersion: Int = 0,
     val fcmToken: String = "",
+    val e2eePublicKey: String = "",
+    val e2eeKeyFingerprint: String = "",
     val settings: UserSettings = UserSettings()
 ) {
     val initials: String

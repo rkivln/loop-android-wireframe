@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -45,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -106,11 +109,20 @@ fun MapLibreGLMapView(
     onRequestGpsRecenter: () -> Unit = {},
     centerLat: Double? = null,
     centerLng: Double? = null,
-    zoom: Double = 14.8
+    zoom: Double = 14.8,
+    styleKey: String = "vector",
+    recenterTrigger: Int = 0,
+    showOverlayControls: Boolean = true,
+    showAttributionBadge: Boolean = true,
+    attributionTopPadding: Dp = 114.dp
 ) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var isMapReady by remember { mutableStateOf(false) }
-    var currentStyleKey by remember { mutableStateOf("vector") } // "vector" or "osm"
+    var internalStyleKey by remember { mutableStateOf(styleKey) }
+
+    LaunchedEffect(styleKey) {
+        internalStyleKey = styleKey
+    }
 
     val bridge = remember(activityPoints) {
         MapLibreBridge(
@@ -156,11 +168,28 @@ fun MapLibreGLMapView(
         }
     }
 
+    // Apply requested style when map becomes ready or styleKey changes
+    LaunchedEffect(internalStyleKey, isMapReady) {
+        if (isMapReady && webViewRef != null) {
+            webViewRef?.evaluateJavascript("window.setMapStyle('$internalStyleKey');", null)
+        }
+    }
+
     // Auto-center MapLibre on live GPS coordinates when active
     LaunchedEffect(centerLat, centerLng, isMapReady) {
         if (isMapReady && centerLat != null && centerLng != null && webViewRef != null) {
             webViewRef?.evaluateJavascript(
                 "window.setUserLocation($centerLat, $centerLng, true);",
+                null
+            )
+        }
+    }
+
+    // Trigger explicit recenter from external unified GPS button
+    LaunchedEffect(recenterTrigger) {
+        if (recenterTrigger > 0 && isMapReady && centerLat != null && centerLng != null && webViewRef != null) {
+            webViewRef?.evaluateJavascript(
+                "window.flyToCoords($centerLat, $centerLng, $zoom);",
                 null
             )
         }
@@ -222,98 +251,102 @@ fun MapLibreGLMapView(
             }
         }
 
-        // MapLibre GL Badge and Attribution Pill
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 16.dp, start = 16.dp)
-                .clip(RoundedCornerShape(100.dp))
-                .background(PaperPureWhite.copy(alpha = 0.94f))
-                .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
-                .shadow(2.dp, RoundedCornerShape(100.dp))
-                .padding(horizontal = 10.dp, vertical = 5.dp)
-                .testTag("maplibre_badge"),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(AccentForestGreen)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "MapLibre GL • OpenStreetMap",
-                    style = LoopType.Metadata.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                    color = InkCharcoal
-                )
+        if (showAttributionBadge) {
+            // Subtle OpenStreetMap & MapLibre attribution pill inset cleanly below top controls
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(top = attributionTopPadding, start = 16.dp)
+                    .shadow(2.dp, RoundedCornerShape(100.dp))
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(PaperPureWhite.copy(alpha = 0.92f))
+                    .border(1.dp, PaperBorder, RoundedCornerShape(100.dp))
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                    .testTag("maplibre_badge"),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(AccentForestGreen)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (internalStyleKey == "osm") "OpenStreetMap" else "OpenFreeMap • OSM",
+                        style = LoopType.Metadata.copy(fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold),
+                        color = InkCharcoal
+                    )
+                }
             }
         }
 
-        // Floating Control Buttons: Recenter & Style Switcher
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Style toggle button
-            Box(
+        if (showOverlayControls) {
+            // Floating Control Buttons for standalone usage: Recenter & Style Switcher
+            Column(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(PaperPureWhite)
-                    .border(1.dp, PaperBorder, CircleShape)
-                    .shadow(4.dp, CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = true)
-                    ) {
-                        currentStyleKey = if (currentStyleKey == "vector") "osm" else "vector"
-                        webViewRef?.evaluateJavascript("window.setMapStyle('$currentStyleKey');", null)
-                    }
-                    .testTag("maplibre_style_toggle"),
-                contentAlignment = Alignment.Center
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Layers,
-                    contentDescription = "Toggle Map Layer Style",
-                    tint = if (currentStyleKey == "osm") AccentForestGreen else InkCharcoal,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // Recenter to live GPS coordinates or request GPS fix
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(PaperPureWhite)
-                    .border(1.dp, PaperBorder, CircleShape)
-                    .shadow(4.dp, CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = true)
-                    ) {
-                        if (centerLat != null && centerLng != null) {
-                            webViewRef?.evaluateJavascript(
-                                "window.flyToCoords($centerLat, $centerLng, $zoom);",
-                                null
-                            )
-                        } else {
-                            onRequestGpsRecenter()
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .minimumInteractiveComponentSize()
+                        .shadow(4.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(PaperPureWhite)
+                        .border(1.dp, PaperBorder, CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true)
+                        ) {
+                            internalStyleKey = if (internalStyleKey == "vector") "osm" else "vector"
                         }
-                    }
-                    .testTag("maplibre_recenter_btn"),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MyLocation,
-                    contentDescription = "Recenter Map",
-                    tint = AccentForestGreen,
-                    modifier = Modifier.size(20.dp)
-                )
+                        .testTag("maplibre_style_toggle"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Layers,
+                        contentDescription = "Toggle Map Layer Style",
+                        tint = if (internalStyleKey == "osm") AccentForestGreen else InkCharcoal,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .minimumInteractiveComponentSize()
+                        .shadow(4.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(PaperPureWhite)
+                        .border(1.dp, PaperBorder, CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true)
+                        ) {
+                            if (centerLat != null && centerLng != null) {
+                                webViewRef?.evaluateJavascript(
+                                    "window.flyToCoords($centerLat, $centerLng, $zoom);",
+                                    null
+                                )
+                            } else {
+                                onRequestGpsRecenter()
+                            }
+                        }
+                        .testTag("maplibre_recenter_btn"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MyLocation,
+                        contentDescription = "Recenter Map",
+                        tint = AccentForestGreen,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

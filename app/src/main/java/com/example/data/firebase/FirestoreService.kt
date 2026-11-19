@@ -6,6 +6,7 @@ import com.example.data.models.AppearanceMode
 import com.example.data.models.BlockedUserEntry
 import com.example.data.models.ChatConversation
 import com.example.data.models.ChatMessageType
+import com.example.data.models.ChatPrivacySettings
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
 import com.example.data.models.LocationSharingPreference
@@ -97,6 +98,12 @@ class FirestoreService(
                 likesAndInteractions = snapshot.getBoolean("notifyLikes") ?: true,
                 announcements = snapshot.getBoolean("notifyAnnouncements") ?: true
             ),
+            chatPrivacy = ChatPrivacySettings(
+                sendReadReceipts = snapshot.getBoolean("sendReadReceipts") ?: true,
+                showTypingStatus = snapshot.getBoolean("showTypingStatus") ?: true,
+                defaultDisappearingSeconds = snapshot.getLong("defaultDisappearingSeconds") ?: 0L,
+                hideNotificationPreviews = snapshot.getBoolean("hideNotificationPreviews") ?: false
+            ),
             blockedUsers = blockedList
         )
 
@@ -120,6 +127,8 @@ class FirestoreService(
             favoriteItemIds = favoritesList,
             legacyResetVersion = snapshot.getLong("legacyResetVersion")?.toInt() ?: 0,
             fcmToken = snapshot.getString("fcmToken") ?: "",
+            e2eePublicKey = snapshot.getString("e2eePublicKey") ?: "",
+            e2eeKeyFingerprint = snapshot.getString("e2eeKeyFingerprint") ?: "",
             settings = parsedSettings
         )
     }
@@ -213,6 +222,8 @@ class FirestoreService(
                 "favoriteItemIds" to profile.favoriteItemIds,
                 "legacyResetVersion" to profile.legacyResetVersion,
                 "fcmToken" to profile.fcmToken.takeIf { it.isNotBlank() },
+                "e2eePublicKey" to profile.e2eePublicKey.takeIf { it.isNotBlank() },
+                "e2eeKeyFingerprint" to profile.e2eeKeyFingerprint.takeIf { it.isNotBlank() },
                 "appearanceMode" to profile.settings.appearanceMode.name,
                 "profileVisibility" to profile.settings.profileVisibility.name,
                 "locationSharing" to profile.settings.locationSharing.name,
@@ -221,6 +232,10 @@ class FirestoreService(
                 "notifyCommentReplies" to profile.settings.notifications.repliesToComments,
                 "notifyLikes" to profile.settings.notifications.likesAndInteractions,
                 "notifyAnnouncements" to profile.settings.notifications.announcements,
+                "sendReadReceipts" to profile.settings.chatPrivacy.sendReadReceipts,
+                "showTypingStatus" to profile.settings.chatPrivacy.showTypingStatus,
+                "defaultDisappearingSeconds" to profile.settings.chatPrivacy.defaultDisappearingSeconds,
+                "hideNotificationPreviews" to profile.settings.chatPrivacy.hideNotificationPreviews,
                 "blockedUserIds" to profile.settings.blockedUsers.map { it.userId }.take(200),
                 "blockedUsers" to profile.settings.blockedUsers.take(200).map {
                     mapOf(
@@ -278,8 +293,37 @@ class FirestoreService(
         }
     }
 
+    suspend fun updateE2eePublicKey(publicKeyBase64: String, fingerprint: String): Result<Unit> {
+        val cleanKey = publicKeyBase64.trim()
+        val cleanFp = fingerprint.trim()
+        if (cleanKey.isBlank()) return Result.success(Unit)
+        val uid = try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val docRef = firestore.collection("users").document(uid)
+        return try {
+            val snap = docRef.get().await()
+            if (!snap.exists()) return Result.success(Unit)
+            docRef.update(
+                mapOf(
+                    "e2eePublicKey" to cleanKey,
+                    "e2eeKeyFingerprint" to cleanFp,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
     /**
-     * Persist Settings (Appearance, Notifications, Privacy & Security, Blocked Users) on /users/{uid}.
+     * Persist Settings (Appearance, Notifications, Chat E2EE Privacy, Privacy & Security, Blocked Users) on /users/{uid}.
      */
     suspend fun updateUserSettings(settings: UserSettings, fallbackProfile: UserProfile): Result<Unit> {
         val uid = try {
@@ -303,6 +347,10 @@ class FirestoreService(
                     "notifyCommentReplies" to settings.notifications.repliesToComments,
                     "notifyLikes" to settings.notifications.likesAndInteractions,
                     "notifyAnnouncements" to settings.notifications.announcements,
+                    "sendReadReceipts" to settings.chatPrivacy.sendReadReceipts,
+                    "showTypingStatus" to settings.chatPrivacy.showTypingStatus,
+                    "defaultDisappearingSeconds" to settings.chatPrivacy.defaultDisappearingSeconds,
+                    "hideNotificationPreviews" to settings.chatPrivacy.hideNotificationPreviews,
                     "blockedUserIds" to settings.blockedUsers.map { it.userId }.take(200),
                     "blockedUsers" to settings.blockedUsers.take(200).map {
                         mapOf(
@@ -911,6 +959,11 @@ class FirestoreService(
 
                         val storedUnread = doc.getLong("unreadCount")?.toInt() ?: 0
                         val effectiveUnread = if (lastSenderId.isNotBlank() && lastSenderId == uid) 0 else storedUnread
+                        val mutedBy = (doc.get("mutedByUserIds") as? List<*>)
+                            ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+                            ?: emptyList()
+                        val disappearingSecs = doc.getLong("disappearingTimerSeconds") ?: 0L
+                        val e2eeEnabled = doc.getBoolean("e2eeEnabled") ?: true
 
                         ChatConversation(
                             id = doc.id,
@@ -923,6 +976,9 @@ class FirestoreService(
                             isTyping = doc.getBoolean("isTyping") ?: false,
                             unreadCount = effectiveUnread,
                             isPinned = doc.getBoolean("isPinned") ?: false,
+                            mutedByUserIds = mutedBy,
+                            disappearingTimerSeconds = disappearingSecs,
+                            e2eeEnabled = e2eeEnabled,
                             messages = lastMessages
                         )
                     } catch (_: Exception) {
@@ -943,7 +999,9 @@ class FirestoreService(
         host: RentalOwner,
         item: RentalItem? = null,
         communityPost: UserCommunityPost? = null,
-        customConversationId: String? = null
+        customConversationId: String? = null,
+        defaultDisappearingSeconds: Long = 0L,
+        e2eeEnabled: Boolean = true
     ): Result<ChatConversation> {
         val uid = try {
             requireUserId()
@@ -1003,6 +1061,9 @@ class FirestoreService(
                             initials = computeInitials(otherName),
                             phone = if (isHostInDoc) "" else (matchingExisting.getString("hostPhone") ?: host.phone)
                         )
+                        val mutedBy = (matchingExisting.get("mutedByUserIds") as? List<*>)
+                            ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+                            ?: emptyList()
                         return Result.success(
                             ChatConversation(
                                 id = matchingExisting.id,
@@ -1011,7 +1072,11 @@ class FirestoreService(
                                 communityPostId = communityPost?.id ?: matchingExisting.getString("communityPostId"),
                                 communityPostTitle = communityPost?.title ?: matchingExisting.getString("communityPostTitle"),
                                 lastSenderId = matchingExisting.getString("lastSenderId").orEmpty(),
-                                isOnline = true,
+                                isOnline = matchingExisting.getBoolean("isOnline") ?: true,
+                                isTyping = matchingExisting.getBoolean("isTyping") ?: false,
+                                mutedByUserIds = mutedBy,
+                                disappearingTimerSeconds = matchingExisting.getLong("disappearingTimerSeconds") ?: 0L,
+                                e2eeEnabled = matchingExisting.getBoolean("e2eeEnabled") ?: true,
                                 messages = emptyList()
                             )
                         )
@@ -1023,6 +1088,7 @@ class FirestoreService(
                     communityPost != null -> "Message about ${communityPost.title}"
                     else -> "Conversation started"
                 }
+                val safeTimer = defaultDisappearingSeconds.coerceIn(0L, 2_592_000L)
                 val convData = mutableMapOf<String, Any?>(
                     "id" to convId,
                     "participantIds" to participantIds,
@@ -1043,6 +1109,9 @@ class FirestoreService(
                     "isTyping" to false,
                     "unreadCount" to 0,
                     "isPinned" to false,
+                    "mutedByUserIds" to emptyList<String>(),
+                    "disappearingTimerSeconds" to safeTimer,
+                    "e2eeEnabled" to e2eeEnabled,
                     "lastMessageText" to initialText,
                     "lastMessageTimestamp" to "Just now",
                     "createdAt" to FieldValue.serverTimestamp(),
@@ -1050,8 +1119,25 @@ class FirestoreService(
                 )
                 @Suppress("UNCHECKED_CAST")
                 docRef.set(convData.filterValues { it != null } as Map<String, Any>).await()
+
+                return Result.success(
+                    ChatConversation(
+                        id = convId,
+                        owner = host.copy(id = cleanHostId),
+                        itemContext = item,
+                        communityPostId = communityPost?.id,
+                        communityPostTitle = communityPost?.title,
+                        isOnline = true,
+                        disappearingTimerSeconds = safeTimer,
+                        e2eeEnabled = e2eeEnabled,
+                        messages = emptyList()
+                    )
+                )
             }
 
+            val mutedBy = (existingSnap.get("mutedByUserIds") as? List<*>)
+                ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+                ?: emptyList()
             Result.success(
                 ChatConversation(
                     id = convId,
@@ -1059,7 +1145,12 @@ class FirestoreService(
                     itemContext = item,
                     communityPostId = communityPost?.id,
                     communityPostTitle = communityPost?.title,
-                    isOnline = true,
+                    lastSenderId = existingSnap.getString("lastSenderId").orEmpty(),
+                    isOnline = existingSnap.getBoolean("isOnline") ?: true,
+                    isTyping = existingSnap.getBoolean("isTyping") ?: false,
+                    mutedByUserIds = mutedBy,
+                    disappearingTimerSeconds = existingSnap.getLong("disappearingTimerSeconds") ?: 0L,
+                    e2eeEnabled = existingSnap.getBoolean("e2eeEnabled") ?: true,
                     messages = emptyList()
                 )
             )
@@ -1100,6 +1191,9 @@ class FirestoreService(
 
                         val senderId = doc.getString("senderId") ?: ""
                         val isFromMe = if (currentUid != null) senderId == currentUid else false
+                        val epoch = doc.getLong("timestampEpoch")
+                            ?: doc.getTimestamp("createdAt")?.toDate()?.time
+                            ?: 0L
 
                         RentalMessage(
                             id = doc.id,
@@ -1111,10 +1205,23 @@ class FirestoreService(
                             messageType = msgType,
                             status = status,
                             audioDuration = doc.getString("audioDuration"),
+                            imageUrl = doc.getString("imageUrl"),
                             locationTitle = doc.getString("locationTitle"),
                             locationAddress = doc.getString("locationAddress"),
+                            latitude = doc.getDouble("latitude"),
+                            longitude = doc.getDouble("longitude"),
                             itemTitle = doc.getString("itemTitle"),
-                            itemPricePerDay = doc.getLong("itemPricePerDay")?.toInt()
+                            itemPricePerDay = doc.getLong("itemPricePerDay")?.toInt(),
+                            isEncrypted = doc.getBoolean("isEncrypted") ?: false,
+                            keyVersion = doc.getLong("keyVersion")?.toInt() ?: 1,
+                            ciphertext = doc.getString("ciphertext"),
+                            iv = doc.getString("iv"),
+                            senderPublicKey = doc.getString("senderPublicKey"),
+                            recipientPublicKey = doc.getString("recipientPublicKey"),
+                            replyToMessageId = doc.getString("replyToMessageId"),
+                            replyToSenderName = doc.getString("replyToSenderName"),
+                            timestampEpoch = epoch,
+                            expiresAtEpoch = doc.getLong("expiresAtEpoch") ?: 0L
                         )
                     } catch (_: Exception) {
                         null
@@ -1128,7 +1235,7 @@ class FirestoreService(
     }
 
     /**
-     * Send an immutable message into an existing conversation
+     * Send an immutable message (encrypted envelope or legacy plaintext) into an existing conversation.
      */
     suspend fun sendMessage(conversationId: String, message: RentalMessage): Result<RentalMessage> {
         val uid = try {
@@ -1141,22 +1248,36 @@ class FirestoreService(
 
         return try {
             val senderName = message.senderName.ifBlank { auth.currentUser?.displayName ?: "Me" }
+            val nowEpoch = if (message.timestampEpoch > 0L) message.timestampEpoch else System.currentTimeMillis()
+            val storedText = if (message.isEncrypted) "Encrypted message" else message.text
             @Suppress("UNCHECKED_CAST")
             val msgData = mapOf<String, Any?>(
                 "id" to message.id,
                 "senderId" to uid,
                 "senderName" to senderName,
-                "text" to message.text,
+                "text" to storedText,
                 "timestampStr" to message.timestamp,
-                "timestampEpoch" to System.currentTimeMillis(),
+                "timestampEpoch" to nowEpoch,
                 "isFromMe" to true,
                 "messageTypeStr" to message.messageType.name,
                 "statusStr" to message.status.name,
                 "audioDuration" to message.audioDuration,
-                "locationTitle" to message.locationTitle,
-                "locationAddress" to message.locationAddress,
+                "imageUrl" to if (message.isEncrypted) null else message.imageUrl,
+                "locationTitle" to if (message.isEncrypted) null else message.locationTitle,
+                "locationAddress" to if (message.isEncrypted) null else message.locationAddress,
+                "latitude" to if (message.isEncrypted) null else message.latitude,
+                "longitude" to if (message.isEncrypted) null else message.longitude,
                 "itemTitle" to message.itemTitle,
                 "itemPricePerDay" to message.itemPricePerDay,
+                "isEncrypted" to message.isEncrypted,
+                "keyVersion" to message.keyVersion,
+                "ciphertext" to message.ciphertext,
+                "iv" to message.iv,
+                "senderPublicKey" to message.senderPublicKey,
+                "recipientPublicKey" to message.recipientPublicKey,
+                "replyToMessageId" to message.replyToMessageId,
+                "replyToSenderName" to message.replyToSenderName,
+                "expiresAtEpoch" to message.expiresAtEpoch.coerceAtLeast(0L),
                 "createdAt" to FieldValue.serverTimestamp()
             ).filterValues { it != null } as Map<String, Any>
 
@@ -1164,19 +1285,141 @@ class FirestoreService(
 
             convRef.update(
                 mapOf(
-                    "lastMessageText" to message.text,
+                    "lastMessageText" to storedText,
                     "lastMessageTimestamp" to message.timestamp,
                     "lastSenderId" to uid,
                     "unreadCount" to FieldValue.increment(1),
+                    "isTyping" to false,
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
             ).await()
 
-            Result.success(message.copy(senderId = uid, senderName = senderName, isFromMe = true))
+            Result.success(
+                message.copy(
+                    senderId = uid,
+                    senderName = senderName,
+                    isFromMe = true,
+                    timestampEpoch = nowEpoch
+                )
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.CREATE, msgRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteMessage(
+        conversationId: String,
+        messageId: String,
+        fallbackLastMessageText: String? = null,
+        fallbackLastSenderId: String? = null
+    ): Result<Unit> {
+        try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val convRef = firestore.collection("conversations").document(conversationId)
+        val msgRef = convRef.collection("messages").document(messageId)
+        return try {
+            msgRef.delete().await()
+            if (fallbackLastMessageText != null) {
+                val updates = mutableMapOf<String, Any>(
+                    "lastMessageText" to fallbackLastMessageText,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                if (fallbackLastSenderId != null) {
+                    updates["lastSenderId"] = fallbackLastSenderId
+                }
+                convRef.update(updates).await()
+            }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, msgRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateConversationMute(
+        conversationId: String,
+        uid: String,
+        muted: Boolean
+    ): Result<Unit> {
+        try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val convRef = firestore.collection("conversations").document(conversationId)
+        return try {
+            val op = if (muted) FieldValue.arrayUnion(uid) else FieldValue.arrayRemove(uid)
+            convRef.update(
+                mapOf(
+                    "mutedByUserIds" to op,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, convRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateConversationDisappearingTimer(
+        conversationId: String,
+        seconds: Long
+    ): Result<Unit> {
+        try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val convRef = firestore.collection("conversations").document(conversationId)
+        return try {
+            convRef.update(
+                mapOf(
+                    "disappearingTimerSeconds" to seconds.coerceIn(0L, 2_592_000L),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, convRef.path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateConversationTyping(
+        conversationId: String,
+        isTyping: Boolean
+    ): Result<Unit> {
+        try {
+            requireUserId()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        val convRef = firestore.collection("conversations").document(conversationId)
+        return try {
+            convRef.update(
+                mapOf(
+                    "isTyping" to isTyping,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, convRef.path)
             Result.failure(e)
         }
     }
@@ -1833,6 +2076,9 @@ class FirestoreService(
                     }
                     val storedUnread = doc.getLong("unreadCount")?.toInt() ?: 0
                     val effectiveUnread = if (lastSenderId.isNotBlank() && lastSenderId == uid) 0 else storedUnread
+                    val mutedBy = (doc.get("mutedByUserIds") as? List<*>)
+                        ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+                        ?: emptyList()
                     ChatConversation(
                         id = doc.id,
                         owner = counterparty,
@@ -1844,6 +2090,9 @@ class FirestoreService(
                         isTyping = doc.getBoolean("isTyping") ?: false,
                         unreadCount = effectiveUnread,
                         isPinned = doc.getBoolean("isPinned") ?: false,
+                        mutedByUserIds = mutedBy,
+                        disappearingTimerSeconds = doc.getLong("disappearingTimerSeconds") ?: 0L,
+                        e2eeEnabled = doc.getBoolean("e2eeEnabled") ?: true,
                         messages = lastMessages
                     )
                 } catch (_: Exception) {

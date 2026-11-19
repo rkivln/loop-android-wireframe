@@ -265,6 +265,84 @@ test("Conversation participants: can query own conversations, read and send immu
       text: "Edited",
     })
   );
+
+  // Encrypted message with reply, coordinates, and disappearing timer succeeds
+  await assertSucceeds(aliceDb.collection("conversations").doc("conv_1").collection("messages").doc("msg_e2ee").set({
+    id: "msg_e2ee",
+    senderId: ALICE_UID,
+    text: "Encrypted message",
+    messageTypeStr: "LOCATION_PIN",
+    statusStr: "SENT",
+    isEncrypted: true,
+    keyVersion: 1,
+    ciphertext: "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo=",
+    iv: "MTIzNDU2Nzg5MDEy",
+    senderPublicKey: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE",
+    recipientPublicKey: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAF",
+    replyToMessageId: "msg_1",
+    replyToSenderName: "Alice",
+    latitude: 11.934,
+    longitude: 79.830,
+    expiresAtEpoch: Date.now() + 86400000,
+    createdAt: new Date(),
+  }));
+
+  // Oversized ciphertext must fail
+  await assertFails(aliceDb.collection("conversations").doc("conv_1").collection("messages").doc("msg_huge").set({
+    id: "msg_huge",
+    senderId: ALICE_UID,
+    text: "Encrypted message",
+    messageTypeStr: "IMAGE_MEDIA",
+    statusStr: "SENT",
+    isEncrypted: true,
+    ciphertext: "a".repeat(460000),
+    iv: "MTIzNDU2Nzg5MDEy",
+    createdAt: new Date(),
+  }));
+
+  // Conversation mute & disappearing timer updates succeed for participant
+  await assertSucceeds(aliceDb.collection("conversations").doc("conv_1").update({
+    mutedByUserIds: [ALICE_UID],
+    disappearingTimerSeconds: 86400,
+    e2eeEnabled: true,
+    updatedAt: new Date(),
+  }));
+
+  // Invalid disappearing timer duration fails
+  await assertFails(aliceDb.collection("conversations").doc("conv_1").update({
+    disappearingTimerSeconds: 999999999,
+    updatedAt: new Date(),
+  }));
+
+  // Only sender can delete their own message
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  await assertFails(bobDb.collection("conversations").doc("conv_1").collection("messages").doc("msg_e2ee").delete());
+  await assertSucceeds(aliceDb.collection("conversations").doc("conv_1").collection("messages").doc("msg_e2ee").delete());
+});
+
+test("User E2EE public key and chat privacy settings validation", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).set({
+    userId: ALICE_UID,
+    displayName: "Alice",
+    email: "alice@test.com",
+    createdAt: new Date(),
+  }));
+
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).update({
+    e2eePublicKey: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtestKey",
+    e2eeKeyFingerprint: "A1B2 C3D4 E5F6 0718",
+    sendReadReceipts: false,
+    showTypingStatus: false,
+    defaultDisappearingSeconds: 604800,
+    hideNotificationPreviews: true,
+    updatedAt: new Date(),
+  }));
+
+  await assertFails(aliceDb.collection("users").doc(ALICE_UID).update({
+    defaultDisappearingSeconds: -10,
+    updatedAt: new Date(),
+  }));
 });
 
 test("Non-participant: cannot read conversation or list/write messages", async () => {

@@ -36,6 +36,32 @@ enum class LocationSharingPreference(val label: String, val subtitle: String) {
     }
 }
 
+enum class DisappearingMessageTimer(
+    val seconds: Long,
+    val label: String,
+    val shortLabel: String,
+    val subtitle: String
+) {
+    OFF(0L, "Off", "Off", "Messages stay in thread until deleted"),
+    DAY_1(86_400L, "24 Hours", "24h", "New messages disappear 24 hours after sending"),
+    DAYS_7(604_800L, "7 Days", "7d", "New messages disappear 7 days after sending"),
+    DAYS_30(2_592_000L, "30 Days", "30d", "New messages disappear 30 days after sending");
+
+    companion object {
+        fun fromSecondsOrDefault(seconds: Long?): DisappearingMessageTimer {
+            if (seconds == null || seconds <= 0L) return OFF
+            return entries.firstOrNull { it.seconds == seconds } ?: OFF
+        }
+    }
+}
+
+data class ChatPrivacySettings(
+    val sendReadReceipts: Boolean = true,
+    val showTypingStatus: Boolean = true,
+    val defaultDisappearingSeconds: Long = 0L,
+    val hideNotificationPreviews: Boolean = false
+)
+
 data class NotificationPreferences(
     val pushEnabled: Boolean = true,
     val newNeighbourhoodPosts: Boolean = true,
@@ -55,6 +81,7 @@ data class UserSettings(
     val profileVisibility: ProfileVisibility = ProfileVisibility.PUBLIC,
     val locationSharing: LocationSharingPreference = LocationSharingPreference.PRECISE,
     val notifications: NotificationPreferences = NotificationPreferences(),
+    val chatPrivacy: ChatPrivacySettings = ChatPrivacySettings(),
     val blockedUsers: List<BlockedUserEntry> = emptyList()
 ) {
     val blockedUserIds: Set<String>

@@ -128,11 +128,26 @@ data class RentalMessage(
     val audioDuration: String? = null,
     val isAudioPlaying: Boolean = false,
     @DrawableRes val imageRes: Int? = null,
+    val imageUrl: String? = null,
     val locationTitle: String? = null,
     val locationAddress: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val itemTitle: String? = null,
     val itemPricePerDay: Int? = null,
-    @DrawableRes val itemImageRes: Int? = null
+    @DrawableRes val itemImageRes: Int? = null,
+    val isEncrypted: Boolean = false,
+    val decryptionFailed: Boolean = false,
+    val keyVersion: Int = 1,
+    val ciphertext: String? = null,
+    val iv: String? = null,
+    val senderPublicKey: String? = null,
+    val recipientPublicKey: String? = null,
+    val replyToMessageId: String? = null,
+    val replyToSenderName: String? = null,
+    val replyToSnippet: String? = null,
+    val timestampEpoch: Long = 0L,
+    val expiresAtEpoch: Long = 0L
 )
 
 data class ChatConversation(
@@ -146,9 +161,18 @@ data class ChatConversation(
     val isTyping: Boolean = false,
     val unreadCount: Int = 0,
     val isPinned: Boolean = false,
+    val mutedByUserIds: List<String> = emptyList(),
+    val disappearingTimerSeconds: Long = 0L,
+    val e2eeEnabled: Boolean = true,
+    val peerPublicKey: String = "",
+    val peerKeyFingerprint: String = "",
     val messages: List<RentalMessage>
 ) {
     val lastMessage: RentalMessage? get() = messages.lastOrNull()
+
+    fun isMutedFor(uid: String): Boolean {
+        return uid.isNotBlank() && uid in mutedByUserIds
+    }
 }
 
 enum class DiscoveryPinType {
