@@ -416,12 +416,21 @@
         }
     };
 
+    let currentStyleKey = 'vector';
+
     window.setMapStyle = function(styleKey) {
         if (!map) return;
-        if (styleKey === 'osm') {
-            map.setStyle(osmRasterStyle);
-        } else {
-            map.setStyle('https://tiles.openfreemap.org/styles/liberty');
+        const normalized = styleKey === 'osm' ? 'osm' : 'vector';
+        if (normalized === currentStyleKey) return;
+        currentStyleKey = normalized;
+        try {
+            if (normalized === 'osm') {
+                map.setStyle(osmRasterStyle);
+            } else {
+                map.setStyle('https://tiles.openfreemap.org/styles/liberty');
+            }
+        } catch (e) {
+            console.warn('Failed to switch style, keeping current style:', e);
         }
     };
 

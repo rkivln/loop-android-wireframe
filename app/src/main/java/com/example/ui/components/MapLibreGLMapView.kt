@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -120,19 +121,30 @@ fun MapLibreGLMapView(
     var isMapReady by remember { mutableStateOf(false) }
     var internalStyleKey by remember { mutableStateOf(styleKey) }
 
+    val latestPoints by rememberUpdatedState(activityPoints)
+    val latestOnPointSelected by rememberUpdatedState(onPointSelected)
+    val latestOnMapClick by rememberUpdatedState(onMapClick)
+
+    fun evalJs(script: String) {
+        val view = webViewRef ?: return
+        runCatching {
+            view.evaluateJavascript(script, null)
+        }
+    }
+
     LaunchedEffect(styleKey) {
         internalStyleKey = styleKey
     }
 
-    val bridge = remember(activityPoints) {
+    val bridge = remember {
         MapLibreBridge(
             onPinClicked = { pinId ->
-                activityPoints.find { it.id == pinId }?.let { pin ->
-                    onPointSelected(pin)
+                latestPoints.find { it.id == pinId }?.let { pin ->
+                    latestOnPointSelected(pin)
                 }
             },
             onEmptyMapClicked = {
-                onMapClick()
+                latestOnMapClick()
             },
             onReady = {
                 isMapReady = true
@@ -162,43 +174,37 @@ fun MapLibreGLMapView(
 
     // Push updated pins to MapLibre when ready or when points change
     LaunchedEffect(pinsJson, isMapReady) {
-        if (isMapReady && webViewRef != null) {
+        if (isMapReady) {
             val escapedJson = pinsJson.replace("\\", "\\\\").replace("'", "\\'")
-            webViewRef?.evaluateJavascript("window.setPinsJson('$escapedJson');", null)
+            evalJs("window.setPinsJson('$escapedJson');")
         }
     }
 
     // Apply requested style when map becomes ready or styleKey changes
     LaunchedEffect(internalStyleKey, isMapReady) {
-        if (isMapReady && webViewRef != null) {
-            webViewRef?.evaluateJavascript("window.setMapStyle('$internalStyleKey');", null)
+        if (isMapReady) {
+            evalJs("window.setMapStyle('$internalStyleKey');")
         }
     }
 
     // Auto-center MapLibre on live GPS coordinates when active
     LaunchedEffect(centerLat, centerLng, isMapReady) {
-        if (isMapReady && centerLat != null && centerLng != null && webViewRef != null) {
-            webViewRef?.evaluateJavascript(
-                "window.setUserLocation($centerLat, $centerLng, true);",
-                null
-            )
+        if (isMapReady && centerLat != null && centerLng != null) {
+            evalJs("window.setUserLocation($centerLat, $centerLng, true);")
         }
     }
 
     // Trigger explicit recenter from external unified GPS button
     LaunchedEffect(recenterTrigger) {
-        if (recenterTrigger > 0 && isMapReady && centerLat != null && centerLng != null && webViewRef != null) {
-            webViewRef?.evaluateJavascript(
-                "window.flyToCoords($centerLat, $centerLng, $zoom);",
-                null
-            )
+        if (recenterTrigger > 0 && isMapReady && centerLat != null && centerLng != null) {
+            evalJs("window.flyToCoords($centerLat, $centerLng, $zoom);")
         }
     }
 
     // Fly to selected pin when it changes
     LaunchedEffect(selectedPin?.id, isMapReady) {
-        if (isMapReady && selectedPin != null && webViewRef != null) {
-            webViewRef?.evaluateJavascript("window.selectPin('${selectedPin.id}');", null)
+        if (isMapReady && selectedPin != null) {
+            evalJs("window.selectPin('${selectedPin.id}');")
         }
     }
 
@@ -246,8 +252,17 @@ fun MapLibreGLMapView(
 
         DisposableEffect(Unit) {
             onDispose {
-                webViewRef?.destroy()
+                val view = webViewRef
                 webViewRef = null
+                isMapReady = false
+                if (view != null) {
+                    runCatching {
+                        view.stopLoading()
+                        view.removeJavascriptInterface("AndroidBridge")
+                        (view.parent as? ViewGroup)?.removeView(view)
+                        view.destroy()
+                    }
+                }
             }
         }
 

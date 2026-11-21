@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +58,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.LocationHelper
 import com.example.data.RentalRepository
+import com.example.data.models.AVATAR_PRESETS
+import com.example.ui.components.UserAvatar
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,12 +75,16 @@ fun EditProfileScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val currentProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
+    val authPhotoUrl = remember {
+        Firebase.auth.currentUser?.photoUrl?.toString()?.trim()?.takeIf { it.isNotBlank() }?.take(500)
+    }
 
     var displayName by remember(currentProfile) { mutableStateOf(currentProfile.displayName) }
     var bio by remember(currentProfile) { mutableStateOf(currentProfile.bio) }
     var location by remember(currentProfile) { mutableStateOf(currentProfile.location) }
     var phone by remember(currentProfile) { mutableStateOf(currentProfile.phone) }
     var selectedAvatarIndex by remember(currentProfile) { mutableIntStateOf(currentProfile.avatarPresetIndex) }
+    var selectedAvatarUri by remember(currentProfile) { mutableStateOf(currentProfile.customAvatarUri) }
     var isLocatingGps by remember { mutableStateOf(false) }
 
     val detectLocation: () -> Unit = {
@@ -160,42 +169,95 @@ fun EditProfileScreen(
                     .joinToString("")
                     .ifEmpty { "?" }
             }
-
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(80.dp)
-                    .align(Alignment.CenterHorizontally)
-                    .clip(CircleShape)
-                    .background(avatarPresetColors[selectedAvatarIndex % avatarPresetColors.size])
-            ) {
-                Text(
-                    text = previewInitials,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
+            val effectivePreviewUrl = remember(selectedAvatarUri, authPhotoUrl) {
+                when {
+                    selectedAvatarUri == null -> authPhotoUrl
+                    selectedAvatarUri.isNullOrBlank() -> null
+                    else -> selectedAvatarUri
+                }
             }
+
+            UserAvatar(
+                avatarUrl = effectivePreviewUrl,
+                initials = previewInitials,
+                size = 80.dp,
+                avatarPresetIndex = selectedAvatarIndex,
+                borderColor = MaterialTheme.colorScheme.outlineVariant,
+                borderWidth = 1.dp,
+                contentDescription = "Profile avatar preview",
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+            val activePresetLabel = AVATAR_PRESETS.getOrElse(selectedAvatarIndex % AVATAR_PRESETS.size) { AVATAR_PRESETS[0] }.label
+            Text(
+                text = when {
+                    !effectivePreviewUrl.isNullOrBlank() -> "Using your email account photo"
+                    authPhotoUrl == null -> "No email photo available — using $activePresetLabel"
+                    else -> "Using $activePresetLabel initials preset"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
             Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
             ) {
+                if (authPhotoUrl != null) {
+                    val isEmailSelected = !effectivePreviewUrl.isNullOrBlank()
+                    Box(
+                        contentAlignment = Alignment.BottomEnd,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .clickable { selectedAvatarUri = authPhotoUrl }
+                            .testTag("avatar_option_email")
+                    ) {
+                        UserAvatar(
+                            avatarUrl = authPhotoUrl,
+                            initials = previewInitials,
+                            size = 48.dp,
+                            avatarPresetIndex = selectedAvatarIndex,
+                            borderColor = if (isEmailSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            borderWidth = if (isEmailSelected) 3.dp else 1.dp,
+                            contentDescription = "Use email profile photo"
+                        )
+                        if (isEmailSelected) {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 for ((index, color) in avatarPresetColors.withIndex()) {
-                    val isSelected = selectedAvatarIndex == index
+                    val isSelected = effectivePreviewUrl.isNullOrBlank() && selectedAvatarIndex == index
                     val itemMod = if (isSelected) {
                         Modifier
-                            .padding(horizontal = 6.dp)
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(color)
                             .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
                     } else {
                         Modifier
-                            .padding(horizontal = 6.dp)
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(color)
@@ -203,7 +265,10 @@ fun EditProfileScreen(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = itemMod
-                            .clickable { selectedAvatarIndex = index }
+                            .clickable {
+                                selectedAvatarIndex = index
+                                selectedAvatarUri = ""
+                            }
                             .testTag("avatar_option_$index")
                     ) {
                         if (isSelected) {
@@ -351,12 +416,17 @@ fun EditProfileScreen(
 
                 Button(
                     onClick = {
+                        val persistedAvatarUri = when {
+                            selectedAvatarUri == null -> authPhotoUrl ?: ""
+                            else -> selectedAvatarUri?.trim().orEmpty()
+                        }
                         val updated = currentProfile.copy(
                             displayName = displayName.trim(),
                             bio = bio.trim(),
                             location = location.trim(),
                             phone = phone.trim(),
-                            avatarPresetIndex = selectedAvatarIndex
+                            avatarPresetIndex = selectedAvatarIndex,
+                            customAvatarUri = persistedAvatarUri
                         )
                         RentalRepository.updateUserProfile(updated)
                         onNavigateBack()

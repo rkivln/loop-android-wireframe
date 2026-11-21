@@ -88,6 +88,7 @@ import com.example.data.models.RentalMessage
 import com.example.ui.components.MemberProfileModalSheet
 import com.example.ui.components.MessagesSkeletonList
 import com.example.ui.components.PhotoBitmapProcessor
+import com.example.ui.components.UserAvatar
 import com.example.ui.components.chat.ChatAttachmentSheet
 import com.example.ui.components.chat.ChatLockStatusBadge
 import com.example.ui.components.chat.ChatMessageBubble
@@ -329,19 +330,16 @@ fun MessagesScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(InkCharcoal),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = activeConversation.owner.initials,
-                                    style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold),
-                                    color = InkWhite
-                                )
-                            }
+                            UserAvatar(
+                                avatarUrl = activeConversation.owner.avatarUrl,
+                                initials = activeConversation.owner.initials,
+                                size = 34.dp,
+                                avatarPresetIndex = activeConversation.owner.avatarPresetIndex,
+                                fallbackContainerColor = InkCharcoal,
+                                borderColor = PaperBorderSubtle,
+                                borderWidth = 1.dp,
+                                contentDescription = "${activeConversation.owner.name} avatar"
+                            )
                             Column {
                                 Text(
                                     text = activeConversation.owner.name,
@@ -1218,22 +1216,16 @@ fun MessagesScreen(
                                 .testTag("conversation_card_${conv.id}"),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(InkCharcoal),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = conv.owner.initials,
-                                    style = LoopType.HeadlineMedium.copy(
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Normal
-                                    ),
-                                    color = InkWhite
-                                )
-                            }
+                            UserAvatar(
+                                avatarUrl = conv.owner.avatarUrl,
+                                initials = conv.owner.initials,
+                                size = 48.dp,
+                                avatarPresetIndex = conv.owner.avatarPresetIndex,
+                                fallbackContainerColor = InkCharcoal,
+                                borderColor = PaperBorderSubtle,
+                                borderWidth = 1.dp,
+                                contentDescription = "${conv.owner.name} avatar"
+                            )
 
                             Spacer(modifier = Modifier.width(14.dp))
 

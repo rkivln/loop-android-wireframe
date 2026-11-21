@@ -82,4 +82,41 @@ object BookingDateUtils {
         }
         return formatter.format(java.util.Date(normalizeToUtcMidnight(utcMillis)))
     }
+
+    data class BookingPricingBreakdown(
+        val daysCount: Int,
+        val rentalSubtotal: Int,
+        val discountPercent: Int,
+        val discountAmount: Int,
+        val serviceFee: Int,
+        val deliveryFee: Int,
+        val totalPayable: Int
+    )
+
+    fun calculateBookingPricing(
+        pricePerDay: Int,
+        daysCount: Int,
+        deliveryFee: Int = 0,
+        serviceFee: Int = 50
+    ): BookingPricingBreakdown {
+        val clampedDays = daysCount.coerceIn(MIN_RENTAL_DAYS, MAX_RENTAL_DAYS)
+        val safeRate = pricePerDay.coerceAtLeast(0)
+        val subtotal = safeRate * clampedDays
+        val discountPercent = when {
+            clampedDays >= 7 -> 15
+            clampedDays >= 3 -> 10
+            else -> 0
+        }
+        val discountAmount = (subtotal * discountPercent) / 100
+        val total = (subtotal - discountAmount + serviceFee + deliveryFee).coerceAtLeast(0)
+        return BookingPricingBreakdown(
+            daysCount = clampedDays,
+            rentalSubtotal = subtotal,
+            discountPercent = discountPercent,
+            discountAmount = discountAmount,
+            serviceFee = serviceFee,
+            deliveryFee = deliveryFee,
+            totalPayable = total
+        )
+    }
 }

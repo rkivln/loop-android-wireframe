@@ -102,11 +102,14 @@ import com.example.data.models.UserCommunityPost
 import com.example.notifications.LoopNotificationManager
 import com.example.ui.components.EditorialTopBar
 import com.example.ui.components.GitHubRepoConfigDialog
+import com.example.ui.components.UserAvatar
 import com.example.ui.components.chat.DisappearingTimerSheet
 import com.example.ui.components.chat.MyEncryptionKeyDialog
 import com.example.update.AppUpdateCoordinator
 import com.example.update.AppUpdateUiState
 import com.example.update.UpdatePreferencesStore
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
 import com.example.ui.theme.AccentPeach
@@ -328,7 +331,7 @@ fun SettingsScreen(
                 ) {
                     // User Identity Summary Header
                     item {
-                        val avatarPreset = AVATAR_PRESETS.getOrElse(userProfile.avatarPresetIndex) { AVATAR_PRESETS[0] }
+                        val authPhotoUrl = remember { Firebase.auth.currentUser?.photoUrl?.toString() }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -338,19 +341,15 @@ fun SettingsScreen(
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(avatarPreset.bgHex1)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = userProfile.initials,
-                                    style = LoopType.HeadlineMedium.copy(fontSize = 18.sp),
-                                    color = Color.White
-                                )
-                            }
+                            UserAvatar(
+                                avatarUrl = userProfile.resolvedAvatarUrl(authPhotoUrl),
+                                initials = userProfile.initials,
+                                size = 52.dp,
+                                avatarPresetIndex = userProfile.avatarPresetIndex,
+                                borderColor = PaperBorderSubtle,
+                                borderWidth = 1.dp,
+                                contentDescription = "Your profile avatar"
+                            )
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(

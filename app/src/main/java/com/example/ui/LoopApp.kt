@@ -5,6 +5,14 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -86,7 +94,7 @@ fun LoopApp(
 ) {
     val context = LocalContext.current
     val appearanceMode by ThemePreferencesStore.observeAppearanceMode(context)
-        .collectAsStateWithLifecycle(initialValue = AppearanceMode.SYSTEM)
+        .collectAsStateWithLifecycle(initialValue = AppearanceMode.LIGHT)
 
     LoopTheme(appearanceMode = appearanceMode) {
         val auth = Firebase.auth
@@ -302,7 +310,54 @@ fun LoopMainContent(
     val isFineLocationGranted = locationAccessState == LocationAccessState.GrantedFine
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when (val screen = currentScreen) {
+        AnimatedContent(
+            targetState = currentScreen,
+            contentKey = { state ->
+                when (state) {
+                    is ScreenState.Main -> "main"
+                    is ScreenState.ItemDetails -> "details_${state.item.id}"
+                    is ScreenState.Booking -> "booking_${state.item.id}"
+                    is ScreenState.CreateListing -> "create_listing"
+                    is ScreenState.EditListing -> "edit_listing_${state.item.id}"
+                    is ScreenState.EditProfile -> "edit_profile"
+                    is ScreenState.Settings -> "settings"
+                }
+            },
+            transitionSpec = {
+                val isReturningToMain = targetState is ScreenState.Main && initialState !is ScreenState.Main
+                val isBackFromBooking = targetState is ScreenState.ItemDetails && initialState is ScreenState.Booking
+                val isBackFromEdit = (targetState is ScreenState.ItemDetails || targetState is ScreenState.Settings) &&
+                    initialState is ScreenState.EditListing
+                val isBackTransition = isReturningToMain || isBackFromBooking || isBackFromEdit
+
+                val duration = 240
+                if (isBackTransition) {
+                    (slideInHorizontally(
+                        animationSpec = tween(duration, easing = FastOutSlowInEasing),
+                        initialOffsetX = { fullWidth -> -fullWidth / 5 }
+                    ) + fadeIn(tween(duration, easing = FastOutSlowInEasing)))
+                        .togetherWith(
+                            slideOutHorizontally(
+                                animationSpec = tween(duration, easing = FastOutSlowInEasing),
+                                targetOffsetX = { fullWidth -> fullWidth / 4 }
+                            ) + fadeOut(tween(180))
+                        )
+                } else {
+                    (slideInHorizontally(
+                        animationSpec = tween(duration, easing = FastOutSlowInEasing),
+                        initialOffsetX = { fullWidth -> fullWidth / 4 }
+                    ) + fadeIn(tween(duration, easing = FastOutSlowInEasing)))
+                        .togetherWith(
+                            slideOutHorizontally(
+                                animationSpec = tween(duration, easing = FastOutSlowInEasing),
+                                targetOffsetX = { fullWidth -> -fullWidth / 5 }
+                            ) + fadeOut(tween(180))
+                        )
+                }
+            },
+            label = "loop_screen_transition"
+        ) { screen ->
+            when (screen) {
             is ScreenState.ItemDetails -> {
                 ItemDetailsScreen(
                     item = screen.item,
@@ -523,6 +578,7 @@ fun LoopMainContent(
                         }
                     }
                 }
+            }
             }
         }
 

@@ -33,6 +33,18 @@ data class UserProfile(
                 else -> "${parts[0].take(1)}${parts[1].take(1)}".uppercase()
             }
         }
+
+    fun resolvedAvatarUrl(authPhotoUrl: String? = null): String? {
+        val stored = customAvatarUri
+        return when {
+            stored == null -> authPhotoUrl?.trim()?.takeIf { it.isNotBlank() }?.take(500)
+            stored.isBlank() -> null
+            else -> stored.trim().take(500)
+        }
+    }
+
+    val hasExplicitPresetPreference: Boolean
+        get() = customAvatarUri != null && customAvatarUri.isBlank()
 }
 
 // Curated avatar styles for Loop users

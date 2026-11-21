@@ -1,7 +1,4 @@
 package com.example.ui.components
-
-import android.graphics.BitmapFactory
-import android.util.Base64
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -15,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Favorite
@@ -44,10 +43,14 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,12 +59,15 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -120,7 +126,8 @@ fun EditorialTopBar(
         if (onBack != null) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
+                    .minimumInteractiveComponentSize()
                     .clip(CircleShape)
                     .background(PaperIvory)
                     .border(1.dp, PaperBorderSubtle, CircleShape)
@@ -132,11 +139,11 @@ fun EditorialTopBar(
                     .testTag("top_bar_back_btn"),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "←",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = InkCharcoal
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = InkCharcoal,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         } else if (issueTag != null) {
@@ -146,7 +153,7 @@ fun EditorialTopBar(
                 color = InkSecondary
             )
         } else {
-            Spacer(modifier = Modifier.width(40.dp))
+            Spacer(modifier = Modifier.width(48.dp))
         }
 
         if (title != null) {
@@ -161,7 +168,7 @@ fun EditorialTopBar(
         if (trailingContent != null) {
             trailingContent()
         } else {
-            Spacer(modifier = Modifier.width(40.dp))
+            Spacer(modifier = Modifier.width(48.dp))
         }
     }
 }
@@ -474,85 +481,133 @@ fun ListingPhoto(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop
 ) {
-    val decodedBitmap: ImageBitmap? = remember(imageUrl) {
-        if (!imageUrl.isNullOrBlank() && imageUrl.startsWith("data:image", ignoreCase = true)) {
-            try {
-                val base64Part = imageUrl.substringAfter("base64,", missingDelimiterValue = "")
-                if (base64Part.isNotBlank()) {
-                    val bytes = Base64.decode(base64Part, Base64.DEFAULT)
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-                } else {
-                    null
-                }
-            } catch (_: Exception) {
-                null
-            }
-        } else {
-            null
-        }
-    }
-
+    val context = LocalContext.current
+    val density = LocalDensity.current
     val safeFallbackRes = fallbackRes
 
-    when {
-        decodedBitmap != null -> {
-            Image(
-                bitmap = decodedBitmap,
-                contentDescription = contentDescription,
-                contentScale = contentScale,
-                modifier = modifier
-            )
+    BoxWithConstraints(modifier = modifier) {
+        val requestedMaxPx = remember(maxWidth, maxHeight, density) {
+            with(density) {
+                val wPx = if (maxWidth.value.isFinite()) maxWidth.roundToPx() else 720
+                val hPx = if (maxHeight.value.isFinite()) maxHeight.roundToPx() else 720
+                maxOf(wPx, hPx).coerceIn(320, 1280)
+            }
         }
-        !imageUrl.isNullOrBlank() &&
+
+        val isDataUri = !imageUrl.isNullOrBlank() && imageUrl.startsWith("data:image", ignoreCase = true)
+        val isCoilUri = !imageUrl.isNullOrBlank() &&
             (imageUrl.startsWith("http://", ignoreCase = true) ||
                 imageUrl.startsWith("https://", ignoreCase = true) ||
                 imageUrl.startsWith("content://", ignoreCase = true) ||
-                imageUrl.startsWith("file://", ignoreCase = true)) -> {
-            if (safeFallbackRes != 0) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = contentDescription,
-                    contentScale = contentScale,
-                    placeholder = painterResource(id = safeFallbackRes),
-                    error = painterResource(id = safeFallbackRes),
-                    modifier = modifier
-                )
-            } else {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = contentDescription,
-                    contentScale = contentScale,
-                    modifier = modifier
-                )
-            }
-        }
-        safeFallbackRes != 0 -> {
-            Image(
-                painter = painterResource(id = safeFallbackRes),
-                contentDescription = contentDescription,
-                contentScale = contentScale,
-                modifier = modifier
-            )
-        }
-        else -> {
-            Box(
-                modifier = modifier
-                    .background(com.example.ui.theme.PaperWarm)
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CameraAlt,
+                imageUrl.startsWith("file://", ignoreCase = true))
+
+        when {
+            isDataUri -> {
+                var decodedBitmap by remember(imageUrl, requestedMaxPx) {
+                    mutableStateOf(
+                        ImageCachePipeline.getCachedDataUriBitmap(imageUrl, requestedMaxPx)
+                    )
+                }
+                var decodeFinished by remember(imageUrl, requestedMaxPx) {
+                    mutableStateOf(decodedBitmap != null)
+                }
+
+                LaunchedEffect(imageUrl, requestedMaxPx) {
+                    if (decodedBitmap == null && imageUrl != null) {
+                        decodedBitmap = ImageCachePipeline.decodeDataUriBitmapAsync(
+                            dataUri = imageUrl,
+                            maxEdgePx = requestedMaxPx
+                        )
+                        decodeFinished = true
+                    }
+                }
+
+                val readyBitmap = decodedBitmap
+                if (readyBitmap != null) {
+                    Image(
+                        bitmap = readyBitmap,
                         contentDescription = contentDescription,
-                        tint = com.example.ui.theme.InkMuted,
-                        modifier = Modifier.size(32.dp)
+                        contentScale = contentScale,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else if (!decodeFinished) {
+                    ShimmerImageBox(modifier = Modifier.fillMaxSize())
+                } else {
+                    ListingPhotoFallback(
+                        fallbackRes = safeFallbackRes,
+                        contentDescription = contentDescription,
+                        contentScale = contentScale,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
+            isCoilUri -> {
+                val imageRequest = remember(imageUrl, requestedMaxPx, context) {
+                    ImageRequest.Builder(context)
+                        .data(imageUrl)
+                        .size(requestedMaxPx)
+                        .crossfade(180)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .build()
+                }
+                SubcomposeAsyncImage(
+                    model = imageRequest,
+                    contentDescription = contentDescription,
+                    contentScale = contentScale,
+                    modifier = Modifier.fillMaxSize(),
+                    loading = {
+                        ShimmerImageBox(modifier = Modifier.fillMaxSize())
+                    },
+                    error = {
+                        ListingPhotoFallback(
+                            fallbackRes = safeFallbackRes,
+                            contentDescription = contentDescription,
+                            contentScale = contentScale,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                )
+            }
+            else -> {
+                ListingPhotoFallback(
+                    fallbackRes = safeFallbackRes,
+                    contentDescription = contentDescription,
+                    contentScale = contentScale,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListingPhotoFallback(
+    @DrawableRes fallbackRes: Int,
+    contentDescription: String?,
+    contentScale: ContentScale,
+    modifier: Modifier = Modifier
+) {
+    if (fallbackRes != 0) {
+        Image(
+            painter = painterResource(id = fallbackRes),
+            contentDescription = contentDescription,
+            contentScale = contentScale,
+            modifier = modifier
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .background(PaperWarm)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.CameraAlt,
+                contentDescription = contentDescription,
+                tint = InkMuted,
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 }

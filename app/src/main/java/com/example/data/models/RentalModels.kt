@@ -31,7 +31,9 @@ data class RentalOwner(
     val rating: Float = 0f,
     val totalRentals: Int = 0,
     val responseTime: String = "",
-    val phone: String = ""
+    val phone: String = "",
+    val avatarUrl: String? = null,
+    val avatarPresetIndex: Int? = null
 )
 
 data class RentalItem(

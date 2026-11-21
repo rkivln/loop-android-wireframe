@@ -62,7 +62,12 @@ class FirestoreService(
             return UserProfile(
                 uid = fallbackUid,
                 displayName = if (allowAuthFallback) auth.currentUser?.displayName ?: "" else "",
-                email = if (allowAuthFallback) auth.currentUser?.email ?: "" else ""
+                email = if (allowAuthFallback) auth.currentUser?.email ?: "" else "",
+                customAvatarUri = if (allowAuthFallback) {
+                    auth.currentUser?.photoUrl?.toString()?.trim()?.takeIf { it.isNotBlank() }?.take(500)
+                } else {
+                    null
+                }
             )
         }
         val rawDisplayName = snapshot.getString("displayName")
@@ -115,7 +120,11 @@ class FirestoreService(
             bio = snapshot.getString("bio") ?: "",
             location = snapshot.getString("location") ?: "",
             avatarPresetIndex = snapshot.getLong("avatarPresetIndex")?.toInt() ?: 0,
-            customAvatarUri = snapshot.getString("customAvatarUri"),
+            customAvatarUri = snapshot.getString("customAvatarUri") ?: if (allowAuthFallback) {
+                auth.currentUser?.photoUrl?.toString()?.trim()?.takeIf { it.isNotBlank() }?.take(500)
+            } else {
+                null
+            },
             rating = (snapshot.getDouble("rating") ?: 0.0).toFloat(),
             reviewCount = snapshot.getLong("reviewCount")?.toInt() ?: 0,
             rentalsCompleted = snapshot.getLong("rentalsCompleted")?.toInt() ?: 0,

@@ -33,13 +33,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.ZoomIn
+import com.example.ui.components.GearInspectionModal
 import com.example.ui.components.ItemImagePreviewModal
 import com.example.ui.components.MemberProfileModalSheet
 import androidx.compose.material3.CircularProgressIndicator
@@ -74,6 +79,7 @@ import com.example.data.models.RentalOwner
 import com.example.ui.components.ListingPhoto
 import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.SecondaryCTA
+import com.example.ui.components.UserAvatar
 import com.example.ui.theme.AccentBeigeOat
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
@@ -90,6 +96,8 @@ import com.example.ui.theme.PaperBorder
 import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -129,6 +137,8 @@ fun ItemDetailsScreen(
     var aiState by remember(currentItem.id) { mutableStateOf<AiValuationUiState>(AiValuationUiState.Idle) }
     var showMemberProfile by remember { mutableStateOf(false) }
     var showImagePreview by remember { mutableStateOf(false) }
+    var showInspectionModal by remember { mutableStateOf(false) }
+    var inspectionVerified by remember(currentItem.id) { mutableStateOf(false) }
     var previewInitialPage by remember { mutableIntStateOf(0) }
 
     val triggerAiValuation: () -> Unit = {
@@ -581,19 +591,27 @@ fun ItemDetailsScreen(
                         .testTag("host_dossier_card"),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(InkCharcoal),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = currentItem.owner.initials,
-                            style = LoopType.HeadlineMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Normal),
-                            color = InkWhite
-                        )
+                    val authPhotoUrl = remember { Firebase.auth.currentUser?.photoUrl?.toString() }
+                    val hostAvatarUrl = if (isOwnListing) {
+                        currentProfile.resolvedAvatarUrl(authPhotoUrl)
+                    } else {
+                        currentItem.owner.avatarUrl
                     }
+                    val hostPresetIndex = if (isOwnListing) {
+                        currentProfile.avatarPresetIndex
+                    } else {
+                        currentItem.owner.avatarPresetIndex
+                    }
+                    UserAvatar(
+                        avatarUrl = hostAvatarUrl,
+                        initials = currentItem.owner.initials,
+                        size = 46.dp,
+                        avatarPresetIndex = hostPresetIndex,
+                        fallbackContainerColor = InkCharcoal,
+                        borderColor = PaperBorderSubtle,
+                        borderWidth = 1.dp,
+                        contentDescription = "Host ${currentItem.owner.name} avatar"
+                    )
                     Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         val isVerifiedHost = currentItem.owner.badge.contains("Verified", ignoreCase = true)
@@ -647,6 +665,121 @@ fun ItemDetailsScreen(
                                 contentDescription = "View Profile",
                                 tint = InkMuted,
                                 modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Trust, Escrow & Handover Protocol Card
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(PaperPureWhite)
+                        .border(1.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
+                        .padding(16.dp)
+                        .testTag("details_trust_protocol_card"),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(AccentMint),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null,
+                                tint = AccentForestGreen,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "TRUST & HANDOVER PROTOCOL",
+                            style = LoopType.EditorialTag,
+                            color = AccentForestGreen
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.VerifiedUser,
+                            contentDescription = null,
+                            tint = AccentForestGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = if (currentItem.securityDeposit > 0) {
+                                "₹${currentItem.securityDeposit} refundable deposit protected until safe return"
+                            } else {
+                                "Community trust verified · zero-deposit handover protection"
+                            },
+                            style = LoopType.BodySmall,
+                            color = InkCharcoal
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocalOffer,
+                            contentDescription = null,
+                            tint = AccentForestGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Multi-day circulation savings: Save 10% on 3+ days · 15% on 7+ days",
+                            style = LoopType.BodySmall,
+                            color = InkSecondary
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (inspectionVerified) AccentMint else PaperIvory)
+                            .border(
+                                1.dp,
+                                if (inspectionVerified) AccentForestGreen.copy(alpha = 0.45f) else PaperBorder,
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true),
+                                onClick = { showInspectionModal = true }
+                            )
+                            .padding(horizontal = 14.dp)
+                            .testTag("details_open_inspection_btn"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (inspectionVerified) Icons.Default.CheckCircle else Icons.Default.FactCheck,
+                                contentDescription = "Open 5-Point Handover Checklist",
+                                tint = if (inspectionVerified) AccentForestGreen else InkCharcoal,
+                                modifier = Modifier.size(17.dp)
+                            )
+                            Text(
+                                text = if (inspectionVerified) {
+                                    "Checklist Reviewed — Ready for Handover"
+                                } else {
+                                    "Preview 5-Point Handover Checklist"
+                                },
+                                style = LoopType.Metadata.copy(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold),
+                                color = if (inspectionVerified) AccentForestGreen else InkCharcoal
                             )
                         }
                     }
@@ -860,6 +993,18 @@ fun ItemDetailsScreen(
                 item = currentItem,
                 initialPage = previewInitialPage,
                 onDismiss = { showImagePreview = false }
+            )
+        }
+
+        if (showInspectionModal) {
+            BackHandler { showInspectionModal = false }
+            GearInspectionModal(
+                item = currentItem,
+                onCompleteInspection = {
+                    inspectionVerified = true
+                    showInspectionModal = false
+                },
+                onDismiss = { showInspectionModal = false }
             )
         }
     }

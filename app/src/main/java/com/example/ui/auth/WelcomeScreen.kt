@@ -64,7 +64,7 @@ fun WelcomeScreen(
                 issueBadge = "ISSUE 01 — OBJECTS OF INTENT",
                 title = "Curated objects for\ntemporary living",
                 subtitle = "Access high-end cameras, analog synths, and design pieces without the burden of ownership.",
-                heroRes = R.drawable.img_cafe,
+                heroRes = R.drawable.img_welcome_hero,
                 secondaryRes = R.drawable.img_synth,
                 rotation = -4.5f
             ),

@@ -25,7 +25,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
@@ -114,10 +116,14 @@ fun BookingScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var confirmedBooking by remember { mutableStateOf<FirestoreBooking?>(null) }
 
-    val rentalSubtotal = liveItem.pricePerDay * daysCount
-    val serviceFee = 50
-    val deliveryFee = selectedDelivery.fee
-    val totalPayable = rentalSubtotal + serviceFee + deliveryFee
+    val pricing = remember(liveItem.pricePerDay, daysCount, selectedDelivery) {
+        BookingDateUtils.calculateBookingPricing(
+            pricePerDay = liveItem.pricePerDay,
+            daysCount = daysCount,
+            deliveryFee = selectedDelivery.fee
+        )
+    }
+    val totalPayable = pricing.totalPayable
 
     Column(
         modifier = Modifier
@@ -292,66 +298,160 @@ fun BookingScreen(
                     )
                 }
 
-                // Duration Selector Card
-                Row(
+                // Duration Selector & Multi-Day Tier Card
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
                         .background(PaperPureWhite)
                         .border(1.dp, PaperBorderSubtle, RoundedCornerShape(18.dp))
                         .padding(horizontal = 18.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "CIRCULATION DURATION",
-                        style = LoopType.EditorialTag,
-                        color = InkSecondary
-                    )
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(PaperIvory)
-                                .border(1.dp, PaperBorder, CircleShape)
-                                .clickable {
-                                    if (daysCount > BookingDateUtils.MIN_RENTAL_DAYS) {
-                                        daysCount--
-                                        endDateMillis = BookingDateUtils.addDaysUtcMillis(startDateMillis, daysCount)
-                                        errorMessage = null
-                                    }
-                                }
-                                .testTag("booking_days_minus"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Remove, contentDescription = "Decrease days", tint = InkCharcoal, modifier = Modifier.size(16.dp))
-                        }
                         Text(
-                            text = "$daysCount ${if (daysCount == 1) "day" else "days"}",
-                            style = LoopType.TitleMedium,
-                            color = InkCharcoal
+                            text = "CIRCULATION DURATION",
+                            style = LoopType.EditorialTag,
+                            color = InkSecondary
                         )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(PaperIvory)
+                                    .border(1.dp, PaperBorder, CircleShape)
+                                    .clickable {
+                                        if (daysCount > BookingDateUtils.MIN_RENTAL_DAYS) {
+                                            daysCount--
+                                            endDateMillis = BookingDateUtils.addDaysUtcMillis(startDateMillis, daysCount)
+                                            errorMessage = null
+                                        }
+                                    }
+                                    .testTag("booking_days_minus"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = "Decrease days", tint = InkCharcoal, modifier = Modifier.size(16.dp))
+                            }
+                            Text(
+                                text = "$daysCount ${if (daysCount == 1) "day" else "days"}",
+                                style = LoopType.TitleMedium,
+                                color = InkCharcoal
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(PaperIvory)
+                                    .border(1.dp, PaperBorder, CircleShape)
+                                    .clickable {
+                                        if (daysCount < BookingDateUtils.MAX_RENTAL_DAYS) {
+                                            daysCount++
+                                            endDateMillis = BookingDateUtils.addDaysUtcMillis(startDateMillis, daysCount)
+                                            errorMessage = null
+                                        }
+                                    }
+                                    .testTag("booking_days_plus"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Increase days", tint = InkCharcoal, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val is3PlusSelected = daysCount in 3..6
+                        val is7PlusSelected = daysCount >= 7
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(PaperIvory)
-                                .border(1.dp, PaperBorder, CircleShape)
+                                .weight(1f)
+                                .heightIn(min = 44.dp)
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(if (is3PlusSelected) AccentMint else PaperIvory)
+                                .border(
+                                    1.dp,
+                                    if (is3PlusSelected) AccentForestGreen else PaperBorder,
+                                    RoundedCornerShape(100.dp)
+                                )
                                 .clickable {
-                                    if (daysCount < BookingDateUtils.MAX_RENTAL_DAYS) {
-                                        daysCount++
-                                        endDateMillis = BookingDateUtils.addDaysUtcMillis(startDateMillis, daysCount)
-                                        errorMessage = null
-                                    }
+                                    daysCount = 3
+                                    endDateMillis = BookingDateUtils.addDaysUtcMillis(startDateMillis, 3)
+                                    errorMessage = null
                                 }
-                                .testTag("booking_days_plus"),
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                                .testTag("booking_tier_3d"),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Increase days", tint = InkCharcoal, modifier = Modifier.size(16.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalOffer,
+                                    contentDescription = null,
+                                    tint = if (is3PlusSelected) AccentForestGreen else InkSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = "3+ days · 10% off",
+                                    style = LoopType.Metadata.copy(
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (is3PlusSelected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (is3PlusSelected) AccentForestGreen else InkCharcoal
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 44.dp)
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(if (is7PlusSelected) AccentMint else PaperIvory)
+                                .border(
+                                    1.dp,
+                                    if (is7PlusSelected) AccentForestGreen else PaperBorder,
+                                    RoundedCornerShape(100.dp)
+                                )
+                                .clickable {
+                                    daysCount = 7
+                                    endDateMillis = BookingDateUtils.addDaysUtcMillis(startDateMillis, 7)
+                                    errorMessage = null
+                                }
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                                .testTag("booking_tier_7d"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalOffer,
+                                    contentDescription = null,
+                                    tint = if (is7PlusSelected) AccentForestGreen else InkSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = "7+ days · 15% off",
+                                    style = LoopType.Metadata.copy(
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (is7PlusSelected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (is7PlusSelected) AccentForestGreen else InkCharcoal
+                                )
+                            }
                         }
                     }
                 }
@@ -498,23 +598,69 @@ fun BookingScreen(
                         color = InkSecondary
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("₹${liveItem.pricePerDay} × $daysCount days", style = LoopType.BodySmall, color = InkSecondary)
-                        Text("₹$rentalSubtotal", style = LoopType.BodySmall, color = InkCharcoal)
+                        Text("₹${liveItem.pricePerDay} × $daysCount ${if (daysCount == 1) "day" else "days"}", style = LoopType.BodySmall, color = InkSecondary)
+                        Text("₹${pricing.rentalSubtotal}", style = LoopType.BodySmall, color = InkCharcoal)
+                    }
+                    if (pricing.discountAmount > 0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("booking_discount_row"),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Multi-day savings (${pricing.discountPercent}%)",
+                                style = LoopType.BodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = AccentForestGreen
+                            )
+                            Text(
+                                text = "-₹${pricing.discountAmount}",
+                                style = LoopType.BodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = AccentForestGreen
+                            )
+                        }
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Community Trust & Service Fee", style = LoopType.BodySmall, color = InkSecondary)
-                        Text("₹$serviceFee", style = LoopType.BodySmall, color = InkCharcoal)
+                        Text("₹${pricing.serviceFee}", style = LoopType.BodySmall, color = InkCharcoal)
                     }
-                    if (deliveryFee > 0) {
+                    if (pricing.deliveryFee > 0) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Delivery Fee", style = LoopType.BodySmall, color = InkSecondary)
-                            Text("₹$deliveryFee", style = LoopType.BodySmall, color = InkCharcoal)
+                            Text("₹${pricing.deliveryFee}", style = LoopType.BodySmall, color = InkCharcoal)
                         }
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = PaperBorderSubtle)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total Due", style = LoopType.TitleMedium, color = InkCharcoal)
                         Text("₹$totalPayable", style = LoopType.PriceHeadline, color = InkCharcoal)
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(AccentMint)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.VerifiedUser,
+                            contentDescription = null,
+                            tint = AccentForestGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = if (liveItem.securityDeposit > 0) {
+                                "Protected handover PIN + ₹${liveItem.securityDeposit} refundable deposit safeguard"
+                            } else {
+                                "Protected handover PIN + 5-point return custody check"
+                            },
+                            style = LoopType.Metadata.copy(fontWeight = FontWeight.Medium),
+                            color = AccentForestGreen
+                        )
                     }
                 }
 

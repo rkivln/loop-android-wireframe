@@ -61,9 +61,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Satellite
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
@@ -109,12 +107,10 @@ import com.example.data.models.MapCategoryFilter
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
 import com.example.data.models.UserCommunityPost
-import com.example.ui.components.CommunityActivityMap
 import com.example.ui.components.EventMapMarkerCallout
 import com.example.ui.components.MapLibreGLMapView
 import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.ProfileMarker
-import com.google.android.gms.maps.model.LatLng
 import com.example.ui.theme.AccentBeigeOat
 import com.example.ui.theme.AccentForestGreen
 import com.example.ui.theme.AccentMint
@@ -149,8 +145,6 @@ private val MapHubRadiusStrokeDark = Color(0xFF5EEAD4)
 enum class MapLayerOption(val label: String, val subtitle: String) {
     STREET_VECTOR("Street Vector", "Clean vector streets"),
     OSM_CLASSIC("OSM Classic", "OpenStreetMap tiles"),
-    GOOGLE_STANDARD("Standard Map", "Google road layer"),
-    GOOGLE_SATELLITE("Satellite", "Aerial hybrid view"),
     ARCHITECTURAL_GRID("Grid Blueprint", "Minimal architectural")
 }
 
@@ -158,8 +152,6 @@ fun MapLayerOption.getIconVector(): ImageVector {
     return when (this) {
         MapLayerOption.STREET_VECTOR -> Icons.Default.Map
         MapLayerOption.OSM_CLASSIC -> Icons.Default.Terrain
-        MapLayerOption.GOOGLE_STANDARD -> Icons.Default.Public
-        MapLayerOption.GOOGLE_SATELLITE -> Icons.Default.Satellite
         MapLayerOption.ARCHITECTURAL_GRID -> Icons.Default.Architecture
     }
 }
@@ -331,67 +323,6 @@ fun DiscoveryMapScreen(
                             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                         }
                     }
-                )
-            }
-            MapLayerOption.GOOGLE_STANDARD,
-            MapLayerOption.GOOGLE_SATELLITE -> {
-                val liveLatLng = if (userLat != null && userLng != null) {
-                    LatLng(userLat!!, userLng!!)
-                } else {
-                    null
-                }
-                CommunityActivityMap(
-                    modifier = Modifier.fillMaxSize(),
-                    activityPoints = filteredPins,
-                    currentUserId = userProfile.uid,
-                    initialCenter = liveLatLng,
-                    onPointSelected = { pin ->
-                        isLayerMenuOpen = false
-                        selectedPin = pin
-                        val pinIndex = filteredPins.indexOf(pin)
-                        if (pinIndex >= 0) {
-                            coroutineScope.launch {
-                                carouselState.animateScrollToItem(pinIndex)
-                            }
-                        }
-                    },
-                    onDirectionsClick = { pin ->
-                        LocationHelper.openNavigationIntent(
-                            context = context,
-                            latitude = pin.latitude,
-                            longitude = pin.longitude,
-                            label = pin.title
-                        )
-                    },
-                    onRsvpClick = { pin ->
-                        RentalRepository.rsvpToCommunityPost(pin.id)
-                    },
-                    onViewDetailsClick = { pin ->
-                        pin.rentalItem?.let(onItemClick)
-                    },
-                    onMessageOwnerOrOrganizerClick = { pin ->
-                        when {
-                            pin.rentalItem != null -> onContactHostWithItem(pin.rentalItem.owner, pin.rentalItem)
-                            pin.communityPost != null -> onMessageOrganizer(pin.communityPost)
-                            pin.owner != null -> onContactOwner(pin.owner)
-                        }
-                    },
-                    onRecenterMissingGps = {
-                        if (LocationHelper.hasLocationPermission(context)) {
-                            refreshLiveGps()
-                        } else {
-                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                        }
-                    },
-                    onMapTap = {
-                        isLayerMenuOpen = false
-                    },
-                    showFilterRow = false,
-                    showFloatingControls = false,
-                    showNearbyBadge = true,
-                    nearbyBadgeTopPadding = 114.dp,
-                    externalSatelliteView = selectedLayer == MapLayerOption.GOOGLE_SATELLITE,
-                    recenterTrigger = recenterTrigger
                 )
             }
             MapLayerOption.ARCHITECTURAL_GRID -> {
@@ -1004,10 +935,7 @@ fun DiscoveryMapScreen(
 
         // Bottom Discovery Marker Callout & Carousel Drawer for MapLibre & Canvas modes
         val liveSelectedPin = selectedPin?.let { sel -> filteredPins.find { it.id == sel.id } ?: sel }
-        if (selectedLayer != MapLayerOption.GOOGLE_STANDARD &&
-            selectedLayer != MapLayerOption.GOOGLE_SATELLITE &&
-            filteredPins.isNotEmpty()
-        ) {
+        if (filteredPins.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)

@@ -7,7 +7,7 @@ enum class AppearanceMode(val label: String, val subtitle: String) {
 
     companion object {
         fun fromNameOrDefault(name: String?): AppearanceMode {
-            return entries.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: SYSTEM
+            return entries.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: LIGHT
         }
     }
 }
@@ -77,7 +77,7 @@ data class BlockedUserEntry(
 )
 
 data class UserSettings(
-    val appearanceMode: AppearanceMode = AppearanceMode.SYSTEM,
+    val appearanceMode: AppearanceMode = AppearanceMode.LIGHT,
     val profileVisibility: ProfileVisibility = ProfileVisibility.PUBLIC,
     val locationSharing: LocationSharingPreference = LocationSharingPreference.PRECISE,
     val notifications: NotificationPreferences = NotificationPreferences(),

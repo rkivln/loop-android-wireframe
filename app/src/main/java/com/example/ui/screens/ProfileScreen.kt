@@ -114,6 +114,7 @@ import com.example.ui.components.PrimaryCTA
 import com.example.ui.components.ProfileOverviewSkeleton
 import com.example.ui.components.SecondaryCTA
 import com.example.ui.components.SectionLabel
+import com.example.ui.components.UserAvatar
 import com.example.update.AppUpdateCoordinator
 import com.example.update.AppUpdateUiState
 import com.example.ui.theme.AccentBeigeOat
@@ -135,6 +136,8 @@ import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
 import com.example.ui.theme.PaperWarm
 import com.example.ui.theme.getIconVector
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -368,21 +371,16 @@ fun ProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Avatar preset badge with initials
-                        val currentAvatarPreset = AVATAR_PRESETS.getOrElse(userProfile.avatarPresetIndex) { AVATAR_PRESETS[0] }
-                        Box(
-                            modifier = Modifier
-                                .size(68.dp)
-                                .clip(CircleShape)
-                                .background(Color(currentAvatarPreset.bgHex1)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = userProfile.initials,
-                                style = LoopType.HeadlineMedium.copy(fontSize = 22.sp),
-                                color = Color.White
-                            )
-                        }
+                        val authPhotoUrl = remember { Firebase.auth.currentUser?.photoUrl?.toString() }
+                        UserAvatar(
+                            avatarUrl = userProfile.resolvedAvatarUrl(authPhotoUrl),
+                            initials = userProfile.initials,
+                            size = 68.dp,
+                            avatarPresetIndex = userProfile.avatarPresetIndex,
+                            borderColor = PaperBorderSubtle,
+                            borderWidth = 1.dp,
+                            contentDescription = "Your profile photo"
+                        )
 
                         Spacer(modifier = Modifier.width(16.dp))
 
@@ -1586,10 +1584,14 @@ fun EditProfileModalSheet(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val authPhotoUrl = remember {
+        Firebase.auth.currentUser?.photoUrl?.toString()?.trim()?.takeIf { it.isNotBlank() }?.take(500)
+    }
     var displayName by remember { mutableStateOf(currentProfile.displayName) }
     var bio by remember { mutableStateOf(currentProfile.bio) }
     var location by remember { mutableStateOf(currentProfile.location) }
     var selectedAvatarIndex by remember { mutableIntStateOf(currentProfile.avatarPresetIndex) }
+    var selectedAvatarUri by remember { mutableStateOf(currentProfile.customAvatarUri) }
     var isLocatingGps by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -1653,22 +1655,81 @@ fun EditProfileModalSheet(
                     }
                 }
 
-                // Avatar Presets Picker
-                Column {
-                    Text(
-                        text = "STUDIO AVATAR THEME",
-                        style = LoopType.EditorialTag,
-                        color = InkSecondary
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
+                // Avatar Source & Theme Picker
+                val previewInitials = remember(displayName) {
+                    displayName.trim().split(" ").filter { it.isNotBlank() }
+                        .take(2).joinToString("") { it.take(1).uppercase() }.ifBlank { "U" }
+                }
+                val effectivePreviewUrl = remember(selectedAvatarUri, authPhotoUrl) {
+                    when {
+                        selectedAvatarUri == null -> authPhotoUrl
+                        selectedAvatarUri.isNullOrBlank() -> null
+                        else -> selectedAvatarUri
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        UserAvatar(
+                            avatarUrl = effectivePreviewUrl,
+                            initials = previewInitials,
+                            size = 52.dp,
+                            avatarPresetIndex = selectedAvatarIndex,
+                            borderColor = PaperBorderSubtle,
+                            borderWidth = 1.dp,
+                            contentDescription = "Selected profile avatar preview"
+                        )
+                        Column {
+                            Text(
+                                text = "STUDIO AVATAR",
+                                style = LoopType.EditorialTag,
+                                color = InkSecondary
+                            )
+                            Text(
+                                text = if (!effectivePreviewUrl.isNullOrBlank()) {
+                                    "Email account photo active"
+                                } else {
+                                    "${AVATAR_PRESETS.getOrElse(selectedAvatarIndex) { AVATAR_PRESETS[0] }.label} preset"
+                                },
+                                style = LoopType.BodySmall,
+                                color = InkCharcoal
+                            )
+                        }
+                    }
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (authPhotoUrl != null) {
+                            val isEmailSelected = !effectivePreviewUrl.isNullOrBlank()
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .clickable { selectedAvatarUri = authPhotoUrl }
+                                    .testTag("edit_profile_email_avatar_option"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                UserAvatar(
+                                    avatarUrl = authPhotoUrl,
+                                    initials = previewInitials,
+                                    size = 48.dp,
+                                    avatarPresetIndex = selectedAvatarIndex,
+                                    borderColor = if (isEmailSelected) AccentForestGreen else PaperBorder,
+                                    borderWidth = if (isEmailSelected) 3.dp else 1.dp,
+                                    contentDescription = "Use email profile photo"
+                                )
+                            }
+                        }
+
                         AVATAR_PRESETS.forEach { preset ->
-                            val isSelected = selectedAvatarIndex == preset.id
+                            val isSelected = effectivePreviewUrl.isNullOrBlank() && selectedAvatarIndex == preset.id
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
@@ -1679,7 +1740,11 @@ fun EditProfileModalSheet(
                                         color = if (isSelected) AccentForestGreen else PaperBorder,
                                         shape = CircleShape
                                     )
-                                    .clickable { selectedAvatarIndex = preset.id },
+                                    .clickable {
+                                        selectedAvatarIndex = preset.id
+                                        selectedAvatarUri = ""
+                                    }
+                                    .testTag("edit_profile_preset_${preset.id}"),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -1852,11 +1917,16 @@ fun EditProfileModalSheet(
                         }
                         val sanitizedBio = bio.trim().take(250)
                         val sanitizedLocation = location.trim().take(80)
+                        val persistedAvatarUri = when {
+                            selectedAvatarUri == null -> authPhotoUrl ?: ""
+                            else -> selectedAvatarUri?.trim().orEmpty()
+                        }
                         val updated = currentProfile.copy(
                             displayName = sanitizedName,
                             bio = sanitizedBio,
                             location = sanitizedLocation,
-                            avatarPresetIndex = selectedAvatarIndex
+                            avatarPresetIndex = selectedAvatarIndex,
+                            customAvatarUri = persistedAvatarUri
                         )
                         onSave(updated)
                     },

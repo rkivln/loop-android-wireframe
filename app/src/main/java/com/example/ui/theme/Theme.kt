@@ -72,7 +72,7 @@ object LoopTheme {
 
 @Composable
 fun LoopTheme(
-    appearanceMode: AppearanceMode = AppearanceMode.SYSTEM,
+    appearanceMode: AppearanceMode = AppearanceMode.LIGHT,
     content: @Composable () -> Unit
 ) {
     val systemInDark = isSystemInDarkTheme()

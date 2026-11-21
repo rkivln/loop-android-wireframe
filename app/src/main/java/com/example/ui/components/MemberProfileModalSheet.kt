@@ -65,6 +65,8 @@ import com.example.ui.theme.PaperBorder
 import com.example.ui.theme.PaperBorderSubtle
 import com.example.ui.theme.PaperIvory
 import com.example.ui.theme.PaperPureWhite
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import kotlin.math.abs
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -226,19 +228,24 @@ fun MemberProfileModalSheet(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(68.dp)
-                            .clip(CircleShape)
-                            .background(Color(avatarPreset.bgHex1)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = initials,
-                            style = LoopType.HeadlineMedium.copy(fontSize = 22.sp),
-                            color = Color.White
-                        )
+                    val authPhotoUrl = remember(isCurrentUser) {
+                        if (isCurrentUser) Firebase.auth.currentUser?.photoUrl?.toString() else null
                     }
+                    val resolvedAvatarUrl = remember(memberProfile, owner.avatarUrl, authPhotoUrl) {
+                        when {
+                            memberProfile != null -> memberProfile?.resolvedAvatarUrl(authPhotoUrl)
+                            else -> owner.avatarUrl?.takeIf { it.isNotBlank() } ?: authPhotoUrl
+                        }
+                    }
+                    UserAvatar(
+                        avatarUrl = resolvedAvatarUrl,
+                        initials = initials,
+                        size = 68.dp,
+                        avatarPresetIndex = avatarPresetIndex,
+                        borderColor = PaperBorderSubtle,
+                        borderWidth = 1.dp,
+                        contentDescription = "$displayName profile photo"
+                    )
 
                     Spacer(modifier = Modifier.width(16.dp))
 

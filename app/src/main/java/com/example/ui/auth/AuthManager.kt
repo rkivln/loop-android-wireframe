@@ -17,6 +17,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
+import com.google.firebase.auth.userProfileChangeRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -59,9 +60,20 @@ object AuthManager {
                 val result = credentialManager.getCredential(context, request)
                 val credential = result.credential
                 if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                    val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-                    val authCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
-                    Firebase.auth.signInWithCredential(authCredential).await()
+                    val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val authCredential = GoogleAuthProvider.getCredential(googleCredential.idToken, null)
+                    val authResult = Firebase.auth.signInWithCredential(authCredential).await()
+                    val signedUser = authResult.user
+                    val pictureUri = googleCredential.profilePictureUri
+                    if (signedUser != null && signedUser.photoUrl == null && pictureUri != null) {
+                        try {
+                            signedUser.updateProfile(
+                                userProfileChangeRequest { photoUri = pictureUri }
+                            ).await()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Optional photoUrl update skipped: ${e.message}")
+                        }
+                    }
                     Log.i(TAG, "Silent auto sign-in succeeded: ${Firebase.auth.currentUser?.email}")
                     onAuthSuccess()
                 } else {
@@ -101,9 +113,20 @@ object AuthManager {
                 val result = credentialManager.getCredential(activity, request)
                 val credential = result.credential
                 if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                    val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-                    val authCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
-                    Firebase.auth.signInWithCredential(authCredential).await()
+                    val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val authCredential = GoogleAuthProvider.getCredential(googleCredential.idToken, null)
+                    val authResult = Firebase.auth.signInWithCredential(authCredential).await()
+                    val signedUser = authResult.user
+                    val pictureUri = googleCredential.profilePictureUri
+                    if (signedUser != null && signedUser.photoUrl == null && pictureUri != null) {
+                        try {
+                            signedUser.updateProfile(
+                                userProfileChangeRequest { photoUri = pictureUri }
+                            ).await()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Optional photoUrl update skipped: ${e.message}")
+                        }
+                    }
                     Log.i(TAG, "Google Sign-In successful: ${Firebase.auth.currentUser?.email}")
                     onAuthSuccess()
                 } else {

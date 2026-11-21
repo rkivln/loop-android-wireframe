@@ -80,6 +80,28 @@ data class PeerEncryptionState(
         get() = peerPublicKey.isNotBlank() && ownFingerprint.isNotBlank()
 }
 
+enum class CatalogSortOption(val label: String) {
+    FEATURED("Featured"),
+    TOP_RATED("Top Rated"),
+    PRICE_LOW_TO_HIGH("Price: Low to High"),
+    PRICE_HIGH_TO_LOW("Price: High to Low")
+}
+
+data class CatalogFilterState(
+    val sortOption: CatalogSortOption = CatalogSortOption.FEATURED,
+    val availableOnly: Boolean = false,
+    val savedOnly: Boolean = false,
+    val maxDailyPrice: Int? = null
+) {
+    val activeFilterCount: Int
+        get() = listOfNotNull(
+            if (sortOption != CatalogSortOption.FEATURED) 1 else null,
+            if (availableOnly) 1 else null,
+            if (savedOnly) 1 else null,
+            if (maxDailyPrice != null) 1 else null
+        ).size
+}
+
 object RentalRepository {
     private const val TAG = "RentalRepository"
 
@@ -93,6 +115,41 @@ object RentalRepository {
     private var syncJobs = mutableListOf<Job>()
     private var messageListenerJob: Job? = null
     private val memberProfileCache = java.util.concurrent.ConcurrentHashMap<String, UserProfile>()
+    private val memberAvatarFetchInFlight = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    data class MemberAvatarInfo(
+        val avatarUrl: String? = null,
+        val avatarPresetIndex: Int = 0
+    )
+    private val _memberAvatarsFlow = MutableStateFlow<Map<String, MemberAvatarInfo>>(emptyMap())
+
+    private fun cacheMemberAvatar(profile: UserProfile) {
+        if (profile.uid.isBlank()) return
+        val info = MemberAvatarInfo(
+            avatarUrl = profile.customAvatarUri?.trim()?.takeIf { it.isNotBlank() },
+            avatarPresetIndex = profile.avatarPresetIndex
+        )
+        if (_memberAvatarsFlow.value[profile.uid] != info) {
+            _memberAvatarsFlow.value = _memberAvatarsFlow.value + (profile.uid to info)
+        }
+    }
+
+    private fun ensureMemberAvatarsLoaded(memberIds: Collection<String>) {
+        val currentMap = _memberAvatarsFlow.value
+        memberIds.asSequence()
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !currentMap.containsKey(it) && memberAvatarFetchInFlight.add(it) }
+            .distinct()
+            .forEach { memberUid ->
+                repositoryScope.launch {
+                    try {
+                        fetchMemberProfile(memberUid)
+                    } finally {
+                        memberAvatarFetchInFlight.remove(memberUid)
+                    }
+                }
+            }
+    }
 
     fun setActiveOpenConversationId(conversationId: String?) {
         activeOpenConversationId = conversationId?.takeIf { it.isNotBlank() }
@@ -141,13 +198,27 @@ object RentalRepository {
 
     val itemsFlow: StateFlow<List<RentalItem>> = combine(
         _rawItemsFlow,
-        _userProfileFlow
-    ) { rawItems, profile ->
+        _userProfileFlow,
+        _memberAvatarsFlow
+    ) { rawItems, profile, avatars ->
         val favIds = profile.favoriteItemIds.toSet()
         val blockedIds = profile.settings.blockedUserIds
         rawItems
             .filter { it.owner.id !in blockedIds }
-            .map { it.copy(isFavorite = it.id in favIds) }
+            .map { item ->
+                val avatarInfo = avatars[item.owner.id]
+                item.copy(
+                    isFavorite = item.id in favIds,
+                    owner = if (avatarInfo != null) {
+                        item.owner.copy(
+                            avatarUrl = avatarInfo.avatarUrl,
+                            avatarPresetIndex = avatarInfo.avatarPresetIndex
+                        )
+                    } else {
+                        item.owner
+                    }
+                )
+            }
     }.stateIn(repositoryScope, SharingStarted.Eagerly, items)
 
     val savedItemsFlow: StateFlow<List<RentalItem>> = itemsFlow
@@ -167,18 +238,34 @@ object RentalRepository {
     private val _selectedCategory = MutableStateFlow<RentalCategory?>(null)
     val selectedCategory: StateFlow<RentalCategory?> = _selectedCategory.asStateFlow()
 
+    private val _catalogFilterState = MutableStateFlow(CatalogFilterState())
+    val catalogFilterState: StateFlow<CatalogFilterState> = _catalogFilterState.asStateFlow()
+
     val filteredItems: StateFlow<List<RentalItem>> = combine(
         itemsFlow,
         _searchQuery,
-        _selectedCategory
-    ) { allItems, query, cat ->
-        allItems.filter { item ->
+        _selectedCategory,
+        _catalogFilterState
+    ) { allItems, query, cat, filterState ->
+        val filtered = allItems.filter { item ->
             val matchesQuery = query.isBlank() ||
                 item.title.contains(query, ignoreCase = true) ||
                 item.description.contains(query, ignoreCase = true) ||
                 item.location.contains(query, ignoreCase = true)
             val matchesCategory = cat == null || item.category == cat
-            matchesQuery && matchesCategory
+            val matchesAvailable = !filterState.availableOnly || (item.availableToday && item.activeBookingId == null)
+            val matchesSaved = !filterState.savedOnly || item.isFavorite
+            val matchesMaxPrice = filterState.maxDailyPrice == null || item.pricePerDay <= filterState.maxDailyPrice
+            matchesQuery && matchesCategory && matchesAvailable && matchesSaved && matchesMaxPrice
+        }
+        when (filterState.sortOption) {
+            CatalogSortOption.FEATURED -> filtered
+            CatalogSortOption.TOP_RATED -> filtered.sortedWith(
+                compareByDescending<RentalItem> { it.rating }
+                    .thenByDescending { it.reviewCount }
+            )
+            CatalogSortOption.PRICE_LOW_TO_HIGH -> filtered.sortedBy { it.pricePerDay }
+            CatalogSortOption.PRICE_HIGH_TO_LOW -> filtered.sortedByDescending { it.pricePerDay }
         }
     }.stateIn(repositoryScope, SharingStarted.Eagerly, items)
 
@@ -188,6 +275,28 @@ object RentalRepository {
 
     fun setSelectedCategory(cat: RentalCategory?) {
         _selectedCategory.value = cat
+    }
+
+    fun setCatalogSortOption(sortOption: CatalogSortOption) {
+        _catalogFilterState.value = _catalogFilterState.value.copy(sortOption = sortOption)
+    }
+
+    fun setCatalogAvailableOnly(availableOnly: Boolean) {
+        _catalogFilterState.value = _catalogFilterState.value.copy(availableOnly = availableOnly)
+    }
+
+    fun setCatalogSavedOnly(savedOnly: Boolean) {
+        _catalogFilterState.value = _catalogFilterState.value.copy(savedOnly = savedOnly)
+    }
+
+    fun setCatalogMaxDailyPrice(maxDailyPrice: Int?) {
+        _catalogFilterState.value = _catalogFilterState.value.copy(maxDailyPrice = maxDailyPrice)
+    }
+
+    fun resetCatalogFilters() {
+        _searchQuery.value = ""
+        _selectedCategory.value = null
+        _catalogFilterState.value = CatalogFilterState()
     }
 
     private val _ownE2eeFingerprintFlow = MutableStateFlow("")
@@ -203,13 +312,21 @@ object RentalRepository {
     val activeConversationMessagesFlow: StateFlow<Map<String, List<RentalMessage>>> =
         _activeConversationMessagesFlow.asStateFlow()
 
-    val conversationsFlow: StateFlow<List<ChatConversation>> = combine(
-        _rawConversationsFlow,
+    private val conversationEnrichmentFlow = combine(
         _rawItemsFlow,
         _userProfileFlow,
+        _memberAvatarsFlow
+    ) { itemsList, profile, avatars ->
+        Triple(itemsList, profile, avatars)
+    }
+
+    val conversationsFlow: StateFlow<List<ChatConversation>> = combine(
+        _rawConversationsFlow,
+        conversationEnrichmentFlow,
         _locallyReadSignaturesFlow,
         _peerEncryptionStatesFlow
-    ) { rawConvs, itemsList, profile, locallyReadSigs, peerStates ->
+    ) { rawConvs, enrichment, locallyReadSigs, peerStates ->
+        val (itemsList, profile, avatars) = enrichment
         val blockedIds = profile.settings.blockedUserIds
         rawConvs
             .filter { it.owner.id !in blockedIds }
@@ -218,7 +335,16 @@ object RentalRepository {
                 val sig = "${conv.unreadCount}_${conv.lastSenderId}_${conv.lastMessage?.text.orEmpty()}"
                 val isLocallyRead = locallyReadSigs[conv.id] == sig
                 val peerState = peerStates[conv.owner.id]
+                val avatarInfo = avatars[conv.owner.id]
                 conv.copy(
+                    owner = if (avatarInfo != null) {
+                        conv.owner.copy(
+                            avatarUrl = avatarInfo.avatarUrl,
+                            avatarPresetIndex = avatarInfo.avatarPresetIndex
+                        )
+                    } else {
+                        conv.owner
+                    },
                     itemContext = liveItem ?: conv.itemContext,
                     unreadCount = if (isLocallyRead) 0 else conv.unreadCount,
                     peerPublicKey = peerState?.peerPublicKey ?: conv.peerPublicKey,
@@ -230,7 +356,7 @@ object RentalRepository {
     private val _rawBookingsFlow = MutableStateFlow<List<UserRentalBooking>>(emptyList())
     val bookingsFlow: StateFlow<List<UserRentalBooking>> = combine(
         _rawBookingsFlow,
-        _rawItemsFlow
+        itemsFlow
     ) { rawBookings, itemsList ->
         rawBookings.map { booking ->
             val liveItem = itemsList.find { it.id == booking.item.id }
@@ -506,6 +632,8 @@ object RentalRepository {
                 !existingDoc.exists() ||
                 currentVersion < LEGACY_RESET_VERSION
 
+            val authPhotoUrl = currentUser.photoUrl?.toString()?.trim()?.takeIf { it.isNotBlank() }?.take(500)
+
             if (needsFullReset) {
                 service.purgeAllItemsAndCommunityPosts()
                 cRepo.clearLocalCache()
@@ -538,7 +666,7 @@ object RentalRepository {
                     bio = "",
                     location = "",
                     avatarPresetIndex = existingDoc?.getLong("avatarPresetIndex")?.toInt() ?: 0,
-                    customAvatarUri = existingDoc?.getString("customAvatarUri"),
+                    customAvatarUri = existingDoc?.getString("customAvatarUri") ?: authPhotoUrl,
                     rating = 0f,
                     reviewCount = 0,
                     rentalsCompleted = 0,
@@ -554,6 +682,7 @@ object RentalRepository {
                     settings = preservedSettings
                 )
                 _userProfileFlow.value = resetProfile
+                cacheMemberAvatar(resetProfile)
                 service.saveUserProfile(resetProfile)
             } else {
                 val remotePub = existingDoc?.getString("e2eePublicKey").orEmpty()
@@ -562,6 +691,13 @@ object RentalRepository {
                         publicKeyBase64 = identityKeyPair.publicKeyBase64,
                         fingerprint = identityKeyPair.fingerprint
                     )
+                }
+                val remoteAvatar = existingDoc?.getString("customAvatarUri")
+                if (remoteAvatar == null && authPhotoUrl != null) {
+                    val currentRemote = service.getUserProfileOnce(uid).getOrNull()
+                    if (currentRemote != null) {
+                        service.saveUserProfile(currentRemote.copy(customAvatarUri = authPhotoUrl))
+                    }
                 }
             }
 
@@ -601,6 +737,7 @@ object RentalRepository {
                             cloudProfile
                         }
                         _userProfileFlow.value = effectiveProfile
+                        cacheMemberAvatar(effectiveProfile)
                         ThemePreferencesStore.saveAppearanceMode(context, effectiveProfile.settings.appearanceMode)
                     }
                 } catch (e: CancellationException) {
@@ -619,6 +756,11 @@ object RentalRepository {
                         itemsLoaded = true
                         _isCatalogLoadingFlow.value = false
                         _rawItemsFlow.value = cloudItems
+                        ensureMemberAvatarsLoaded(cloudItems.map { it.owner.id })
+                        com.example.ui.components.ImageCachePipeline.prefetchCatalogImages(
+                            context = appContext,
+                            items = cloudItems
+                        )
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -661,6 +803,7 @@ object RentalRepository {
                                 repositoryScope.launch { refreshPeerEncryptionState(peerId) }
                             }
                         }
+                        ensureMemberAvatarsLoaded(cloudConvs.map { it.owner.id })
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -1052,6 +1195,8 @@ object RentalRepository {
         activeSessionUid = null
         activeOpenConversationId = null
         memberProfileCache.clear()
+        memberAvatarFetchInFlight.clear()
+        _memberAvatarsFlow.value = emptyMap()
         _ownE2eeFingerprintFlow.value = ""
         _peerEncryptionStatesFlow.value = emptyMap()
         _locallyReadSignaturesFlow.value = emptyMap()
@@ -1087,6 +1232,7 @@ object RentalRepository {
                 service.getUserProfileOnce(uid).onSuccess { freshProfile ->
                     if (freshProfile != null) {
                         _userProfileFlow.value = freshProfile
+                        cacheMemberAvatar(freshProfile)
                     }
                 }
                 communityRepo?.startAuthenticatedSync()
@@ -1112,10 +1258,14 @@ object RentalRepository {
             return currentProfile
         }
         if (!forceRefresh) {
-            memberProfileCache[uid]?.let { return it }
+            memberProfileCache[uid]?.let {
+                cacheMemberAvatar(it)
+                return it
+            }
         }
         return firestoreService?.getUserProfileOnce(uid)?.getOrNull()?.also { profile ->
             memberProfileCache[uid] = profile
+            cacheMemberAvatar(profile)
         }
     }
 
@@ -1203,13 +1353,16 @@ object RentalRepository {
     ) {
         val previousProfile = _userProfileFlow.value
         _userProfileFlow.value = profile
+        cacheMemberAvatar(profile)
         repositoryScope.launch {
             val res = firestoreService?.saveUserProfile(profile)
                 ?: Result.failure(IllegalStateException("Not connected to cloud session."))
             res.onSuccess {
                 memberProfileCache[profile.uid] = profile
+                cacheMemberAvatar(profile)
             }.onFailure { err ->
                 _userProfileFlow.value = previousProfile
+                cacheMemberAvatar(previousProfile)
                 emitSyncAlert(
                     message = "Failed to save profile: ${err.localizedMessage}",
                     retryLabel = "Retry"
@@ -1684,7 +1837,12 @@ object RentalRepository {
 
         val clampedDays = daysCount.coerceIn(1, 30)
         val deliveryFee = if (deliveryOption.contains("Delivery", ignoreCase = true)) 100 else 0
-        val total = (liveItem.pricePerDay * clampedDays) + 50 + deliveryFee
+        val pricing = BookingDateUtils.calculateBookingPricing(
+            pricePerDay = liveItem.pricePerDay,
+            daysCount = clampedDays,
+            deliveryFee = deliveryFee
+        )
+        val total = pricing.totalPayable
         val otp = (1000..9999).random().toString()
 
         val booking = FirestoreBooking(

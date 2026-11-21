@@ -57,4 +57,42 @@ class BookingDateUtilsTest {
         val formatted = BookingDateUtils.formatUtcDate(today, Locale.US)
         assertTrue("Expected readable MMM dd, yyyy format, got '$formatted'", formatted.matches(Regex("[A-Za-z]{3} \\d{2}, \\d{4}")))
     }
+
+    @Test
+    fun calculateBookingPricing_appliesMultiDayDiscountTiersAndClamps() {
+        val oneDay = BookingDateUtils.calculateBookingPricing(pricePerDay = 1000, daysCount = 1, deliveryFee = 0)
+        assertEquals(1000, oneDay.rentalSubtotal)
+        assertEquals(0, oneDay.discountPercent)
+        assertEquals(0, oneDay.discountAmount)
+        assertEquals(1050, oneDay.totalPayable)
+
+        val threeDays = BookingDateUtils.calculateBookingPricing(pricePerDay = 1000, daysCount = 3, deliveryFee = 100)
+        assertEquals(3000, threeDays.rentalSubtotal)
+        assertEquals(10, threeDays.discountPercent)
+        assertEquals(300, threeDays.discountAmount)
+        assertEquals(2850, threeDays.totalPayable) // 3000 - 300 + 50 + 100
+
+        val sevenDays = BookingDateUtils.calculateBookingPricing(pricePerDay = 1000, daysCount = 7, deliveryFee = 0)
+        assertEquals(7000, sevenDays.rentalSubtotal)
+        assertEquals(15, sevenDays.discountPercent)
+        assertEquals(1050, sevenDays.discountAmount)
+        assertEquals(6000, sevenDays.totalPayable) // 7000 - 1050 + 50
+
+        val negativeRate = BookingDateUtils.calculateBookingPricing(pricePerDay = -500, daysCount = 0, deliveryFee = 0)
+        assertEquals(BookingDateUtils.MIN_RENTAL_DAYS, negativeRate.daysCount)
+        assertEquals(0, negativeRate.rentalSubtotal)
+        assertEquals(50, negativeRate.totalPayable)
+    }
+
+    @Test
+    fun catalogFilterState_countsActiveFiltersAccurately() {
+        assertEquals(0, CatalogFilterState().activeFilterCount)
+        val active = CatalogFilterState(
+            sortOption = CatalogSortOption.PRICE_LOW_TO_HIGH,
+            availableOnly = true,
+            savedOnly = true,
+            maxDailyPrice = 1500
+        )
+        assertEquals(4, active.activeFilterCount)
+    }
 }
