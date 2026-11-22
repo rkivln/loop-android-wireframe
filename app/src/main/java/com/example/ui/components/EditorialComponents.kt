@@ -513,7 +513,7 @@ fun ListingPhoto(
                 }
 
                 LaunchedEffect(imageUrl, requestedMaxPx) {
-                    if (decodedBitmap == null && imageUrl != null) {
+                    if (decodedBitmap == null) {
                         decodedBitmap = ImageCachePipeline.decodeDataUriBitmapAsync(
                             dataUri = imageUrl,
                             maxEdgePx = requestedMaxPx

@@ -46,6 +46,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -97,6 +98,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.LocationHelper
@@ -565,10 +567,190 @@ fun DiscoveryMapScreen(
         }
         }
 
+        // Clean Empty State Overlay when no listings/posts exist on the map yet
+        if (filteredPins.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .zIndex(1f)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(PaperPureWhite.copy(alpha = 0.96f))
+                    .border(1.dp, PaperBorderSubtle, RoundedCornerShape(22.dp))
+                    .padding(20.dp)
+                    .testTag("map_empty_state"),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = if (allPins.isEmpty()) "No pieces mapped yet" else "No pins in this category",
+                    style = LoopType.HeadlineMedium.copy(fontSize = 17.sp),
+                    color = InkCharcoal,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = if (allPins.isEmpty()) {
+                        "Publish your first item or community post with GPS enabled to place it on the live map."
+                    } else {
+                        "Switch back to All to view available pins nearby."
+                    },
+                    style = LoopType.BodySmall,
+                    color = InkSecondary,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                PrimaryCTA(
+                    text = if (allPins.isEmpty()) "Publish Piece" else "Show All Pins",
+                    onClick = {
+                        if (allPins.isEmpty()) {
+                            onPublishPiece()
+                        } else {
+                            selectedCategoryFilter = MapCategoryFilter.ALL
+                        }
+                    },
+                    testTag = if (allPins.isEmpty()) "map_empty_publish_button" else "map_empty_reset_filter_button"
+                )
+            }
+        }
+
+        // Bottom Discovery Marker Callout & Carousel Drawer for MapLibre & Canvas modes
+        val liveSelectedPin = selectedPin?.let { sel -> filteredPins.find { it.id == sel.id } ?: sel }
+        if (filteredPins.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .zIndex(1f)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 10.dp)
+            ) {
+                // Reusable UI Component that appears when a user clicks a map marker
+                AnimatedVisibility(
+                    visible = liveSelectedPin != null,
+                    enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut()
+                ) {
+                    liveSelectedPin?.let { pin ->
+                        EventMapMarkerCallout(
+                            pin = pin,
+                            currentUserId = userProfile.uid,
+                            onDirectionsClick = {
+                                LocationHelper.openNavigationIntent(
+                                    context = context,
+                                    latitude = pin.latitude,
+                                    longitude = pin.longitude,
+                                    label = pin.title
+                                )
+                            },
+                            onRsvpClick = {
+                                RentalRepository.rsvpToCommunityPost(pin.id)
+                            },
+                            onViewDetailsClick = {
+                                if (pin.rentalItem != null) {
+                                    onItemClick(pin.rentalItem)
+                                } else if (pin.owner != null) {
+                                    onContactOwner(pin.owner)
+                                }
+                            },
+                            onMessageOwnerOrOrganizerClick = {
+                                when {
+                                    pin.rentalItem != null -> onContactHostWithItem(pin.rentalItem.owner, pin.rentalItem)
+                                    pin.communityPost != null -> onMessageOrganizer(pin.communityPost)
+                                    pin.owner != null -> onContactOwner(pin.owner)
+                                }
+                            },
+                            onDismiss = {
+                                selectedPin = null
+                            }
+                        )
+                    }
+                }
+
+                // Compact Marker Carousel when callout is dismissed or to quickly switch markers
+                AnimatedVisibility(visible = liveSelectedPin == null) {
+                    LazyRow(
+                        state = carouselState,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredPins) { pin ->
+                            Box(
+                                modifier = Modifier
+                                    .width(300.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(PaperPureWhite)
+                                    .border(1.5.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
+                                    .clickable { selectedPin = pin }
+                                    .padding(12.dp)
+                                    .testTag("map_carousel_card_${pin.id}")
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val iconBg = when (pin.type) {
+                                        DiscoveryPinType.PICKUP_HUB -> AccentForestGreen
+                                        DiscoveryPinType.STUDY_GROUP -> AccentPowderBlue
+                                        DiscoveryPinType.HELP_REQUEST -> AccentPeach
+                                        DiscoveryPinType.COMMUNITY_EVENT -> AccentMint
+                                        else -> PaperIvory
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(iconBg),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = when (pin.type) {
+                                                DiscoveryPinType.PICKUP_HUB -> Icons.Outlined.Lock
+                                                DiscoveryPinType.STUDY_GROUP -> Icons.Default.MenuBook
+                                                DiscoveryPinType.HELP_REQUEST -> Icons.Default.Handshake
+                                                DiscoveryPinType.COMMUNITY_EVENT -> Icons.Default.PhotoCamera
+                                                else -> Icons.Default.NearMe
+                                            },
+                                            contentDescription = null,
+                                            tint = if (pin.type == DiscoveryPinType.PICKUP_HUB) InkWhite else InkCharcoal,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = pin.title,
+                                            style = LoopType.HeadlineMedium.copy(fontSize = 14.sp),
+                                            color = InkCharcoal,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${pin.tag} · ${pin.distance}",
+                                            style = LoopType.Metadata.copy(fontSize = 11.sp),
+                                            color = InkSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Uncrowded Top Navigation & Filter Bar
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
+                .zIndex(5f)
                 .fillMaxWidth()
                 .statusBarsPadding()
         ) {
@@ -720,6 +902,7 @@ fun DiscoveryMapScreen(
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
+                .zIndex(10f)
                 .statusBarsPadding()
                 .padding(top = 114.dp, end = 16.dp),
             verticalAlignment = Alignment.Top,
@@ -733,10 +916,12 @@ fun DiscoveryMapScreen(
                 Column(
                     modifier = Modifier
                         .widthIn(min = 204.dp, max = 236.dp)
+                        .heightIn(max = 260.dp)
                         .shadow(10.dp, RoundedCornerShape(18.dp))
                         .clip(RoundedCornerShape(18.dp))
                         .background(PaperPureWhite.copy(alpha = 0.98f))
                         .border(1.dp, PaperBorder, RoundedCornerShape(18.dp))
+                        .verticalScroll(rememberScrollState())
                         .padding(8.dp)
                         .testTag("map_layer_menu"),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -882,183 +1067,6 @@ fun DiscoveryMapScreen(
                         tint = if (isGpsActive) AccentForestGreen else InkCharcoal,
                         modifier = Modifier.size(20.dp)
                     )
-                }
-            }
-        }
-
-        // Clean Empty State Overlay when no listings/posts exist on the map yet
-        if (filteredPins.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(PaperPureWhite.copy(alpha = 0.96f))
-                    .border(1.dp, PaperBorderSubtle, RoundedCornerShape(22.dp))
-                    .padding(20.dp)
-                    .testTag("map_empty_state"),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = if (allPins.isEmpty()) "No pieces mapped yet" else "No pins in this category",
-                    style = LoopType.HeadlineMedium.copy(fontSize = 17.sp),
-                    color = InkCharcoal,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = if (allPins.isEmpty()) {
-                        "Publish your first item or community post with GPS enabled to place it on the live map."
-                    } else {
-                        "Switch back to All to view available pins nearby."
-                    },
-                    style = LoopType.BodySmall,
-                    color = InkSecondary,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                PrimaryCTA(
-                    text = if (allPins.isEmpty()) "Publish Piece" else "Show All Pins",
-                    onClick = {
-                        if (allPins.isEmpty()) {
-                            onPublishPiece()
-                        } else {
-                            selectedCategoryFilter = MapCategoryFilter.ALL
-                        }
-                    },
-                    testTag = if (allPins.isEmpty()) "map_empty_publish_button" else "map_empty_reset_filter_button"
-                )
-            }
-        }
-
-        // Bottom Discovery Marker Callout & Carousel Drawer for MapLibre & Canvas modes
-        val liveSelectedPin = selectedPin?.let { sel -> filteredPins.find { it.id == sel.id } ?: sel }
-        if (filteredPins.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(bottom = 10.dp)
-            ) {
-                // Reusable UI Component that appears when a user clicks a map marker
-                AnimatedVisibility(
-                    visible = liveSelectedPin != null,
-                    enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut()
-                ) {
-                    liveSelectedPin?.let { pin ->
-                        EventMapMarkerCallout(
-                            pin = pin,
-                            currentUserId = userProfile.uid,
-                            onDirectionsClick = {
-                                LocationHelper.openNavigationIntent(
-                                    context = context,
-                                    latitude = pin.latitude,
-                                    longitude = pin.longitude,
-                                    label = pin.title
-                                )
-                            },
-                            onRsvpClick = {
-                                RentalRepository.rsvpToCommunityPost(pin.id)
-                            },
-                            onViewDetailsClick = {
-                                if (pin.rentalItem != null) {
-                                    onItemClick(pin.rentalItem)
-                                } else if (pin.owner != null) {
-                                    onContactOwner(pin.owner)
-                                }
-                            },
-                            onMessageOwnerOrOrganizerClick = {
-                                when {
-                                    pin.rentalItem != null -> onContactHostWithItem(pin.rentalItem.owner, pin.rentalItem)
-                                    pin.communityPost != null -> onMessageOrganizer(pin.communityPost)
-                                    pin.owner != null -> onContactOwner(pin.owner)
-                                }
-                            },
-                            onDismiss = {
-                                selectedPin = null
-                            }
-                        )
-                    }
-                }
-
-                // Compact Marker Carousel when callout is dismissed or to quickly switch markers
-                AnimatedVisibility(visible = liveSelectedPin == null) {
-                    LazyRow(
-                        state = carouselState,
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 18.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(filteredPins) { pin ->
-                            Box(
-                                modifier = Modifier
-                                    .width(300.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(PaperPureWhite)
-                                    .border(1.5.dp, PaperBorderSubtle, RoundedCornerShape(20.dp))
-                                    .clickable { selectedPin = pin }
-                                    .padding(12.dp)
-                                    .testTag("map_carousel_card_${pin.id}")
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val iconBg = when (pin.type) {
-                                        DiscoveryPinType.PICKUP_HUB -> AccentForestGreen
-                                        DiscoveryPinType.STUDY_GROUP -> AccentPowderBlue
-                                        DiscoveryPinType.HELP_REQUEST -> AccentPeach
-                                        DiscoveryPinType.COMMUNITY_EVENT -> AccentMint
-                                        else -> PaperIvory
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(iconBg),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = when (pin.type) {
-                                                DiscoveryPinType.PICKUP_HUB -> Icons.Outlined.Lock
-                                                DiscoveryPinType.STUDY_GROUP -> Icons.Default.MenuBook
-                                                DiscoveryPinType.HELP_REQUEST -> Icons.Default.Handshake
-                                                DiscoveryPinType.COMMUNITY_EVENT -> Icons.Default.PhotoCamera
-                                                else -> Icons.Default.NearMe
-                                            },
-                                            contentDescription = null,
-                                            tint = if (pin.type == DiscoveryPinType.PICKUP_HUB) InkWhite else InkCharcoal,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(10.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = pin.title,
-                                            style = LoopType.HeadlineMedium.copy(fontSize = 14.sp),
-                                            color = InkCharcoal,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "${pin.tag} · ${pin.distance}",
-                                            style = LoopType.Metadata.copy(fontSize = 11.sp),
-                                            color = InkSecondary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

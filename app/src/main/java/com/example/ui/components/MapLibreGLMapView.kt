@@ -136,21 +136,19 @@ fun MapLibreGLMapView(
         internalStyleKey = styleKey
     }
 
-    val bridge = remember {
-        MapLibreBridge(
-            onPinClicked = { pinId ->
-                latestPoints.find { it.id == pinId }?.let { pin ->
-                    latestOnPointSelected(pin)
-                }
-            },
-            onEmptyMapClicked = {
-                latestOnMapClick()
-            },
-            onReady = {
-                isMapReady = true
+    val bridge = rememberMapLibreBridge(
+        onPinClicked = { pinId ->
+            latestPoints.find { it.id == pinId }?.let { pin ->
+                latestOnPointSelected(pin)
             }
-        )
-    }
+        },
+        onEmptyMapClicked = {
+            latestOnMapClick()
+        },
+        onReady = {
+            isMapReady = true
+        }
+    )
 
     // Convert activity points to JSON for MapLibre
     val pinsJson = remember(activityPoints) {
@@ -224,7 +222,6 @@ fun MapLibreGLMapView(
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
-                        databaseEnabled = true
                         useWideViewPort = true
                         loadWithOverviewMode = true
                         cacheMode = WebSettings.LOAD_DEFAULT
@@ -364,5 +361,23 @@ fun MapLibreGLMapView(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun rememberMapLibreBridge(
+    onPinClicked: (String) -> Unit,
+    onEmptyMapClicked: () -> Unit,
+    onReady: () -> Unit
+): MapLibreBridge {
+    val latestPinClick by rememberUpdatedState(onPinClicked)
+    val latestMapClick by rememberUpdatedState(onEmptyMapClicked)
+    val latestReady by rememberUpdatedState(onReady)
+    return remember {
+        MapLibreBridge(
+            onPinClicked = { pinId -> latestPinClick(pinId) },
+            onEmptyMapClicked = { latestMapClick() },
+            onReady = { latestReady() }
+        )
     }
 }
