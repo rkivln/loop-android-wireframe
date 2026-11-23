@@ -20,6 +20,7 @@ import com.example.data.models.CommunityPostType
 import com.example.data.models.CuratedWalkingRoute
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
+import com.example.data.models.HouseListing
 import com.example.data.models.LocationSharingPreference
 import com.example.data.models.MapCategoryFilter
 import com.example.data.models.MessageStatus
@@ -455,11 +456,13 @@ object RentalRepository {
         bookingActivities + itemActivities + postActivities
     }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
 
-    val discoveryPinsFlow: StateFlow<List<DiscoveryPinItem>> = combine(
-        itemsFlow,
-        userCommunityPostsFlow,
-        rsvpIdsFlow
-    ) { itemsList, postsList, rsvpIds ->
+    val discoveryPinsFlow: StateFlow<List<DiscoveryPinItem>> by lazy {
+        combine(
+            itemsFlow,
+            HouseRentalRepository.housesFlow,
+            userCommunityPostsFlow,
+            rsvpIdsFlow
+        ) { itemsList, housesList, postsList, rsvpIds ->
         val itemPins = itemsList.mapNotNull { item ->
             val lat = item.latitude
             val lng = item.longitude
@@ -488,6 +491,35 @@ object RentalRepository {
                     category = item.category,
                     filterCategory = MapCategoryFilter.MAKERS,
                     neighborhood = item.location
+                )
+            } else {
+                null
+            }
+        }
+        val housePins = housesList.mapNotNull { house ->
+            val lat = house.latitude
+            val lng = house.longitude
+            if (lat != null && lng != null) {
+                DiscoveryPinItem(
+                    id = "house_${house.id}",
+                    title = house.title,
+                    subtitle = "${house.configurationLabel} • ${house.furnishing.label}",
+                    type = DiscoveryPinType.HOUSE_RENTAL,
+                    latitude = lat,
+                    longitude = lng,
+                    rating = house.rating,
+                    distance = house.location.ifBlank { "Nearby" },
+                    tag = house.propertyType.label,
+                    dateOrAvailability = if (house.isAvailableForRent) "Available • ${house.availableFromLabel}" else "Rented Out",
+                    locationName = house.location,
+                    priceOrAttendees = "₹${house.monthlyRent}/mo",
+                    description = house.description,
+                    owner = house.owner,
+                    houseListing = house,
+                    imageUrl = house.imageUrl ?: house.resolvedGalleryUrls.firstOrNull(),
+                    category = RentalCategory.HOME_LIVING,
+                    filterCategory = MapCategoryFilter.HOUSES,
+                    neighborhood = house.location
                 )
             } else {
                 null
@@ -528,8 +560,9 @@ object RentalRepository {
                 null
             }
         }
-        itemPins + postPins
-    }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
+            itemPins + housePins + postPins
+        }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
+    }
 
     private val _syncErrorFlow = MutableStateFlow<String?>(null)
     val syncErrorFlow: StateFlow<String?> = _syncErrorFlow.asStateFlow()
@@ -748,6 +781,13 @@ object RentalRepository {
                     emitSyncAlert("Profile sync error: ${e.localizedMessage}")
                 }
             }
+
+            // 1b. Long-term Monthly Houses & Visit Requests sync
+            HouseRentalRepository.startSession(
+                uid = uid,
+                source = service.housesDataSource,
+                onError = { errMsg -> emitSyncAlert(errMsg) }
+            )
 
             // 2. Gear Listings real-time sync
             syncJobs += repositoryScope.launch {
@@ -1187,6 +1227,7 @@ object RentalRepository {
     fun clearSession() {
         syncJobs.forEach { it.cancel() }
         syncJobs.clear()
+        HouseRentalRepository.clearSession()
         messageListenerJob?.cancel()
         messageListenerJob = null
         communityRepo?.stopSync()
@@ -1274,9 +1315,14 @@ object RentalRepository {
         _syncAlertFlow.value = null
     }
 
+    internal fun applyLocalProfileSnapshot(profile: UserProfile) {
+        _userProfileFlow.value = profile
+    }
+
     suspend fun openOrCreateConversation(
         host: RentalOwner,
         item: RentalItem? = null,
+        houseListing: HouseListing? = null,
         communityPost: UserCommunityPost? = null
     ): Result<ChatConversation> {
         val service = firestoreService
@@ -1301,10 +1347,11 @@ object RentalRepository {
         val existing = _rawConversationsFlow.value.firstOrNull { conv ->
             val samePerson = conv.owner.id == host.id
             val sameItem = item?.id != null && conv.itemContext?.id == item.id
+            val sameHouse = houseListing?.id != null && conv.houseId == houseListing.id
             val samePost = communityPost?.id != null && conv.communityPostId == communityPost.id
-            val sameGeneral = item == null && communityPost == null &&
-                conv.itemContext == null && conv.communityPostId == null
-            samePerson && (sameItem || samePost || sameGeneral)
+            val sameGeneral = item == null && houseListing == null && communityPost == null &&
+                conv.itemContext == null && conv.houseId == null && conv.communityPostId == null
+            samePerson && (sameItem || sameHouse || samePost || sameGeneral)
         }
         if (existing != null) {
             return Result.success(existing)
@@ -1314,6 +1361,7 @@ object RentalRepository {
         return service.createOrGetConversation(
             host = host,
             item = item,
+            houseListing = houseListing,
             communityPost = communityPost,
             defaultDisappearingSeconds = defaultDisappearing,
             e2eeEnabled = true
@@ -1322,6 +1370,15 @@ object RentalRepository {
         }.onFailure { err ->
             _syncErrorFlow.value = err.localizedMessage ?: "Unable to open conversation."
         }
+    }
+
+    suspend fun openOrCreateHouseConversation(house: HouseListing): Result<ChatConversation> {
+        return openOrCreateConversation(
+            host = house.owner,
+            item = null,
+            houseListing = house,
+            communityPost = null
+        )
     }
 
     suspend fun openConversationWithPostAuthor(post: UserCommunityPost): Result<ChatConversation> {

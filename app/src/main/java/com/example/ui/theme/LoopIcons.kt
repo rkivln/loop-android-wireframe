@@ -2,7 +2,9 @@ package com.example.ui.theme
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CardGiftcard
@@ -45,6 +47,7 @@ fun RentalCategory.getIconVector(): ImageVector {
 fun MapCategoryFilter.getIconVector(): ImageVector {
     return when (this) {
         MapCategoryFilter.ALL -> Icons.Default.Star
+        MapCategoryFilter.HOUSES -> Icons.Default.Apartment
         MapCategoryFilter.STUDY_GROUPS -> Icons.Default.MenuBook
         MapCategoryFilter.HELP_NEEDED -> Icons.Default.Handshake
         MapCategoryFilter.LOCAL_EVENTS -> Icons.Default.CameraAlt
@@ -88,6 +91,8 @@ fun UserActivityType.getIconVector(): ImageVector {
         UserActivityType.HELP_REQUEST -> Icons.Default.Handshake
         UserActivityType.STUDY_GROUP -> Icons.Default.MenuBook
         UserActivityType.HUB_CHECKIN -> Icons.Default.Lock
+        UserActivityType.HOUSE_VISIT -> Icons.Default.CalendarMonth
+        UserActivityType.HOUSE_LISTED -> Icons.Default.Apartment
     }
 }
 
@@ -101,6 +106,7 @@ fun DiscoveryPinType.getIconVector(): ImageVector {
         DiscoveryPinType.PICKUP_HUB -> Icons.Default.Lock
         DiscoveryPinType.USER_HOST -> Icons.Default.Build
         DiscoveryPinType.RENTAL_ITEM -> Icons.Default.Inventory2
+        DiscoveryPinType.HOUSE_RENTAL -> Icons.Default.Apartment
     }
 }
 

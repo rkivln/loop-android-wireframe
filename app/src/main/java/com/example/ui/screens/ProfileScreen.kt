@@ -21,10 +21,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -93,14 +98,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.filled.Apartment
+import com.example.data.HouseRentalRepository
 import com.example.data.LocationHelper
 import com.example.data.RentalRepository
 import com.example.data.models.AVATAR_PRESETS
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
+import com.example.data.models.HouseListing
+import com.example.data.models.HouseVisitRequest
 import com.example.data.models.LocationSharingPreference
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
@@ -161,8 +171,13 @@ fun ProfileScreen(
     onBookingsSheetDismissed: () -> Unit = {},
     initialOpenCreatePost: Boolean = false,
     onCreatePostOpened: () -> Unit = {},
+    initialOpenHouseVisits: Boolean = false,
+    onHouseVisitsSheetOpened: () -> Unit = {},
     onOpenItem: (RentalItem) -> Unit = {},
+    onOpenHouse: (HouseListing) -> Unit = {},
     onMessageUser: (RentalOwner, RentalItem?) -> Unit = { _, _ -> },
+    onMessageHouseUser: (HouseVisitRequest) -> Unit = {},
+    bottomBarPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val userProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
@@ -170,6 +185,9 @@ fun ProfileScreen(
     val userPosts by RentalRepository.myCommunityPostsFlow.collectAsStateWithLifecycle()
     val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
     val bookings by RentalRepository.bookingsFlow.collectAsStateWithLifecycle()
+    val myHouses by HouseRentalRepository.myPublishedHousesFlow.collectAsStateWithLifecycle()
+    val myTenantVisits by HouseRentalRepository.myTenantVisitsFlow.collectAsStateWithLifecycle()
+    val incomingHouseVisits by HouseRentalRepository.incomingLandlordVisitsFlow.collectAsStateWithLifecycle()
     val isProfileLoading by RentalRepository.isProfileLoadingFlow.collectAsStateWithLifecycle()
     val isBookingsLoading by RentalRepository.isBookingsLoadingFlow.collectAsStateWithLifecycle()
     val updateState by AppUpdateCoordinator.updateState.collectAsStateWithLifecycle()
@@ -181,6 +199,7 @@ fun ProfileScreen(
     var editingPost by remember { mutableStateOf<UserCommunityPost?>(null) }
     var pendingDeletePost by remember { mutableStateOf<UserCommunityPost?>(null) }
     var isShowingBookings by remember { mutableStateOf(initialOpenBookings) }
+    var isShowingHouseVisits by remember { mutableStateOf(initialOpenHouseVisits) }
     var selectedPostFilter by remember { mutableStateOf<CommunityPostType?>(null) }
     var saveSuccessMessage by remember { mutableStateOf<String?>(null) }
 
@@ -209,6 +228,13 @@ fun ProfileScreen(
         }
     }
 
+    LaunchedEffect(initialOpenHouseVisits) {
+        if (initialOpenHouseVisits) {
+            isShowingHouseVisits = true
+            onHouseVisitsSheetOpened()
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -218,7 +244,7 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            contentPadding = PaddingValues(bottom = 32.dp + bottomBarPadding)
         ) {
             // Header
             item {
@@ -622,6 +648,7 @@ fun ProfileScreen(
                                 .border(1.dp, PaperBorderSubtle, RoundedCornerShape(22.dp))
                         ) {
                             val activeBookingsCount = bookings.count { !it.isCompleted }
+                            val totalVisitsCount = myTenantVisits.size + incomingHouseVisits.size
                             EditorialMenuRow(
                                 icon = Icons.Default.ShoppingBag,
                                 title = "Active Reservations",
@@ -630,6 +657,16 @@ fun ProfileScreen(
                                     isShowingBookings = true
                                     onNavigateBookings()
                                 }
+                            )
+                            EditorialMenuRow(
+                                icon = Icons.Default.Apartment,
+                                title = "House Visits & Inquiries",
+                                badge = if (myHouses.isNotEmpty()) {
+                                    "$totalVisitsCount Visits · ${myHouses.size} Homes"
+                                } else {
+                                    "$totalVisitsCount Visits"
+                                },
+                                onClick = { isShowingHouseVisits = true }
                             )
                             EditorialMenuRow(
                                 icon = Icons.Default.Handshake,
@@ -904,6 +941,8 @@ fun ProfileScreen(
                                         UserActivityType.STUDY_GROUP -> {
                                             selectedTab = ProfileTab.MY_POSTS
                                         }
+                                        UserActivityType.HOUSE_VISIT,
+                                        UserActivityType.HOUSE_LISTED -> isShowingHouseVisits = true
                                         UserActivityType.HUB_CHECKIN -> Unit
                                     }
                                 }
@@ -923,6 +962,7 @@ fun ProfileScreen(
             BackHandler { isEditingProfile = false }
             EditProfileModalSheet(
                 currentProfile = userProfile,
+                bottomBarPadding = bottomBarPadding,
                 onSave = { updatedProfile ->
                     RentalRepository.updateUserProfile(updatedProfile) { res ->
                         res.onSuccess {
@@ -1030,6 +1070,25 @@ fun ProfileScreen(
                     isShowingBookings = false
                     onBookingsSheetDismissed()
                 }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = isShowingHouseVisits,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut()
+        ) {
+            HouseVisitsSheet(
+                bottomBarPadding = bottomBarPadding,
+                onOpenHouse = { house ->
+                    isShowingHouseVisits = false
+                    onOpenHouse(house)
+                },
+                onMessageCounterparty = { visit ->
+                    isShowingHouseVisits = false
+                    onMessageHouseUser(visit)
+                },
+                onDismiss = { isShowingHouseVisits = false }
             )
         }
 
@@ -1409,7 +1468,7 @@ private fun ActivityTimelineItem(
             // Icon Pill
             val iconBg = when (activity.type) {
                 UserActivityType.RESERVATION -> AccentPowderBlue
-                UserActivityType.COMMUNITY_EVENT -> AccentMint
+                UserActivityType.COMMUNITY_EVENT, UserActivityType.HOUSE_VISIT, UserActivityType.HOUSE_LISTED -> AccentMint
                 UserActivityType.HELP_REQUEST -> AccentPeach
                 UserActivityType.HUB_CHECKIN -> AccentYellowSoft
                 else -> PaperIvory
@@ -1580,7 +1639,8 @@ private fun EditorialMenuRow(
 fun EditProfileModalSheet(
     currentProfile: UserProfile,
     onSave: (UserProfile) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    bottomBarPadding: Dp = 0.dp
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -1618,42 +1678,64 @@ fun EditProfileModalSheet(
         if (granted) detectLocation()
     }
 
+    val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val sheetBottomClearance = maxOf(
+        imeBottom + 12.dp,
+        if (bottomBarPadding > 0.dp) bottomBarPadding + 10.dp else navBottom + 16.dp
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.5f))
-            .clickable(onClick = onDismiss),
+            .clickable(onClick = onDismiss)
+            .statusBarsPadding()
+            .padding(top = 28.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.88f)
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .background(PaperPureWhite)
-                .clickable(enabled = false) {}
-                .padding(horizontal = 22.dp, vertical = 22.dp)
-                .navigationBarsPadding()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Edit Profile & Bio",
-                        style = LoopType.HeadlineMedium,
-                        color = InkCharcoal
-                    )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 22.dp, end = 12.dp, top = 16.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Edit Profile & Bio",
+                    style = LoopType.HeadlineMedium,
+                    color = InkCharcoal
+                )
 
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = InkSecondary
-                        )
-                    }
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = InkSecondary
+                    )
                 }
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 22.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
 
                 // Avatar Source & Theme Picker
                 val previewInitials = remember(displayName) {
@@ -1905,8 +1987,19 @@ fun EditProfileModalSheet(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = 22.dp,
+                        end = 22.dp,
+                        top = 10.dp,
+                        bottom = sheetBottomClearance
+                    )
+            ) {
                 PrimaryCTA(
                     text = "Save Bio & Profile",
                     onClick = {

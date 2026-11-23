@@ -18,6 +18,7 @@ data class UserProfile(
     val memberSince: String = "",
     val badges: List<String> = emptyList(),
     val favoriteItemIds: List<String> = emptyList(),
+    val favoriteHouseIds: List<String> = emptyList(),
     val legacyResetVersion: Int = 0,
     val fcmToken: String = "",
     val e2eePublicKey: String = "",
@@ -70,7 +71,9 @@ enum class UserActivityType {
     HELP_REQUEST,
     STUDY_GROUP,
     HUB_CHECKIN,
-    LISTING_PUBLISHED
+    LISTING_PUBLISHED,
+    HOUSE_VISIT,
+    HOUSE_LISTED
 }
 
 data class UserActivityItem(

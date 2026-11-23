@@ -41,6 +41,7 @@ service cloud.firestore {
              (!('memberSince' in data) || (data.memberSince is string && data.memberSince.size() <= 50)) &&
              (!('badges' in data) || (data.badges is list && data.badges.size() <= 20)) &&
              (!('favoriteItemIds' in data) || (data.favoriteItemIds is list && data.favoriteItemIds.size() <= 200)) &&
+             (!('favoriteHouseIds' in data) || (data.favoriteHouseIds is list && data.favoriteHouseIds.size() <= 200)) &&
              (!('legacyResetVersion' in data) || data.legacyResetVersion is int) &&
              (!('appearanceMode' in data) || (data.appearanceMode is string && data.appearanceMode in ['LIGHT', 'DARK', 'SYSTEM'])) &&
              (!('profileVisibility' in data) || (data.profileVisibility is string && data.profileVisibility in ['PUBLIC', 'COMMUNITY_ONLY', 'PRIVATE'])) &&
@@ -118,6 +119,9 @@ service cloud.firestore {
              (!('itemId' in data) || data.itemId == null || (data.itemId is string && data.itemId.size() <= 128)) &&
              (!('itemTitle' in data) || data.itemTitle == null || (data.itemTitle is string && data.itemTitle.size() <= 150)) &&
              (!('itemPricePerDay' in data) || data.itemPricePerDay == null || data.itemPricePerDay is int) &&
+             (!('houseId' in data) || data.houseId == null || (data.houseId is string && data.houseId.size() <= 128)) &&
+             (!('houseTitle' in data) || data.houseTitle == null || (data.houseTitle is string && data.houseTitle.size() <= 150)) &&
+             (!('houseMonthlyRent' in data) || data.houseMonthlyRent == null || data.houseMonthlyRent is int) &&
              (!('communityPostId' in data) || data.communityPostId == null || (data.communityPostId is string && data.communityPostId.size() <= 128)) &&
              (!('communityPostTitle' in data) || data.communityPostTitle == null || (data.communityPostTitle is string && data.communityPostTitle.size() <= 150)) &&
              (!('lastSenderId' in data) || (data.lastSenderId is string && data.lastSenderId.size() <= 128)) &&
@@ -182,6 +186,64 @@ service cloud.firestore {
              (!('reviewComment' in data) || (data.reviewComment is string && data.reviewComment.size() <= 1000));
     }
 
+    function isValidHouseListing(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+             data.propertyType is string && data.propertyType in ['APARTMENT', 'INDEPENDENT_HOUSE', 'VILLA', 'STUDIO', 'SHARED_ROOM'] &&
+             data.monthlyRent is int && data.monthlyRent >= 1000 && data.monthlyRent <= 1000000 &&
+             data.ownerId is string && data.ownerId.size() > 0 && data.ownerId.size() <= 128 &&
+             (!('bhkCount' in data) || (data.bhkCount is int && data.bhkCount >= 0 && data.bhkCount <= 12)) &&
+             (!('bathrooms' in data) || (data.bathrooms is int && data.bathrooms >= 1 && data.bathrooms <= 12)) &&
+             (!('areaSqFt' in data) || (data.areaSqFt is int && data.areaSqFt >= 80 && data.areaSqFt <= 50000)) &&
+             (!('floorNumber' in data) || (data.floorNumber is int && data.floorNumber >= 0 && data.floorNumber <= 100)) &&
+             (!('totalFloors' in data) || (data.totalFloors is int && data.totalFloors >= 1 && data.totalFloors <= 100)) &&
+             (!('furnishing' in data) || (data.furnishing is string && data.furnishing in ['UNFURNISHED', 'SEMI_FURNISHED', 'FULLY_FURNISHED'])) &&
+             (!('tenantPreference' in data) || (data.tenantPreference is string && data.tenantPreference in ['ANY', 'FAMILY', 'WORKING_PROFESSIONALS', 'STUDENTS'])) &&
+             (!('securityDeposit' in data) || (data.securityDeposit is int && data.securityDeposit >= 0 && data.securityDeposit <= 5000000)) &&
+             (!('maintenanceMonthly' in data) || (data.maintenanceMonthly is int && data.maintenanceMonthly >= 0 && data.maintenanceMonthly <= 100000)) &&
+             (!('minLeaseMonths' in data) || (data.minLeaseMonths is int && data.minLeaseMonths >= 1 && data.minLeaseMonths <= 60)) &&
+             (!('availableFromLabel' in data) || (data.availableFromLabel is string && data.availableFromLabel.size() <= 60)) &&
+             (!('isAvailableForRent' in data) || data.isAvailableForRent is bool) &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 120)) &&
+             (!('fullAddressNote' in data) || data.fullAddressNote == null || (data.fullAddressNote is string && data.fullAddressNote.size() <= 300)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2500)) &&
+             (!('amenities' in data) || (data.amenities is list && data.amenities.size() <= 20 && (data.amenities.size() == 0 || data.amenities[0] is string))) &&
+             (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 400000)) &&
+             (!('imageUrls' in data) || (data.imageUrls is list && data.imageUrls.size() <= 4 && (data.imageUrls.size() == 0 || data.imageUrls[0] is string))) &&
+             (!('photoLabels' in data) || (data.photoLabels is list && data.photoLabels.size() <= 4 && (data.photoLabels.size() == 0 || data.photoLabels[0] is string))) &&
+             (!('imageCount' in data) || (data.imageCount is int && data.imageCount >= 0 && data.imageCount <= 4)) &&
+             (!('latitude' in data) || data.latitude == null || data.latitude is number) &&
+             (!('longitude' in data) || data.longitude == null || data.longitude is number) &&
+             (!('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 100)) &&
+             (!('ownerInitials' in data) || (data.ownerInitials is string && data.ownerInitials.size() <= 10)) &&
+             (!('ownerBadge' in data) || (data.ownerBadge is string && data.ownerBadge.size() <= 60)) &&
+             (!('rating' in data) || data.rating is number) &&
+             (!('reviewCount' in data) || data.reviewCount is int);
+    }
+
+    function isValidHouseVisitRequest(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.houseId is string && data.houseId.size() > 0 && data.houseId.size() <= 128 &&
+             data.tenantId is string && data.tenantId.size() > 0 && data.tenantId.size() <= 128 &&
+             data.landlordId is string && data.landlordId.size() > 0 && data.landlordId.size() <= 128 &&
+             data.tenantId != data.landlordId &&
+             data.preferredDate is string && data.preferredDate.size() > 0 && data.preferredDate.size() <= 30 &&
+             data.preferredTimeSlot is string && data.preferredTimeSlot in ['MORNING', 'AFTERNOON', 'EVENING'] &&
+             data.status is string && data.status in ['REQUESTED', 'CONFIRMED', 'RESCHEDULE_SUGGESTED', 'COMPLETED', 'DECLINED', 'CANCELLED'] &&
+             (!('houseTitle' in data) || (data.houseTitle is string && data.houseTitle.size() <= 150)) &&
+             (!('houseLocation' in data) || (data.houseLocation is string && data.houseLocation.size() <= 120)) &&
+             (!('monthlyRent' in data) || (data.monthlyRent is int && data.monthlyRent >= 0 && data.monthlyRent <= 1000000)) &&
+             (!('tenantName' in data) || (data.tenantName is string && data.tenantName.size() <= 100)) &&
+             (!('landlordName' in data) || (data.landlordName is string && data.landlordName.size() <= 100)) &&
+             (!('occupantsCount' in data) || (data.occupantsCount is int && data.occupantsCount >= 1 && data.occupantsCount <= 20)) &&
+             (!('householdType' in data) || (data.householdType is string && data.householdType in ['ANY', 'FAMILY', 'WORKING_PROFESSIONALS', 'STUDENTS'])) &&
+             (!('targetMoveInMonth' in data) || (data.targetMoveInMonth is string && data.targetMoveInMonth.size() <= 40)) &&
+             (!('tenantNote' in data) || (data.tenantNote is string && data.tenantNote.size() <= 1000)) &&
+             (!('landlordResponseNote' in data) || (data.landlordResponseNote is string && data.landlordResponseNote.size() <= 1000)) &&
+             (!('confirmedAddressNote' in data) || (data.confirmedAddressNote is string && data.confirmedAddressNote.size() <= 300)) &&
+             (!('conversationId' in data) || data.conversationId == null || (data.conversationId is string && data.conversationId.size() <= 128));
+    }
+
     function isConversationParticipant(convId) {
       let conv = get(/databases/$(database)/documents/conversations/$(convId)).data;
       return conv.hostId == request.auth.uid ||
@@ -208,7 +270,7 @@ service cloud.firestore {
                          'displayName', 'phone', 'bio', 'location', 'avatarPresetIndex',
                          'customAvatarUri', 'rating', 'reviewCount', 'rentalsCompleted',
                          'listingsCount', 'earnedAmount', 'isVerified', 'memberSince',
-                         'badges', 'favoriteItemIds', 'legacyResetVersion', 'appearanceMode', 'profileVisibility',
+                         'badges', 'favoriteItemIds', 'favoriteHouseIds', 'legacyResetVersion', 'appearanceMode', 'profileVisibility',
                          'locationSharing', 'notifyPush', 'notifyNewPosts', 'notifyCommentReplies',
                          'notifyLikes', 'notifyAnnouncements', 'blockedUserIds', 'blockedUsers',
                          'fcmToken', 'fcmTokenUpdatedAt', 'e2eePublicKey', 'e2eeKeyFingerprint',
@@ -401,6 +463,94 @@ service cloud.firestore {
                        ]);
       allow delete: if isSignedIn() && isValidId(bookingId) &&
                        (existing().renterId == request.auth.uid || existing().hostId == request.auth.uid);
+    }
+
+    // LONG-TERM MONTHLY HOUSE RENTALS
+    match /houses/{houseId} {
+      allow get: if isSignedIn() && isValidId(houseId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(houseId) &&
+                       incoming().id == houseId &&
+                       incoming().ownerId == request.auth.uid &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidHouseListing(incoming());
+      allow update: if isSignedIn() && isValidId(houseId) &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidHouseListing(incoming()) &&
+                       (
+                         (
+                           existing().ownerId == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'title', 'propertyType', 'bhkCount', 'bathrooms', 'areaSqFt',
+                             'floorNumber', 'totalFloors', 'furnishing', 'tenantPreference',
+                             'monthlyRent', 'securityDeposit', 'maintenanceMonthly', 'minLeaseMonths',
+                             'availableFromLabel', 'isAvailableForRent', 'location', 'fullAddressNote',
+                             'description', 'amenities', 'imageUrl', 'imageUrls', 'photoLabels',
+                             'imageCount', 'latitude', 'longitude', 'ownerName', 'ownerInitials',
+                             'ownerBadge', 'updatedAt'
+                           ])
+                         ) ||
+                         (
+                           existing().ownerId != request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'rating', 'reviewCount', 'updatedAt'
+                           ]) &&
+                           (
+                             (!('reviewCount' in existing()) && incoming().reviewCount == 1) ||
+                             ('reviewCount' in existing() && incoming().reviewCount == existing().reviewCount + 1)
+                           ) &&
+                           incoming().rating >= 1 &&
+                           incoming().rating <= 5
+                         )
+                       );
+      allow delete: if isSignedIn() && isValidId(houseId) && existing().ownerId == request.auth.uid;
+    }
+
+    // HOUSE VISIT REQUESTS & RENTAL INQUIRIES (tenant + landlord scoped)
+    match /visit_requests/{visitId} {
+      allow get: if isSignedIn() && isValidId(visitId) &&
+                    (resource.data.tenantId == request.auth.uid || resource.data.landlordId == request.auth.uid);
+      allow list: if isSignedIn() &&
+                    (resource.data.tenantId == request.auth.uid || resource.data.landlordId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(visitId) &&
+                       incoming().id == visitId &&
+                       incoming().tenantId == request.auth.uid &&
+                       incoming().landlordId != request.auth.uid &&
+                       incoming().status == 'REQUESTED' &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidHouseVisitRequest(incoming()) &&
+                       exists(/databases/$(database)/documents/houses/$(incoming().houseId)) &&
+                       get(/databases/$(database)/documents/houses/$(incoming().houseId)).data.ownerId == incoming().landlordId;
+      allow update: if isSignedIn() && isValidId(visitId) &&
+                       (existing().tenantId == request.auth.uid || existing().landlordId == request.auth.uid) &&
+                       incoming().tenantId == existing().tenantId &&
+                       incoming().landlordId == existing().landlordId &&
+                       incoming().houseId == existing().houseId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       !(existing().status in ['CANCELLED', 'DECLINED', 'COMPLETED']) &&
+                       isValidHouseVisitRequest(incoming()) &&
+                       (
+                         (
+                           existing().tenantId == request.auth.uid &&
+                           incoming().status in ['REQUESTED', 'CANCELLED', 'COMPLETED'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'status', 'preferredDate', 'preferredTimeSlot', 'occupantsCount',
+                             'householdType', 'targetMoveInMonth', 'tenantNote', 'conversationId', 'updatedAt'
+                           ])
+                         ) ||
+                         (
+                           existing().landlordId == request.auth.uid &&
+                           incoming().status in ['CONFIRMED', 'RESCHEDULE_SUGGESTED', 'DECLINED', 'COMPLETED'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'status', 'landlordResponseNote', 'confirmedAddressNote', 'conversationId', 'updatedAt'
+                           ])
+                         )
+                       );
+      allow delete: if isSignedIn() && isValidId(visitId) &&
+                       (existing().tenantId == request.auth.uid || existing().landlordId == request.auth.uid);
     }
   }
 }

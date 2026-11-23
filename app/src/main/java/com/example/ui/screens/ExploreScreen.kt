@@ -63,12 +63,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.CatalogFilterState
 import com.example.data.CatalogSortOption
 import com.example.data.RentalRepository
+import com.example.data.models.HouseListing
+import com.example.data.models.MapCategoryFilter
 import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
@@ -97,11 +100,15 @@ fun ExploreScreen(
     onItemClick: (RentalItem) -> Unit = {},
     onContactOwner: (RentalOwner) -> Unit = {},
     onContactHostWithItem: (RentalOwner, RentalItem?) -> Unit = { owner, _ -> onContactOwner(owner) },
+    onHouseClick: (HouseListing) -> Unit = {},
+    onMessageLandlord: (HouseListing) -> Unit = {},
     onMessageOrganizer: (UserCommunityPost) -> Unit = {},
     onBackToCatalog: () -> Unit = {},
     onPublishClick: () -> Unit = {},
     initialShowMap: Boolean = false,
+    initialMapFilter: MapCategoryFilter = MapCategoryFilter.ALL,
     onMapModeChange: (Boolean) -> Unit = {},
+    bottomBarPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -132,8 +139,12 @@ fun ExploreScreen(
                 onItemClick = onItemClick,
                 onContactOwner = onContactOwner,
                 onContactHostWithItem = onContactHostWithItem,
+                onHouseClick = onHouseClick,
+                onMessageLandlord = onMessageLandlord,
                 onMessageOrganizer = onMessageOrganizer,
                 onPublishPiece = onPublishClick,
+                initialFilter = initialMapFilter,
+                bottomOverlayPadding = bottomBarPadding,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -520,7 +531,12 @@ fun ExploreScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 4.dp, bottom = 28.dp),
+                        contentPadding = PaddingValues(
+                            start = 22.dp,
+                            end = 22.dp,
+                            top = 4.dp,
+                            bottom = 28.dp + bottomBarPadding
+                        ),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(filteredItems, key = { it.id }) { item ->
@@ -549,6 +565,7 @@ fun ExploreScreen(
                 onSavedOnlyChanged = { RentalRepository.setCatalogSavedOnly(it) },
                 onMaxPriceSelected = { RentalRepository.setCatalogMaxDailyPrice(it) },
                 onResetAll = { RentalRepository.resetCatalogFilters() },
+                bottomBarPadding = bottomBarPadding,
                 onDismiss = { showFilterSheet = false }
             )
         }
@@ -573,6 +590,7 @@ private fun ExploreFilterModalSheet(
     onSavedOnlyChanged: (Boolean) -> Unit,
     onMaxPriceSelected: (Int?) -> Unit,
     onResetAll: () -> Unit,
+    bottomBarPadding: Dp = 0.dp,
     onDismiss: () -> Unit
 ) {
     BackHandler(onBack = onDismiss)
@@ -607,7 +625,13 @@ private fun ExploreFilterModalSheet(
                     indication = null,
                     onClick = {}
                 )
-                .navigationBarsPadding()
+                .then(
+                    if (bottomBarPadding > 0.dp) {
+                        Modifier.padding(bottom = bottomBarPadding)
+                    } else {
+                        Modifier.navigationBarsPadding()
+                    }
+                )
                 .padding(horizontal = 22.dp, vertical = 20.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(18.dp)

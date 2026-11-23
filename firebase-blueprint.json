@@ -22,6 +22,7 @@
         "memberSince": { "type": "string", "description": "Joined date string" },
         "badges": { "type": "array", "description": "Earned community badges" },
         "favoriteItemIds": { "type": "array", "description": "IDs of saved favorite catalog items" },
+        "favoriteHouseIds": { "type": "array", "description": "IDs of saved favorite house rentals" },
         "legacyResetVersion": { "type": "number", "description": "Version flag for zero-mock reset" },
         "appearanceMode": { "type": "string", "description": "Preferred UI theme: LIGHT, DARK, or SYSTEM" },
         "profileVisibility": { "type": "string", "description": "Profile visibility level: PUBLIC, COMMUNITY_ONLY, or PRIVATE" },
@@ -118,6 +119,9 @@
         "itemId": { "type": "string", "description": "Optional associated rental item ID" },
         "itemTitle": { "type": "string", "description": "Optional associated rental item title" },
         "itemPricePerDay": { "type": "number", "description": "Price per day of gear in inquiry" },
+        "houseId": { "type": "string", "description": "Optional associated house listing ID" },
+        "houseTitle": { "type": "string", "description": "Optional associated house listing title" },
+        "houseMonthlyRent": { "type": "number", "description": "Optional monthly rent in INR of house in inquiry" },
         "communityPostId": { "type": "string", "description": "Optional associated community post ID" },
         "communityPostTitle": { "type": "string", "description": "Optional associated community post title" },
         "lastSenderId": { "type": "string", "description": "UID of the last message sender for unread tracking" },
@@ -197,6 +201,77 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
       },
       "required": ["id", "renterId", "hostId", "itemId", "totalAmount", "status", "createdAt"]
+    },
+    "HouseListing": {
+      "title": "HouseListing",
+      "description": "Long-term monthly house rental listing in Loop",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique house listing identifier" },
+        "title": { "type": "string", "description": "Editorial title of the property" },
+        "propertyType": { "type": "string", "description": "APARTMENT, INDEPENDENT_HOUSE, VILLA, STUDIO, or SHARED_ROOM" },
+        "bhkCount": { "type": "number", "description": "Number of bedrooms (0 for studio)" },
+        "bathrooms": { "type": "number", "description": "Number of bathrooms" },
+        "areaSqFt": { "type": "number", "description": "Carpet or built-up area in square feet" },
+        "floorNumber": { "type": "number", "description": "Unit floor level" },
+        "totalFloors": { "type": "number", "description": "Total building floors" },
+        "furnishing": { "type": "string", "description": "UNFURNISHED, SEMI_FURNISHED, or FULLY_FURNISHED" },
+        "tenantPreference": { "type": "string", "description": "ANY, FAMILY, WORKING_PROFESSIONALS, or STUDENTS" },
+        "monthlyRent": { "type": "number", "description": "Monthly rent in INR" },
+        "securityDeposit": { "type": "number", "description": "Refundable security deposit in INR" },
+        "maintenanceMonthly": { "type": "number", "description": "Monthly maintenance fee in INR (0 if included)" },
+        "minLeaseMonths": { "type": "number", "description": "Minimum lease duration in months" },
+        "availableFromLabel": { "type": "string", "description": "Move-in availability label or date" },
+        "isAvailableForRent": { "type": "boolean", "description": "Whether the home is actively accepting visit inquiries" },
+        "location": { "type": "string", "description": "Neighborhood and city area" },
+        "fullAddressNote": { "type": "string", "description": "Optional street address shared when a visit is confirmed" },
+        "description": { "type": "string", "description": "Detailed property description and house rules" },
+        "amenities": { "type": "array", "description": "List of amenity keys (WIFI, AC, PARKING_CAR, etc.)" },
+        "imageUrl": { "type": "string", "description": "Primary compressed cover photo data URI" },
+        "imageUrls": { "type": "array", "description": "Up to 4 compressed room gallery photo data URIs" },
+        "photoLabels": { "type": "array", "description": "Room labels corresponding to imageUrls" },
+        "imageCount": { "type": "number", "description": "Number of attached gallery photos (0-4)" },
+        "latitude": { "type": "number", "description": "Property latitude coordinate" },
+        "longitude": { "type": "number", "description": "Property longitude coordinate" },
+        "ownerId": { "type": "string", "description": "UID of landlord who published the home" },
+        "ownerName": { "type": "string", "description": "Display name of landlord" },
+        "ownerInitials": { "type": "string", "description": "Landlord initials" },
+        "ownerBadge": { "type": "string", "description": "Landlord community trust badge" },
+        "rating": { "type": "number", "description": "Average property/landlord rating" },
+        "reviewCount": { "type": "number", "description": "Total review count" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp via serverTimestamp" }
+      },
+      "required": ["id", "title", "propertyType", "monthlyRent", "ownerId", "createdAt"]
+    },
+    "HouseVisitRequest": {
+      "title": "HouseVisitRequest",
+      "description": "Scheduled property tour and long-term rental inquiry between prospective tenant and landlord",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique visit request identifier" },
+        "houseId": { "type": "string", "description": "Target house listing ID" },
+        "houseTitle": { "type": "string", "description": "Title of the target house" },
+        "houseLocation": { "type": "string", "description": "Neighborhood of the target house" },
+        "monthlyRent": { "type": "number", "description": "Monthly rent snapshot in INR" },
+        "tenantId": { "type": "string", "description": "UID of prospective tenant" },
+        "tenantName": { "type": "string", "description": "Display name of prospective tenant" },
+        "landlordId": { "type": "string", "description": "UID of landlord" },
+        "landlordName": { "type": "string", "description": "Display name of landlord" },
+        "preferredDate": { "type": "string", "description": "Requested visit date (YYYY-MM-DD)" },
+        "preferredTimeSlot": { "type": "string", "description": "MORNING, AFTERNOON, or EVENING" },
+        "occupantsCount": { "type": "number", "description": "Number of prospective occupants" },
+        "householdType": { "type": "string", "description": "ANY, FAMILY, WORKING_PROFESSIONALS, or STUDENTS" },
+        "targetMoveInMonth": { "type": "string", "description": "Target move-in timeframe" },
+        "tenantNote": { "type": "string", "description": "Prospective tenant introduction note" },
+        "landlordResponseNote": { "type": "string", "description": "Landlord response or rescheduling note" },
+        "confirmedAddressNote": { "type": "string", "description": "Exact landmark or street directions shared on confirmation" },
+        "status": { "type": "string", "description": "REQUESTED, CONFIRMED, RESCHEDULE_SUGGESTED, COMPLETED, DECLINED, or CANCELLED" },
+        "conversationId": { "type": "string", "description": "Optional linked Studio Dispatch E2EE conversation ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp via serverTimestamp" }
+      },
+      "required": ["id", "houseId", "tenantId", "landlordId", "preferredDate", "preferredTimeSlot", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -207,6 +282,14 @@
     "/items/{itemId}": {
       "schema": "RentalItem",
       "description": "Equipment listings shared for community gear rental"
+    },
+    "/houses/{houseId}": {
+      "schema": "HouseListing",
+      "description": "Long-term monthly house rental listings"
+    },
+    "/visit_requests/{visitId}": {
+      "schema": "HouseVisitRequest",
+      "description": "Property visit requests and rental inquiries scoped to tenant and landlord"
     },
     "/community_posts/{postId}": {
       "schema": "CommunityEvent",

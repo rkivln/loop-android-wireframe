@@ -106,6 +106,9 @@ data class FirestoreConversation(
     val itemId: String? = null,
     val itemTitle: String? = null,
     val itemPricePerDay: Int? = null,
+    val houseId: String? = null,
+    val houseTitle: String? = null,
+    val houseMonthlyRent: Int? = null,
     val communityPostId: String? = null,
     val communityPostTitle: String? = null,
     val lastSenderId: String = "",
@@ -176,3 +179,67 @@ data class FirestoreBooking(
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )
+
+@IgnoreExtraProperties
+data class FirestoreHouseListing(
+    @DocumentId val id: String = "",
+    val title: String = "",
+    val propertyType: String = "APARTMENT",
+    val bhkCount: Int = 2,
+    val bathrooms: Int = 1,
+    val areaSqFt: Int = 950,
+    val floorNumber: Int = 1,
+    val totalFloors: Int = 2,
+    val furnishing: String = "SEMI_FURNISHED",
+    val tenantPreference: String = "ANY",
+    val monthlyRent: Int = 0,
+    val securityDeposit: Int = 0,
+    val maintenanceMonthly: Int = 0,
+    val minLeaseMonths: Int = 11,
+    val availableFromLabel: String = "Immediate",
+    val availableForRent: Boolean = true,
+    val location: String = "",
+    val fullAddressNote: String? = null,
+    val description: String = "",
+    val amenities: List<String> = emptyList(),
+    val imageUrl: String? = null,
+    val imageUrls: List<String> = emptyList(),
+    val photoLabels: List<String> = emptyList(),
+    val imageCount: Int = 0,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val ownerId: String = "",
+    val ownerName: String = "",
+    val ownerInitials: String = "",
+    val ownerBadge: String = "Verified Host",
+    val rating: Double = 0.0,
+    val reviewCount: Int = 0,
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+)
+
+@IgnoreExtraProperties
+data class FirestoreHouseVisitRequest(
+    @DocumentId val id: String = "",
+    val houseId: String = "",
+    val houseTitle: String = "",
+    val houseLocation: String = "",
+    val monthlyRent: Int = 0,
+    val tenantId: String = "",
+    val tenantName: String = "",
+    val landlordId: String = "",
+    val landlordName: String = "",
+    val preferredDate: String = "",
+    val preferredTimeSlot: String = "MORNING",
+    val occupantsCount: Int = 1,
+    val householdType: String = "ANY",
+    val targetMoveInMonth: String = "Immediate",
+    val tenantNote: String = "",
+    val landlordResponseNote: String = "",
+    val confirmedAddressNote: String = "",
+    val status: String = "REQUESTED",
+    val conversationId: String? = null,
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+)
+

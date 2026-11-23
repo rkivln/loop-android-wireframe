@@ -19,11 +19,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -76,13 +80,16 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.HouseRentalRepository
 import com.example.data.LocationHelper
 import com.example.data.RentalRepository
 import com.example.data.models.ChatMessageType
 import com.example.data.models.DisappearingMessageTimer
+import com.example.data.models.HouseListing
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalMessage
 import com.example.ui.components.MemberProfileModalSheet
@@ -135,11 +142,14 @@ fun MessagesScreen(
     initialConversationId: String? = null,
     onConversationSelected: (String?) -> Unit = {},
     onOpenItem: (RentalItem) -> Unit = {},
+    onOpenHouse: (HouseListing) -> Unit = {},
+    bottomBarPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val conversations by RentalRepository.conversationsFlow.collectAsStateWithLifecycle()
     val messagesMap by RentalRepository.activeConversationMessagesFlow.collectAsStateWithLifecycle()
     val allItems by RentalRepository.itemsFlow.collectAsStateWithLifecycle()
+    val allHouses by HouseRentalRepository.housesFlow.collectAsStateWithLifecycle()
     val currentProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
     val isConversationsLoading by RentalRepository.isConversationsLoadingFlow.collectAsStateWithLifecycle()
     val peerEncryptionStates by RentalRepository.peerEncryptionStatesFlow.collectAsStateWithLifecycle()
@@ -276,13 +286,16 @@ fun MessagesScreen(
             }
         }
 
+        val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+        val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val chatBottomClearance = maxOf(imeBottom, if (bottomBarPadding > 0.dp) bottomBarPadding else navBottom)
+
         Box(modifier = modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(PaperIvory)
-                    .navigationBarsPadding()
-                    .imePadding()
+                    .padding(bottom = chatBottomClearance)
             ) {
                 // Header
                 Row(
@@ -605,7 +618,50 @@ fun MessagesScreen(
                     }
                 }
 
-                if (activeConversation.itemContext == null && !activeConversation.communityPostTitle.isNullOrBlank()) {
+                if (activeConversation.itemContext == null && !activeConversation.houseTitle.isNullOrBlank()) {
+                    val liveHouse = activeConversation.houseId?.let { hid -> allHouses.find { it.id == hid } }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 22.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(PaperPureWhite)
+                            .border(1.dp, PaperBorderSubtle, RoundedCornerShape(14.dp))
+                            .then(
+                                if (liveHouse != null) Modifier.clickable { onOpenHouse(liveHouse) }
+                                else Modifier
+                            )
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                            .testTag("chat_house_context_card"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = activeConversation.houseTitle.orEmpty(),
+                                style = LoopType.Metadata.copy(fontWeight = FontWeight.SemiBold),
+                                color = InkCharcoal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            val rentLine = activeConversation.houseMonthlyRent?.let { "Long-term rental · ₹$it/mo" }
+                                ?: "Long-term house inquiry"
+                            Text(
+                                text = rentLine,
+                                style = LoopType.Metadata.copy(fontSize = 11.sp),
+                                color = InkSecondary
+                            )
+                        }
+                        if (liveHouse != null) {
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "View Home ›",
+                                style = LoopType.Metadata.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                                color = AccentForestGreen
+                            )
+                        }
+                    }
+                } else if (activeConversation.itemContext == null && !activeConversation.communityPostTitle.isNullOrBlank()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1011,6 +1067,7 @@ fun MessagesScreen(
             val matchesQuery = searchQuery.isBlank() ||
                 conv.owner.name.contains(searchQuery, ignoreCase = true) ||
                 (conv.itemContext?.title?.contains(searchQuery, ignoreCase = true) == true) ||
+                (conv.houseTitle?.contains(searchQuery, ignoreCase = true) == true) ||
                 (conv.communityPostTitle?.contains(searchQuery, ignoreCase = true) == true) ||
                 (conv.lastMessage?.text?.contains(searchQuery, ignoreCase = true) == true)
 
@@ -1196,7 +1253,12 @@ fun MessagesScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(
+                        start = 22.dp,
+                        end = 22.dp,
+                        top = 4.dp,
+                        bottom = 16.dp + bottomBarPadding
+                    ),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredConversations, key = { it.id }) { conv ->
@@ -1288,6 +1350,7 @@ fun MessagesScreen(
                                     val previewText = when {
                                         conv.isTyping -> "${conv.owner.name} is typing..."
                                         conv.lastMessage != null -> conv.lastMessage!!.text
+                                        !conv.houseTitle.isNullOrBlank() -> "House inquiry: ${conv.houseTitle}"
                                         !conv.itemContext?.title.isNullOrBlank() -> conv.itemContext!!.title
                                         !conv.communityPostTitle.isNullOrBlank() -> conv.communityPostTitle!!
                                         else -> "Tap to start chatting"

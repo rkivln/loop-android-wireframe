@@ -461,6 +461,7 @@ private fun CommunityActivityMapMarker(
         DiscoveryPinType.PICKUP_HUB -> AccentPowderBlue
         DiscoveryPinType.USER_HOST -> PaperPureWhite
         DiscoveryPinType.RENTAL_ITEM -> AccentMint
+        DiscoveryPinType.HOUSE_RENTAL -> AccentMint
     }
 
     Column(

@@ -548,3 +548,235 @@ test("Bookings: atomic batch create+lock succeeds via getAfter and prevents doub
   await assertSucceeds(cancelBatch.commit());
 });
 
+// 6. Long-term monthly house rentals (/houses) & visit requests (/visit_requests)
+test("Unauthenticated user: cannot read or write houses or visit_requests", async () => {
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  await assertFails(unauthDb.collection("houses").get());
+  await assertFails(unauthDb.collection("visit_requests").get());
+  await assertFails(unauthDb.collection("houses").doc("house_unauth").set({
+    id: "house_unauth",
+    title: "2 BHK Heritage Home",
+    propertyType: "APARTMENT",
+    monthlyRent: 22000,
+    ownerId: ALICE_UID,
+    createdAt: new Date(Date.now() - 1000),
+  }));
+});
+
+test("House listings: landlord can create, update, toggle favorites, and non-owners cannot edit or delete", async () => {
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const now = new Date(Date.now() - 2000);
+
+  // Invalid monthly rent below 1000 rejected
+  await assertFails(bobDb.collection("houses").doc("house_low_rent").set({
+    id: "house_low_rent",
+    title: "Too Cheap Room",
+    propertyType: "STUDIO",
+    monthlyRent: 500,
+    ownerId: BOB_UID,
+    createdAt: now,
+  }));
+
+  // Valid Kotlin-aligned house payload succeeds
+  await assertSucceeds(bobDb.collection("houses").doc("house_1").set({
+    id: "house_1",
+    title: "Sunlit 2 BHK Courtyard Apartment",
+    propertyType: "APARTMENT",
+    bhkCount: 2,
+    bathrooms: 2,
+    areaSqFt: 1120,
+    floorNumber: 1,
+    totalFloors: 3,
+    furnishing: "SEMI_FURNISHED",
+    tenantPreference: "ANY",
+    monthlyRent: 24000,
+    securityDeposit: 75000,
+    maintenanceMonthly: 1500,
+    minLeaseMonths: 11,
+    availableFromLabel: "Immediate",
+    isAvailableForRent: true,
+    location: "White Town, Puducherry",
+    description: "Airy French-quarter inspired 2 BHK near Promenade.",
+    amenities: ["WIFI", "PARKING_BIKE", "BALCONY"],
+    imageUrls: ["data:image/jpeg;base64,test"],
+    photoLabels: ["Living Room"],
+    imageCount: 1,
+    ownerId: BOB_UID,
+    ownerName: "Bob",
+    ownerInitials: "BO",
+    ownerBadge: "Verified Host",
+    rating: 0.0,
+    reviewCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  // Landlord can update rent & availability
+  await assertSucceeds(bobDb.collection("houses").doc("house_1").update({
+    monthlyRent: 23000,
+    isAvailableForRent: false,
+    updatedAt: new Date(Date.now() - 500),
+  }));
+
+  // Shadow update with extra/immutable field rejected
+  await assertFails(bobDb.collection("houses").doc("house_1").update({
+    ownerId: ALICE_UID,
+    updatedAt: new Date(Date.now() - 500),
+  }));
+
+  // Non-owner Alice cannot edit or delete Bob's house
+  await assertFails(aliceDb.collection("houses").doc("house_1").update({
+    monthlyRent: 12000,
+    updatedAt: new Date(Date.now() - 500),
+  }));
+  await assertFails(aliceDb.collection("houses").doc("house_1").delete());
+
+  // Alice can bookmark favoriteHouseIds on her profile
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).set({
+    userId: ALICE_UID,
+    displayName: "Alice",
+    email: "alice@test.com",
+    favoriteHouseIds: ["house_1"],
+    createdAt: now,
+  }));
+});
+
+test("House visit requests: dual-party scoping, state transitions, and third-party isolation", async () => {
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const charlieDb = testEnv.authenticatedContext(CHARLIE_UID).firestore();
+  const now = new Date(Date.now() - 3000);
+
+  await assertSucceeds(bobDb.collection("houses").doc("house_visit_1").set({
+    id: "house_visit_1",
+    title: "3 BHK Villa near Auroville Road",
+    propertyType: "VILLA",
+    bhkCount: 3,
+    monthlyRent: 36000,
+    securityDeposit: 100000,
+    ownerId: BOB_UID,
+    ownerName: "Bob",
+    isAvailableForRent: true,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  // Self-visit request by landlord fails
+  await assertFails(bobDb.collection("visit_requests").doc("visit_self").set({
+    id: "visit_self",
+    houseId: "house_visit_1",
+    tenantId: BOB_UID,
+    landlordId: BOB_UID,
+    preferredDate: "2026-12-01",
+    preferredTimeSlot: "MORNING",
+    status: "REQUESTED",
+    createdAt: now,
+  }));
+
+  // Creating visit for non-existent house fails
+  await assertFails(aliceDb.collection("visit_requests").doc("visit_orphan").set({
+    id: "visit_orphan",
+    houseId: "missing_house",
+    tenantId: ALICE_UID,
+    landlordId: BOB_UID,
+    preferredDate: "2026-12-01",
+    preferredTimeSlot: "MORNING",
+    status: "REQUESTED",
+    createdAt: now,
+  }));
+
+  // Valid parallel visit requests from Alice and Charlie succeed
+  await assertSucceeds(aliceDb.collection("visit_requests").doc("visit_alice").set({
+    id: "visit_alice",
+    houseId: "house_visit_1",
+    houseTitle: "3 BHK Villa near Auroville Road",
+    houseLocation: "Auroville Road",
+    monthlyRent: 36000,
+    tenantId: ALICE_UID,
+    tenantName: "Alice",
+    landlordId: BOB_UID,
+    landlordName: "Bob",
+    preferredDate: "2026-12-01",
+    preferredTimeSlot: "AFTERNOON",
+    occupantsCount: 2,
+    householdType: "FAMILY",
+    targetMoveInMonth: "January 2027",
+    tenantNote: "Looking for a quiet long-term 24-month lease.",
+    status: "REQUESTED",
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  await assertSucceeds(charlieDb.collection("visit_requests").doc("visit_charlie").set({
+    id: "visit_charlie",
+    houseId: "house_visit_1",
+    tenantId: CHARLIE_UID,
+    landlordId: BOB_UID,
+    preferredDate: "2026-12-02",
+    preferredTimeSlot: "EVENING",
+    status: "REQUESTED",
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  // Scoped queries succeed while unfiltered list query is denied
+  await assertSucceeds(
+    aliceDb.collection("visit_requests").where("tenantId", "==", ALICE_UID).get()
+  );
+  await assertSucceeds(
+    bobDb.collection("visit_requests").where("landlordId", "==", BOB_UID).get()
+  );
+  await assertFails(aliceDb.collection("visit_requests").get());
+
+  // Third party Charlie cannot read or update Alice's visit request
+  await assertFails(charlieDb.collection("visit_requests").doc("visit_alice").get());
+  await assertFails(charlieDb.collection("visit_requests").doc("visit_alice").update({
+    status: "CANCELLED",
+    updatedAt: new Date(Date.now() - 500),
+  }));
+
+  // Tenant Alice cannot self-confirm her own visit request
+  await assertFails(aliceDb.collection("visit_requests").doc("visit_alice").update({
+    status: "CONFIRMED",
+    updatedAt: new Date(Date.now() - 500),
+  }));
+
+  // Landlord Bob can confirm Alice's visit with address note
+  await assertSucceeds(bobDb.collection("visit_requests").doc("visit_alice").update({
+    status: "CONFIRMED",
+    landlordResponseNote: "See you at 3 PM.",
+    confirmedAddressNote: "Gate 14, opposite Botanical Corner.",
+    updatedAt: new Date(Date.now() - 500),
+  }));
+
+  // Landlord Bob can decline Charlie's visit, then terminal lock blocks further updates
+  await assertSucceeds(bobDb.collection("visit_requests").doc("visit_charlie").update({
+    status: "DECLINED",
+    landlordResponseNote: "Slot taken.",
+    updatedAt: new Date(Date.now() - 500),
+  }));
+  await assertFails(charlieDb.collection("visit_requests").doc("visit_charlie").update({
+    status: "REQUESTED",
+    updatedAt: new Date(Date.now() - 200),
+  }));
+
+  // House conversation context in Studio Dispatch succeeds
+  await assertSucceeds(aliceDb.collection("conversations").doc("conv_house_1").set({
+    id: "conv_house_1",
+    participantIds: [ALICE_UID, BOB_UID],
+    hostId: BOB_UID,
+    hostName: "Bob",
+    renterId: ALICE_UID,
+    renterName: "Alice",
+    houseId: "house_visit_1",
+    houseTitle: "3 BHK Villa near Auroville Road",
+    houseMonthlyRent: 36000,
+    lastMessageText: "Hi Bob, asking about the garden villa.",
+    lastMessageTimestamp: "Just now",
+    createdAt: now,
+    updatedAt: now,
+  }));
+});
+
+

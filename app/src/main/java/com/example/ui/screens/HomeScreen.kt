@@ -66,6 +66,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -113,6 +114,7 @@ fun HomeScreen(
     initialCommunityPostId: String? = null,
     onCommunityPostOpened: () -> Unit = {},
     isLocationGranted: Boolean = false,
+    bottomBarPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -160,7 +162,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .testTag("rental_items_list"),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp + bottomBarPadding),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             // Masthead Header

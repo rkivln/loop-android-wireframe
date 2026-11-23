@@ -156,6 +156,9 @@ data class ChatConversation(
     val id: String,
     val owner: RentalOwner,
     val itemContext: RentalItem?,
+    val houseId: String? = null,
+    val houseTitle: String? = null,
+    val houseMonthlyRent: Int? = null,
     val communityPostId: String? = null,
     val communityPostTitle: String? = null,
     val lastSenderId: String = "",
@@ -183,7 +186,8 @@ enum class DiscoveryPinType {
     RENTAL_ITEM,
     PICKUP_HUB,
     STUDY_GROUP,
-    HELP_REQUEST
+    HELP_REQUEST,
+    HOUSE_RENTAL
 }
 
 enum class MapCategoryFilter(
@@ -191,6 +195,7 @@ enum class MapCategoryFilter(
     val subtitle: String
 ) {
     ALL("All", "All neighborhood discoveries"),
+    HOUSES("Houses", "Long-term monthly homes"),
     STUDY_GROUPS("Study Groups", "Co-working & study tables"),
     HELP_NEEDED("Help Needed", "Gear setup & skill sharing"),
     LOCAL_EVENTS("Local Events", "Photowalks & gatherings"),
@@ -214,6 +219,7 @@ data class DiscoveryPinItem(
     val description: String,
     val owner: RentalOwner? = null,
     val rentalItem: RentalItem? = null,
+    val houseListing: HouseListing? = null,
     val communityPost: UserCommunityPost? = null,
     @DrawableRes val imageRes: Int? = null,
     val imageUrl: String? = null,

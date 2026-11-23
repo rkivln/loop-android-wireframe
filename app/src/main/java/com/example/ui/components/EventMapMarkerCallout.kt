@@ -225,10 +225,12 @@ fun EventMapMarkerCallout(
     modifier: Modifier = Modifier
 ) {
     val isRentalPin = pin.type == DiscoveryPinType.RENTAL_ITEM || pin.rentalItem != null
+    val isHousePin = pin.type == DiscoveryPinType.HOUSE_RENTAL || pin.houseListing != null
     val isCommunityPin = pin.type == DiscoveryPinType.COMMUNITY_EVENT ||
         pin.type == DiscoveryPinType.HELP_REQUEST ||
         pin.type == DiscoveryPinType.STUDY_GROUP
     val isOwnRental = pin.rentalItem?.owner?.id?.let { it.isNotBlank() && it == currentUserId } == true
+    val isOwnHouse = pin.houseListing?.owner?.id?.let { it.isNotBlank() && it == currentUserId } == true
     val isOwnCommunityPost = pin.communityPost?.authorId?.let { it.isNotBlank() && it == currentUserId } == true
     val isResolvedPost = pin.communityPost?.status == CommunityPostStatus.COMPLETED
 
@@ -261,7 +263,7 @@ fun EventMapMarkerCallout(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (isOwnRental || isOwnCommunityPost) {
+                    if (isOwnRental || isOwnHouse || isOwnCommunityPost) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(100.dp))
@@ -269,14 +271,19 @@ fun EventMapMarkerCallout(
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = if (isOwnRental) "YOUR LISTING" else "YOUR POST",
+                                text = when {
+                                    isOwnHouse -> "YOUR PROPERTY"
+                                    isOwnRental -> "YOUR LISTING"
+                                    else -> "YOUR POST"
+                                },
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                     } else if (pin.dateOrAvailability.isNotBlank()) {
                         val isUnavailable = pin.dateOrAvailability.equals("Booked", ignoreCase = true) ||
-                            pin.dateOrAvailability.equals("Paused", ignoreCase = true)
+                            pin.dateOrAvailability.equals("Paused", ignoreCase = true) ||
+                            pin.dateOrAvailability.equals("Rented Out", ignoreCase = true)
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(100.dp))
@@ -364,6 +371,30 @@ fun EventMapMarkerCallout(
                 }
 
                 when {
+                    isHousePin -> {
+                        Button(
+                            onClick = onViewDetailsClick,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("callout_view_house_btn")
+                        ) {
+                            Text(if (isOwnHouse) "Manage" else "View Home", maxLines = 1)
+                        }
+                        if (!isOwnHouse && pin.houseListing?.owner?.id?.isNotBlank() == true) {
+                            OutlinedButton(
+                                onClick = onMessageOwnerOrOrganizerClick,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("callout_message_landlord_btn")
+                            ) {
+                                Text("Message", maxLines = 1)
+                            }
+                        }
+                    }
                     isRentalPin -> {
                         Button(
                             onClick = onViewDetailsClick,

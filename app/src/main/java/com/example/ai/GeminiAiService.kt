@@ -90,6 +90,30 @@ sealed interface AiPhotoAutoFillUiState {
     data class Error(val message: String) : AiPhotoAutoFillUiState
 }
 
+data class AiHouseDraft(
+    val title: String,
+    val propertyTypeKey: String,
+    val furnishingKey: String,
+    val estimatedBhk: Int,
+    val estimatedAreaSqFt: Int,
+    val description: String,
+    val suggestedMonthlyRentInr: Int,
+    val recommendedDepositInr: Int,
+    val photoRoomLabels: List<String>
+)
+
+sealed interface AiHouseAutoFillUiState {
+    data object Idle : AiHouseAutoFillUiState
+    data class Loading(
+        val statusMessage: String = "Inspecting property rooms with Gemini..."
+    ) : AiHouseAutoFillUiState
+    data class Success(
+        val draft: AiHouseDraft,
+        val modelUsed: String = GeminiAiService.PRIMARY_MODEL
+    ) : AiHouseAutoFillUiState
+    data class Error(val message: String) : AiHouseAutoFillUiState
+}
+
 object GeminiAiService {
     private const val TAG = "GeminiAiService"
 
@@ -182,6 +206,60 @@ object GeminiAiService {
         Firebase.ai.generativeModel(
             modelName = LITE_FALLBACK_MODEL,
             generationConfig = listingGenerationConfig
+        )
+    }
+
+    private val houseDraftSchema = Schema.obj(
+        properties = mapOf(
+            "title" to Schema.string(
+                description = "Warm editorial 4 to 8 word house rental headline (e.g. 'Sunlit 2 BHK Courtyard Flat')"
+            ),
+            "propertyTypeKey" to Schema.enumeration(
+                values = listOf("APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "STUDIO", "SHARED_ROOM"),
+                description = "Matching residential property type key"
+            ),
+            "furnishingKey" to Schema.enumeration(
+                values = listOf("UNFURNISHED", "SEMI_FURNISHED", "FULLY_FURNISHED"),
+                description = "Observed furnishing state from attached room photos"
+            ),
+            "estimatedBhk" to Schema.integer(
+                description = "Estimated bedroom count (0 for Studio, 1-5 otherwise)"
+            ),
+            "estimatedAreaSqFt" to Schema.integer(
+                description = "Estimated interior area in square feet"
+            ),
+            "description" to Schema.string(
+                description = "2 to 3 honest sentences describing light, room layout, furnishing, and neighborhood livability visible in the photos"
+            ),
+            "suggestedMonthlyRentInr" to Schema.integer(
+                description = "Realistic long-term monthly rent in Indian Rupees (INR) for Puducherry / Indian coastal neighborhoods"
+            ),
+            "recommendedDepositInr" to Schema.integer(
+                description = "Recommended refundable security deposit in INR (typically 3-5x monthly rent)"
+            ),
+            "photoRoomLabels" to Schema.array(
+                items = Schema.string(),
+                description = "Short room label for each attached photo (e.g. Living Room, Bedroom, Kitchen, Exterior)"
+            )
+        )
+    )
+
+    private val houseGenerationConfig = generationConfig {
+        responseMimeType = "application/json"
+        responseSchema = houseDraftSchema
+    }
+
+    private val primaryHouseModel by lazy {
+        Firebase.ai.generativeModel(
+            modelName = PRIMARY_MODEL,
+            generationConfig = houseGenerationConfig
+        )
+    }
+
+    private val liteHouseModel by lazy {
+        Firebase.ai.generativeModel(
+            modelName = LITE_FALLBACK_MODEL,
+            generationConfig = houseGenerationConfig
         )
     }
 
@@ -451,6 +529,106 @@ object GeminiAiService {
             throw c
         } catch (e: Exception) {
             Log.e(TAG, "Gemini photo analysis failed", e)
+            Result.failure(Exception(formatFriendlyError(e, isPhoto = true), e))
+        }
+    }
+
+    suspend fun analyzeHousePhotosForListing(
+        photos: List<Bitmap>,
+        existingTitle: String = "",
+        neighborhoodHint: String = "",
+        onStatusUpdate: (String) -> Unit = {}
+    ): Result<AiHouseDraft> {
+        if (photos.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Attach at least one property photo to scan."))
+        }
+
+        val promptText = buildString {
+            appendLine("You are a residential rental curator for Loop, a Puducherry & Indian neighborhood housing community.")
+            appendLine("Inspect the attached room/exterior photos carefully and create an honest long-term monthly rental draft.")
+            appendLine("Do not invent amenities not supported by the photos.")
+            if (existingTitle.isNotBlank()) {
+                appendLine("Landlord's title note: $existingTitle")
+            }
+            if (neighborhoodHint.isNotBlank()) {
+                appendLine("Neighborhood: $neighborhoodHint")
+            }
+        }
+
+        return try {
+            onStatusUpdate("Analyzing rooms & monthly rent with Gemini...")
+            val (rawJson, _) = withContext(Dispatchers.IO) {
+                val preparedPhotos = photos.take(4).map { bmp ->
+                    PhotoBitmapProcessor.prepareBitmapForAi(bmp, maxEdge = 640)
+                }
+                val fallbackCover by lazy {
+                    PhotoBitmapProcessor.prepareBitmapForAi(photos.first(), maxEdge = 512)
+                }
+
+                executeWithLiteFallback(
+                    primaryTimeoutMs = PHOTO_PRIMARY_TIMEOUT_MS,
+                    fallbackTimeoutMs = PHOTO_FALLBACK_TIMEOUT_MS,
+                    onStatusUpdate = { status ->
+                        withContext(Dispatchers.Main) { onStatusUpdate(status) }
+                    },
+                    onRefreshToken = { refreshAppCheckTokenBestEffort() },
+                    primaryCall = {
+                        val multimodal = content {
+                            text(promptText)
+                            preparedPhotos.forEach { image(it) }
+                        }
+                        val response = primaryHouseModel.generateContent(multimodal)
+                        response.text?.takeIf { it.isNotBlank() }
+                            ?: throw IllegalStateException("Gemini returned an empty response.")
+                    },
+                    fallbackCall = {
+                        val litePrompt = content {
+                            text(promptText)
+                            image(fallbackCover)
+                        }
+                        val response = liteHouseModel.generateContent(litePrompt)
+                        response.text?.takeIf { it.isNotBlank() }
+                            ?: throw IllegalStateException("Gemini Lite returned an empty response.")
+                    }
+                )
+            }
+
+            val json = JSONObject(rawJson)
+            val labelsJson = json.optJSONArray("photoRoomLabels")
+            val labels = buildList {
+                if (labelsJson != null) {
+                    for (i in 0 until labelsJson.length()) {
+                        val lbl = labelsJson.optString(i).trim()
+                        if (lbl.isNotBlank()) add(lbl.take(30))
+                    }
+                }
+            }
+            val rent = json.optInt("suggestedMonthlyRentInr", 18000).coerceIn(3000, 300000)
+            val deposit = json.optInt("recommendedDepositInr", rent * 3).coerceIn(0, 1500000)
+            Result.success(
+                AiHouseDraft(
+                    title = json.optString("title", "").trim().ifBlank {
+                        existingTitle.ifBlank { "Sunlit Neighborhood Home" }
+                    },
+                    propertyTypeKey = json.optString("propertyTypeKey", "APARTMENT").trim(),
+                    furnishingKey = json.optString("furnishingKey", "SEMI_FURNISHED").trim(),
+                    estimatedBhk = json.optInt("estimatedBhk", 2).coerceIn(0, 8),
+                    estimatedAreaSqFt = json.optInt("estimatedAreaSqFt", 950).coerceIn(200, 10000),
+                    description = json.optString("description", "").trim().ifBlank {
+                        "Bright long-term rental ready for scheduled walkthrough visits."
+                    },
+                    suggestedMonthlyRentInr = rent,
+                    recommendedDepositInr = deposit,
+                    photoRoomLabels = labels
+                )
+            )
+        } catch (t: TimeoutCancellationException) {
+            Log.e(TAG, "Gemini house photo analysis timed out", t)
+            Result.failure(Exception(formatFriendlyError(t, isPhoto = true), t))
+        } catch (c: CancellationException) {
+            throw c
+        } catch (e: Exception) {
+            Log.e(TAG, "Gemini house photo analysis failed", e)
             Result.failure(Exception(formatFriendlyError(e, isPhoto = true), e))
         }
     }

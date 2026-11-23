@@ -9,6 +9,7 @@ import com.example.data.models.ChatMessageType
 import com.example.data.models.ChatPrivacySettings
 import com.example.data.models.CommunityPostStatus
 import com.example.data.models.CommunityPostType
+import com.example.data.models.HouseListing
 import com.example.data.models.LocationSharingPreference
 import com.example.data.models.MessageStatus
 import com.example.data.models.NotificationPreferences
@@ -48,6 +49,8 @@ class FirestoreService(
 
     private val auth = Firebase.auth
 
+    val housesDataSource by lazy { HouseFirestoreDataSource(firestore) }
+
     fun requireUserId(): String {
         return auth.currentUser?.uid
             ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
@@ -75,6 +78,8 @@ class FirestoreService(
         val badgesList = (snapshot.get("badges") as? List<*>)?.mapNotNull { it?.toString() }
             ?: emptyList()
         val favoritesList = (snapshot.get("favoriteItemIds") as? List<*>)?.mapNotNull { it?.toString() }
+            ?: emptyList()
+        val favoriteHousesList = (snapshot.get("favoriteHouseIds") as? List<*>)?.mapNotNull { it?.toString() }
             ?: emptyList()
 
         @Suppress("UNCHECKED_CAST")
@@ -134,6 +139,7 @@ class FirestoreService(
             memberSince = snapshot.getString("memberSince") ?: "",
             badges = badgesList,
             favoriteItemIds = favoritesList,
+            favoriteHouseIds = favoriteHousesList,
             legacyResetVersion = snapshot.getLong("legacyResetVersion")?.toInt() ?: 0,
             fcmToken = snapshot.getString("fcmToken") ?: "",
             e2eePublicKey = snapshot.getString("e2eePublicKey") ?: "",
@@ -229,6 +235,7 @@ class FirestoreService(
                 "memberSince" to profile.memberSince,
                 "badges" to profile.badges,
                 "favoriteItemIds" to profile.favoriteItemIds,
+                "favoriteHouseIds" to profile.favoriteHouseIds,
                 "legacyResetVersion" to profile.legacyResetVersion,
                 "fcmToken" to profile.fcmToken.takeIf { it.isNotBlank() },
                 "e2eePublicKey" to profile.e2eePublicKey.takeIf { it.isNotBlank() },
@@ -974,10 +981,17 @@ class FirestoreService(
                         val disappearingSecs = doc.getLong("disappearingTimerSeconds") ?: 0L
                         val e2eeEnabled = doc.getBoolean("e2eeEnabled") ?: true
 
+                        val houseId = doc.getString("houseId")?.takeIf { it.isNotBlank() }
+                        val houseTitle = doc.getString("houseTitle")?.takeIf { it.isNotBlank() }
+                        val houseMonthlyRent = doc.getLong("houseMonthlyRent")?.toInt()
+
                         ChatConversation(
                             id = doc.id,
                             owner = counterparty,
                             itemContext = itemContext,
+                            houseId = houseId,
+                            houseTitle = houseTitle,
+                            houseMonthlyRent = houseMonthlyRent,
                             communityPostId = doc.getString("communityPostId")?.takeIf { it.isNotBlank() },
                             communityPostTitle = doc.getString("communityPostTitle")?.takeIf { it.isNotBlank() },
                             lastSenderId = lastSenderId,
@@ -1007,6 +1021,7 @@ class FirestoreService(
     suspend fun createOrGetConversation(
         host: RentalOwner,
         item: RentalItem? = null,
+        houseListing: HouseListing? = null,
         communityPost: UserCommunityPost? = null,
         customConversationId: String? = null,
         defaultDisappearingSeconds: Long = 0L,
@@ -1026,6 +1041,7 @@ class FirestoreService(
         }
         val contextSuffix = when {
             item != null -> item.id.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+            houseListing != null -> houseListing.id.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
             communityPost != null -> communityPost.id.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
             else -> "general"
         }
@@ -1050,11 +1066,13 @@ class FirestoreService(
                             ?: emptyList()
                         val sameParticipants = cleanHostId in participants && uid in participants
                         val sameItem = item?.id != null && d.getString("itemId") == item.id
+                        val sameHouse = houseListing?.id != null && d.getString("houseId") == houseListing.id
                         val samePost = communityPost?.id != null && d.getString("communityPostId") == communityPost.id
-                        val sameGeneral = item == null && communityPost == null &&
+                        val sameGeneral = item == null && houseListing == null && communityPost == null &&
                             d.getString("itemId").isNullOrBlank() &&
+                            d.getString("houseId").isNullOrBlank() &&
                             d.getString("communityPostId").isNullOrBlank()
-                        sameParticipants && (sameItem || samePost || sameGeneral)
+                        sameParticipants && (sameItem || sameHouse || samePost || sameGeneral)
                     }
                     if (matchingExisting != null) {
                         val existingHostId = matchingExisting.getString("hostId") ?: cleanHostId
@@ -1078,6 +1096,9 @@ class FirestoreService(
                                 id = matchingExisting.id,
                                 owner = otherOwner,
                                 itemContext = item,
+                                houseId = houseListing?.id ?: matchingExisting.getString("houseId"),
+                                houseTitle = houseListing?.title ?: matchingExisting.getString("houseTitle"),
+                                houseMonthlyRent = houseListing?.monthlyRent ?: matchingExisting.getLong("houseMonthlyRent")?.toInt(),
                                 communityPostId = communityPost?.id ?: matchingExisting.getString("communityPostId"),
                                 communityPostTitle = communityPost?.title ?: matchingExisting.getString("communityPostTitle"),
                                 lastSenderId = matchingExisting.getString("lastSenderId").orEmpty(),
@@ -1094,6 +1115,7 @@ class FirestoreService(
 
                 val initialText = when {
                     item != null -> "Inquiry about ${item.title}"
+                    houseListing != null -> "House inquiry: ${houseListing.title}"
                     communityPost != null -> "Message about ${communityPost.title}"
                     else -> "Conversation started"
                 }
@@ -1111,6 +1133,9 @@ class FirestoreService(
                     "itemId" to item?.id,
                     "itemTitle" to item?.title,
                     "itemPricePerDay" to item?.pricePerDay,
+                    "houseId" to houseListing?.id,
+                    "houseTitle" to houseListing?.title,
+                    "houseMonthlyRent" to houseListing?.monthlyRent,
                     "communityPostId" to communityPost?.id,
                     "communityPostTitle" to communityPost?.title,
                     "lastSenderId" to "",
@@ -1134,6 +1159,9 @@ class FirestoreService(
                         id = convId,
                         owner = host.copy(id = cleanHostId),
                         itemContext = item,
+                        houseId = houseListing?.id,
+                        houseTitle = houseListing?.title,
+                        houseMonthlyRent = houseListing?.monthlyRent,
                         communityPostId = communityPost?.id,
                         communityPostTitle = communityPost?.title,
                         isOnline = true,
@@ -1152,6 +1180,9 @@ class FirestoreService(
                     id = convId,
                     owner = host.copy(id = cleanHostId),
                     itemContext = item,
+                    houseId = houseListing?.id ?: existingSnap.getString("houseId"),
+                    houseTitle = houseListing?.title ?: existingSnap.getString("houseTitle"),
+                    houseMonthlyRent = houseListing?.monthlyRent ?: existingSnap.getLong("houseMonthlyRent")?.toInt(),
                     communityPostId = communityPost?.id,
                     communityPostTitle = communityPost?.title,
                     lastSenderId = existingSnap.getString("lastSenderId").orEmpty(),

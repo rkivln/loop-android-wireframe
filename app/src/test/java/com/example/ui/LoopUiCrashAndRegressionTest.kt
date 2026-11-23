@@ -2,13 +2,18 @@ package com.example.ui
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,12 +29,16 @@ import com.example.data.models.RentalCategory
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
 import com.example.data.models.SpecFeature
+import com.example.data.models.UserProfile
 import com.example.ui.auth.WelcomeScreen
+import com.example.ui.components.BottomNavBar
 import com.example.ui.components.EditorialTopBar
+import com.example.ui.components.LoopTab
 import com.example.ui.components.UserAvatar
 import com.example.ui.screens.BookingScreen
 import com.example.ui.screens.CreateListingScreen
 import com.example.ui.screens.DiscoveryMapScreen
+import com.example.ui.screens.EditProfileModalSheet
 import com.example.ui.screens.EditProfileScreen
 import com.example.ui.screens.ExploreScreen
 import com.example.ui.screens.ItemDetailsScreen
@@ -299,5 +308,102 @@ class LoopUiCrashAndRegressionTest {
             currentScreenIndex = screenIndex
             composeRule.waitForIdle()
         }
+    }
+
+    @Test
+    fun liquidGlassBottomNavBar_rendersTabsAndSwitchesSmoothlyInLightAndDarkTheme() {
+        var activeTab by mutableStateOf(LoopTab.CATALOG)
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        var publishTriggered = false
+
+        composeRule.setContent {
+            LoopTheme(appearanceMode = appearance) {
+                BottomNavBar(
+                    currentTab = activeTab,
+                    unreadCount = 3,
+                    onTabSelected = { tab ->
+                        if (tab == LoopTab.PUBLISH) {
+                            publishTriggered = true
+                        } else {
+                            activeTab = tab
+                        }
+                    }
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("bottom_nav_bar").assertIsDisplayed()
+        LoopTab.entries.forEach { tab ->
+            composeRule.onNodeWithTag(tab.testTag)
+                .assertIsDisplayed()
+                .assertHeightIsAtLeast(48.dp)
+        }
+
+        // Switch tabs via tap (triggers spring jelly capsule transition)
+        composeRule.onNodeWithTag(LoopTab.PROFILE.testTag).performClick()
+        composeRule.waitForIdle()
+        assertTrue(activeTab == LoopTab.PROFILE)
+
+        composeRule.onNodeWithTag(LoopTab.OBJECTS.testTag).performClick()
+        composeRule.waitForIdle()
+        assertTrue(activeTab == LoopTab.OBJECTS)
+
+        composeRule.onNodeWithTag(LoopTab.PUBLISH.testTag).performClick()
+        composeRule.waitForIdle()
+        assertTrue(publishTriggered)
+
+        // Verify Dark mode rendering
+        appearance = AppearanceMode.DARK
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag(LoopTab.STUDIO.testTag).performClick()
+        composeRule.waitForIdle()
+        assertTrue(activeTab == LoopTab.STUDIO)
+    }
+
+    @Test
+    fun editProfileModalSheet_saveButtonClearsFloatingBottomNavBarAndTriggersSave() {
+        var savedProfile: UserProfile? = null
+        val initialProfile = UserProfile(
+            uid = "user_1",
+            displayName = "GOKULAN",
+            bio = "Creator & Developer - LOOP",
+            location = "Pangur"
+        )
+
+        composeRule.setContent {
+            LoopTheme {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    EditProfileModalSheet(
+                        currentProfile = initialProfile,
+                        bottomBarPadding = 86.dp,
+                        onSave = { savedProfile = it },
+                        onDismiss = {}
+                    )
+                    BottomNavBar(
+                        currentTab = LoopTab.PROFILE,
+                        onTabSelected = {},
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
+            }
+        }
+
+        composeRule.waitForIdle()
+        val saveBounds = composeRule.onNodeWithTag("save_profile_button")
+            .assertIsDisplayed()
+            .getBoundsInRoot()
+        val navBounds = composeRule.onNodeWithTag("bottom_nav_bar")
+            .assertIsDisplayed()
+            .getBoundsInRoot()
+
+        assertTrue(
+            "Save button bottom (${saveBounds.bottom}) must sit above bottom nav top (${navBounds.top})",
+            saveBounds.bottom <= navBounds.top
+        )
+
+        composeRule.onNodeWithTag("save_profile_button").performClick()
+        composeRule.waitForIdle()
+        assertTrue(savedProfile?.displayName == "GOKULAN")
     }
 }

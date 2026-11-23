@@ -52,6 +52,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsBike
@@ -96,6 +97,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -105,6 +107,7 @@ import com.example.data.LocationHelper
 import com.example.data.RentalRepository
 import com.example.data.models.DiscoveryPinItem
 import com.example.data.models.DiscoveryPinType
+import com.example.data.models.HouseListing
 import com.example.data.models.MapCategoryFilter
 import com.example.data.models.RentalItem
 import com.example.data.models.RentalOwner
@@ -164,8 +167,12 @@ fun DiscoveryMapScreen(
     onItemClick: (RentalItem) -> Unit,
     onContactOwner: (RentalOwner) -> Unit,
     onContactHostWithItem: (RentalOwner, RentalItem?) -> Unit = { owner, _ -> onContactOwner(owner) },
+    onHouseClick: (HouseListing) -> Unit = {},
+    onMessageLandlord: (HouseListing) -> Unit = {},
     onMessageOrganizer: (UserCommunityPost) -> Unit = {},
     onPublishPiece: () -> Unit = {},
+    initialFilter: MapCategoryFilter = MapCategoryFilter.ALL,
+    bottomOverlayPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -173,7 +180,7 @@ fun DiscoveryMapScreen(
     val allPins by RentalRepository.discoveryPinsFlow.collectAsStateWithLifecycle()
     val userProfile by RentalRepository.userProfileFlow.collectAsStateWithLifecycle()
 
-    var selectedCategoryFilter by remember { mutableStateOf(MapCategoryFilter.ALL) }
+    var selectedCategoryFilter by remember(initialFilter) { mutableStateOf(initialFilter) }
     var selectedPin by remember { mutableStateOf<DiscoveryPinItem?>(null) }
 
     var userLat by remember { mutableStateOf<Double?>(null) }
@@ -248,6 +255,9 @@ fun DiscoveryMapScreen(
     val filteredPins = remember(selectedCategoryFilter, allPins) {
         when (selectedCategoryFilter) {
             MapCategoryFilter.ALL -> allPins
+            MapCategoryFilter.HOUSES -> allPins.filter {
+                it.filterCategory == MapCategoryFilter.HOUSES || it.type == DiscoveryPinType.HOUSE_RENTAL
+            }
             MapCategoryFilter.STUDY_GROUPS -> allPins.filter {
                 it.filterCategory == MapCategoryFilter.STUDY_GROUPS || it.type == DiscoveryPinType.STUDY_GROUP
             }
@@ -544,6 +554,37 @@ fun DiscoveryMapScreen(
                             )
                         }
                     }
+                    DiscoveryPinType.HOUSE_RENTAL -> {
+                        Box(
+                            modifier = Modifier
+                                .size(if (isSelected) 46.dp else 40.dp)
+                                .clip(CircleShape)
+                                .background(AccentMint)
+                                .border(
+                                    2.5.dp,
+                                    if (isSelected) AccentWarmYellow else AccentForestGreen,
+                                    CircleShape
+                                )
+                                .clickable {
+                                    selectedPin = pin
+                                    val pinIndex = filteredPins.indexOf(pin)
+                                    if (pinIndex >= 0) {
+                                        coroutineScope.launch {
+                                            carouselState.animateScrollToItem(pinIndex)
+                                        }
+                                    }
+                                }
+                                .testTag("map_marker_${pin.id}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Apartment,
+                                contentDescription = "House for rent",
+                                tint = AccentForestGreen,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    }
                     else -> {
                         ProfileMarker(
                             initials = pin.title.take(2).uppercase(),
@@ -574,7 +615,13 @@ fun DiscoveryMapScreen(
                     .align(Alignment.BottomCenter)
                     .zIndex(1f)
                     .fillMaxWidth()
-                    .navigationBarsPadding()
+                    .then(
+                        if (bottomOverlayPadding > 0.dp) {
+                            Modifier.padding(bottom = bottomOverlayPadding)
+                        } else {
+                            Modifier.navigationBarsPadding()
+                        }
+                    )
                     .padding(horizontal = 20.dp, vertical = 16.dp)
                     .clip(RoundedCornerShape(22.dp))
                     .background(PaperPureWhite.copy(alpha = 0.96f))
@@ -623,7 +670,13 @@ fun DiscoveryMapScreen(
                     .align(Alignment.BottomCenter)
                     .zIndex(1f)
                     .fillMaxWidth()
-                    .navigationBarsPadding()
+                    .then(
+                        if (bottomOverlayPadding > 0.dp) {
+                            Modifier.padding(bottom = bottomOverlayPadding)
+                        } else {
+                            Modifier.navigationBarsPadding()
+                        }
+                    )
                     .padding(bottom = 10.dp)
             ) {
                 // Reusable UI Component that appears when a user clicks a map marker
@@ -648,14 +701,15 @@ fun DiscoveryMapScreen(
                                 RentalRepository.rsvpToCommunityPost(pin.id)
                             },
                             onViewDetailsClick = {
-                                if (pin.rentalItem != null) {
-                                    onItemClick(pin.rentalItem)
-                                } else if (pin.owner != null) {
-                                    onContactOwner(pin.owner)
+                                when {
+                                    pin.houseListing != null -> onHouseClick(pin.houseListing)
+                                    pin.rentalItem != null -> onItemClick(pin.rentalItem)
+                                    pin.owner != null -> onContactOwner(pin.owner)
                                 }
                             },
                             onMessageOwnerOrOrganizerClick = {
                                 when {
+                                    pin.houseListing != null -> onMessageLandlord(pin.houseListing)
                                     pin.rentalItem != null -> onContactHostWithItem(pin.rentalItem.owner, pin.rentalItem)
                                     pin.communityPost != null -> onMessageOrganizer(pin.communityPost)
                                     pin.owner != null -> onContactOwner(pin.owner)
@@ -695,7 +749,7 @@ fun DiscoveryMapScreen(
                                         DiscoveryPinType.PICKUP_HUB -> AccentForestGreen
                                         DiscoveryPinType.STUDY_GROUP -> AccentPowderBlue
                                         DiscoveryPinType.HELP_REQUEST -> AccentPeach
-                                        DiscoveryPinType.COMMUNITY_EVENT -> AccentMint
+                                        DiscoveryPinType.COMMUNITY_EVENT, DiscoveryPinType.HOUSE_RENTAL -> AccentMint
                                         else -> PaperIvory
                                     }
                                     Box(
@@ -711,6 +765,7 @@ fun DiscoveryMapScreen(
                                                 DiscoveryPinType.STUDY_GROUP -> Icons.Default.MenuBook
                                                 DiscoveryPinType.HELP_REQUEST -> Icons.Default.Handshake
                                                 DiscoveryPinType.COMMUNITY_EVENT -> Icons.Default.PhotoCamera
+                                                DiscoveryPinType.HOUSE_RENTAL -> Icons.Default.Apartment
                                                 else -> Icons.Default.NearMe
                                             },
                                             contentDescription = null,
