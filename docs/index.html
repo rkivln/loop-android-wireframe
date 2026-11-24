@@ -426,6 +426,301 @@ footer{border-radius:24px 24px 0 0!important}
   .hero .hero-actions{width:100%;flex-direction:column}
   .hero .hero-actions a{width:100%;max-width:280px}
 }
+
+
+/* Figma-inspired design system from getdesign.md/figma — applied to LOOP */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --paper:#ffffff;--ink:#000000;--muted:#333333;--line:#e6e6e6;
+  --coral:#f3c9b6;--archive-paper:#ffffff;--archive-ink:#000000;
+  --archive-clay:#000000;--archive-olive:#626262;--archive-cream:#f7f7f5;
+  --md-primary:#000000;--md-on-primary:#ffffff;--md-primary-container:#f4ecd6;
+  --md-on-primary-container:#000000;--md-secondary:#626262;--md-secondary-container:#dceeb1;
+  --md-surface:#ffffff;--md-surface-2:#f7f7f5;--md-outline:#e6e6e6;
+  --md-shadow:0 4px 16px rgba(0,0,0,.06);
+  --figma-lime:#dceeb1;--figma-lilac:#c5b0f4;--figma-cream:#f4ecd6;
+  --figma-pink:#efd4d4;--figma-mint:#c8e6cd;--figma-coral:#f3c9b6;--figma-navy:#1f1d3d;
+  --sans:'Inter',system-ui,Arial,sans-serif;
+}
+html,body{background:#fff!important;color:#000!important;font-family:var(--sans)!important}
+body{letter-spacing:-.01em}
+.wrap{width:min(1180px,calc(100% - 48px))}
+.nav{height:76px;border-bottom:1px solid var(--line)}
+.brand,.foot-brand{font-family:var(--sans)!important;font-weight:800;letter-spacing:-.06em;color:#000}
+.brand span,.foot-brand span{color:#000}
+.navlinks{font-size:13px;color:#111;font-weight:500}
+.navlinks a:hover,footer a:hover{color:#666}
+.nav-cta,.pill,.star-btn,.download-primary,.github-nav,.ghost,.outline-link,.download-secondary{
+  min-height:46px;border-radius:999px!important;font-family:var(--sans)!important;
+  font-size:14px;font-weight:600;letter-spacing:-.01em;box-shadow:none!important;
+}
+.nav-cta,.pill,.star-btn,.download-primary{background:#000!important;color:#fff!important;border:1px solid #000!important;padding:0 23px}
+.nav-cta:hover,.pill:hover,.star-btn:hover,.download-primary:hover{background:#333!important;border-color:#333!important;transform:translateY(-1px)}
+.github-nav,.ghost,.outline-link,.download-secondary{background:#fff!important;color:#000!important;border:1px solid #000!important;padding:0 20px}
+.github-nav:hover,.ghost:hover,.outline-link:hover,.download-secondary:hover{background:#f7f7f5!important}
+.hero{
+  min-height:610px!important;padding:90px 28px!important;border-radius:28px!important;
+  background:#fff!important;border:0!important;box-shadow:none!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+}
+.hero:before,.hero:after{display:none!important}
+.hero-copy{width:min(100%,850px)!important;max-width:850px!important;text-align:center!important;align-items:center!important}
+.hero .eyebrow,.section-kicker{font-family:'JetBrains Mono',monospace!important;font-size:11px!important;font-weight:500!important;letter-spacing:.12em!important;text-transform:uppercase;color:#444!important}
+.hero h1{font-family:var(--sans)!important;font-size:clamp(54px,8vw,94px)!important;font-weight:400!important;line-height:1.02!important;letter-spacing:-.075em!important;color:#000!important;max-width:850px!important;margin:22px 0!important}
+.hero p{font-family:var(--sans)!important;font-size:clamp(16px,2vw,20px)!important;font-weight:350!important;line-height:1.5!important;letter-spacing:-.025em!important;color:#222!important;max-width:620px!important}
+.hero .hero-actions{margin-top:34px!important;gap:12px!important}
+.hero .hero-actions .hero-download{min-height:54px!important;padding:0 26px!important;background:#000!important;color:#fff!important;border:1px solid #000!important;border-radius:999px!important;box-shadow:none!important}
+.hero .hero-actions .ghost{min-height:54px!important;border-radius:999px!important;background:#fff!important;color:#000!important;border:1px solid #000!important}
+section{padding:96px 0!important}
+.section-title,.copy h2,.download-panel h2,.release-card h3,.panel h3,.step h3,.price-card h3,.cta h2{
+  font-family:var(--sans)!important;color:#000!important;letter-spacing:-.06em!important;font-weight:550!important
+}
+.section-title{font-size:clamp(34px,5vw,58px)!important;line-height:1.08!important}
+.section-desc,.copy p,.panel p,.release-card p,.release-card li{color:#222!important;font-size:15px!important;line-height:1.65!important}
+.person,.category,.app-tile,.price-card,.release-card,.download-panel,.release-band,.step,.panel,.showcase,.community-abstract{
+  border-radius:24px!important;box-shadow:none!important;border-color:#e6e6e6!important
+}
+.person,.category,.app-tile,.price-card,.release-card,.download-panel,.release-band{background:#fff!important}
+.person:hover,.category:hover,.app-tile:hover,.price-card:hover,.release-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.06)!important;border-color:#ccc!important}
+.category:nth-child(4n+1),.app-tile:nth-child(4n+1){background:var(--figma-lime)!important}
+.category:nth-child(4n+2),.app-tile:nth-child(4n+2){background:var(--figma-lilac)!important}
+.category:nth-child(4n+3),.app-tile:nth-child(4n+3){background:var(--figma-cream)!important}
+.category:nth-child(4n),.app-tile:nth-child(4n){background:var(--figma-mint)!important}
+.panel.blue,.steps .step:nth-child(1){background:var(--figma-lilac)!important;color:#000!important}
+.panel.yellow,.steps .step:nth-child(2){background:var(--figma-cream)!important;color:#000!important}
+.panel.green,.steps .step:nth-child(3){background:var(--figma-mint)!important;color:#000!important}
+.panel p,.step p{color:#222!important}
+.showcase{background:var(--figma-pink)!important}
+.community-abstract{background:var(--figma-cream)!important}
+.community-art:before{background:var(--figma-lilac)!important}
+.loop-core{background:#000!important}
+.cta{background:var(--figma-lime)!important;border-radius:28px!important;box-shadow:none!important}
+.cta:before{color:rgba(0,0,0,.045)!important}
+.cta h2{color:#000!important;font-size:clamp(36px,5vw,58px)!important}
+.cta p{color:#222!important}
+.price-card.dark,.repo-callout{background:var(--figma-navy)!important;color:#fff!important;border-color:var(--figma-navy)!important}
+.price-card.dark h3,.price-card.dark .price,.repo-callout h3{color:#fff!important}
+.price-card.dark p,.repo-callout p,.repo-stats span{color:#eee!important}
+footer{background:#000!important;color:#fff!important;border-radius:24px 24px 0 0!important;box-shadow:none!important}
+footer p,footer li,footer h4,.foot-bottom{color:#eee!important}
+.foot-brand{color:#fff!important}.foot-brand span{color:var(--figma-lilac)!important}
+.foot-social a{border-color:#666!important;color:#fff!important}
+.download-panel{box-shadow:none!important;border:1px solid #e6e6e6!important}
+.platform-chip{background:#f7f7f5!important;border-color:#e6e6e6!important;color:#222!important}
+@media(max-width:760px){
+ .wrap{width:calc(100% - 32px)!important}.nav{height:68px!important}
+ .hero{min-height:500px!important;padding:76px 20px!important;border-radius:22px!important}
+ .hero h1{font-size:clamp(44px,11vw,66px)!important;letter-spacing:-.07em!important}
+ .hero p{font-size:15px!important}.hero .hero-actions{flex-wrap:wrap!important}
+ section{padding:72px 0!important}.section-title{font-size:clamp(32px,8vw,44px)!important}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+
+/* LOOP premium muted palette — preserve pure black/white foundations */
+:root{
+  --paper:#FFFFFF; --ink:#000000; --muted:#333333; --line:#E6E6E6;
+  --archive-paper:#FFFFFF; --archive-ink:#000000; --archive-clay:#000000;
+  --archive-olive:#77745F; --archive-cream:#FFFFFF;
+  --md-primary:#000000; --md-on-primary:#FFFFFF; --md-primary-container:#FFFFFF;
+  --md-on-primary-container:#000000; --md-secondary:#55534B;
+  --md-secondary-container:#E4DED2; --md-surface:#FFFFFF; --md-surface-2:#F7F7F5;
+  --md-outline:#E6E6E6;
+  /* Quiet, mineral-inspired accents */
+  --grain-olive:#C7D5B8; /* botanical sage */
+  --grain-clay:#E3B6A3; /* muted terracotta */
+  --grain-stone:#E8D2A2; /* soft ochre */
+  --grain-slate:#B8CBD5; /* dusty blue */
+  --grain-moss:#C8B6C9; /* muted mauve */
+  --grain-ochre:#E6C98E; /* warm marigold */
+  --grain-texture:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.17'/%3E%3C/svg%3E");
+}
+html,body{background:#FFFFFF!important;color:#000000!important}
+/* Black and white remain the structural brand colours. */
+.nav-cta,.pill,.star-btn,.download-primary,.hero .hero-actions .hero-download,
+footer,.loop-core{background:#000000!important;color:#FFFFFF!important;border-color:#000000!important}
+.github-nav,.ghost,.outline-link,.download-secondary,
+.hero .hero-actions .ghost{background:#FFFFFF!important;color:#000000!important;border-color:#000000!important}
+.hero{background:#FFFFFF!important;color:#000000!important}
+.hero h1,.hero p,.section-title,.section-desc,.copy h2,.copy p,
+.release-card h3,.release-card p,.release-card li,.category h3,.category p,
+.app-tile b,.app-tile small,.panel h3,.panel p,.step h3,.step p,
+.price-card h3,.price-card p,.cta h2,.cta p{color:#000000!important}
+/* Restrained grain finishes for accent surfaces. */
+.category,.app-tile,.panel,.step,.showcase,.community-abstract,.cta,
+.benefit .ico,.category .emoji,.app-tile .tile-icon,.hero .hero-product{
+  background-image:var(--grain-texture),linear-gradient(135deg,rgba(255,255,255,.10),rgba(0,0,0,.025))!important;
+  background-blend-mode:soft-light,normal;
+}
+.category:nth-child(4n+1),.app-tile:nth-child(4n+1){background-color:var(--grain-olive)!important}
+.category:nth-child(4n+2),.app-tile:nth-child(4n+2){background-color:var(--grain-clay)!important}
+.category:nth-child(4n+3),.app-tile:nth-child(4n+3){background-color:var(--grain-stone)!important}
+.category:nth-child(4n),.app-tile:nth-child(4n){background-color:var(--grain-slate)!important}
+.panel.blue,.steps .step:nth-child(1){background-color:var(--grain-slate)!important;color:#000000!important}
+.panel.yellow,.steps .step:nth-child(2){background-color:var(--grain-ochre)!important;color:#000000!important}
+.panel.green,.steps .step:nth-child(3){background-color:var(--grain-moss)!important;color:#000000!important}
+.showcase{background-color:#E8D2A2!important}
+.community-abstract{background-color:#C7D5B8!important}
+.community-art:before{background-color:#B8CBD5!important}
+.cta{background-color:#C7D5B8!important}
+.cta:before{color:rgba(0,0,0,.055)!important}
+.price-card.dark,.repo-callout{background:#000000!important;color:#FFFFFF!important;border-color:#000000!important}
+.price-card.dark h3,.price-card.dark .price,.price-card.dark p,
+.repo-callout h3,.repo-callout p,.repo-stats span{color:#FFFFFF!important}
+footer{background:#000000!important;color:#FFFFFF!important}
+footer p,footer li,footer h4,.foot-bottom{color:#FFFFFF!important;opacity:.82}
+.foot-brand,.foot-brand span{color:#FFFFFF!important}
+.benefit .ico,.category .emoji,.app-tile .tile-icon{background-color:#E8D2A2!important;color:#000000!important}
+.hero .hero-product.camera-product{background-color:var(--grain-stone)!important}
+.hero .hero-product.tools-product{background-color:var(--grain-clay)!important}
+.hero .hero-product.outdoor-product{background-color:var(--grain-moss)!important}
+.person .portrait{background-color:#E3B6A3!important}
+.platform-chip{background:#F7F7F5!important;color:#222222!important;border-color:#E6E6E6!important}
+/* Warm botanical palette accents — no grey surfaces; black and white remain unchanged. */
+.benefits .benefit:nth-child(4n+1) .ico{background-color:#C7D5B8!important}
+.benefits .benefit:nth-child(4n+2) .ico{background-color:#E3B6A3!important}
+.benefits .benefit:nth-child(4n+3) .ico{background-color:#B8CBD5!important}
+.benefits .benefit:nth-child(4n) .ico{background-color:#C8B6C9!important}
+.release-band,.download-panel,.release-card,.person,.price-card,.category,.app-tile{color:#000!important}
+.hero .hero-product.camera-product{background-color:#B8CBD5!important}
+.hero .hero-product.tools-product{background-color:#E3B6A3!important}
+.hero .hero-product.outdoor-product{background-color:#C7D5B8!important}
+@media(prefers-reduced-motion:reduce){.category,.app-tile,.panel,.step,.showcase,.community-abstract,.cta{background-image:none!important}}
+
+
+
+/* LOOP monochrome + blue visual system */
+:root{
+  --paper:#FFFFFF;--ink:#000000;--muted:#30343A;--line:#D9E3EF;
+  --loop-blue:#245BDB;--loop-blue-deep:#173F9F;--loop-blue-mid:#7FA6E8;
+  --loop-blue-soft:#DCE8FA;--loop-blue-pale:#EFF4FC;--loop-blue-ice:#F7FAFF;
+  --grain-blue:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.78' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.10'/%3E%3C/svg%3E");
+}
+body{background:#fff!important;color:#000!important}
+.navlinks,.section-desc,.copy p,.download-panel p{color:#30343A}
+.brand span,.foot-brand span,.hero-mini-logo span{color:var(--loop-blue)!important}
+.nav-cta,.pill,.star-btn,.download-primary,.hero .hero-actions .hero-download{background:#000!important;color:#fff!important;border-color:#000!important}
+.nav-cta:hover,.pill:hover,.star-btn:hover,.download-primary:hover,.hero .hero-actions .hero-download:hover{background:var(--loop-blue)!important;border-color:var(--loop-blue)!important}
+.github-nav,.ghost,.outline-link,.download-secondary{color:#000!important;border-color:#A9BBD4!important;background:#fff!important}
+.github-nav:hover,.ghost:hover,.outline-link:hover,.download-secondary:hover{background:var(--loop-blue-pale)!important;border-color:var(--loop-blue)!important}
+.hero{background-color:#fff!important;background-image:linear-gradient(135deg,#fff 0%,#F7FAFF 100%)!important;border:1px solid #E3EAF4!important}
+.hero:before{background:radial-gradient(circle at center,transparent 0 46%,rgba(36,91,219,.10) 46.3% 46.8%,transparent 47.1% 57%,rgba(36,91,219,.15) 57.3% 58%,transparent 58.3%)!important}
+.hero:after{background:repeating-conic-gradient(from 8deg,rgba(36,91,219,.10) 0deg 2deg,transparent 2deg 12deg)!important;border-color:rgba(36,91,219,.18)!important}
+.hero .eyebrow,.section-kicker,.release-tag{color:var(--loop-blue)!important}
+.hero h1,.section-title,.copy h2{color:#000!important}
+.hero p{color:#30343A!important}
+.hero .hero-art{background:#fff!important;border-color:#DCE5F1!important}
+.hero .hero-product,.hero .hero-product.camera-product{background:#EFF4FC!important}
+.hero .hero-product.tools-product{background:#DCE8FA!important}
+.hero .hero-product.outdoor-product{background:#E7EFFB!important}
+.hero .product-art{background:rgba(255,255,255,.88)!important}
+.hero .tiny-dot{background:var(--loop-blue)!important}
+.panel.blue,.steps .step:nth-child(1){background:#DCE8FA!important;color:#000!important}
+.panel.yellow,.steps .step:nth-child(2){background:#EFF4FC!important;color:#000!important}
+.panel.green,.steps .step:nth-child(3){background:#C8D9F3!important;color:#000!important}
+.panel p,.step p{color:#30343A!important}
+.panel .mini-window{background:#fff!important;border:1px solid #D9E3EF!important}
+.category:nth-child(4n+1),.app-tile:nth-child(4n+1){background:#EFF4FC!important}
+.category:nth-child(4n+2),.app-tile:nth-child(4n+2){background:#DCE8FA!important}
+.category:nth-child(4n+3),.app-tile:nth-child(4n+3){background:#E7EFFB!important}
+.category:nth-child(4n),.app-tile:nth-child(4n){background:#F7FAFF!important}
+.category,.app-tile,.person,.price-card,.release-card,.download-panel,.release-band{border-color:#D9E3EF!important}
+.ico,.category .emoji,.app-tile .tile-icon{background:#DCE8FA!important;color:#173F9F!important}
+.community-abstract{background:#EFF4FC!important}
+.community-art:before{background:#DCE8FA!important}
+.orbit-one{border-color:#8BADE6!important}.orbit-two{border-color:#B1C8ED!important}.orbit-three{border-color:#6F96D8!important}
+.loop-core{background:#000!important;color:#fff!important}
+.node-one,.node-two,.node-three,.node-four{background:#DCE8FA!important;color:#173F9F!important}
+.spark{color:var(--loop-blue)!important}
+.showcase{background:#F3F7FD!important}
+.phone-visual,.phone-explore .phone-visual,.phone-details .phone-visual,.phone-bookings .phone-visual,.phone-profile .phone-visual{background:#EFF4FC!important}
+.visual-map{background-color:#DCE8FA!important}
+.visual-map i{background:var(--loop-blue)!important}
+.cta{background:#DCE8FA!important}
+.cta:before{color:rgba(36,91,219,.07)!important}
+.cta h2{color:#000!important}.cta p{color:#30343A!important}
+.price-card.dark,.repo-callout{background:#000!important;color:#fff!important;border-color:#000!important}
+.price-card.dark p,.repo-callout p{color:#DCE8FA!important}
+.price-card.dark .pill,.repo-callout .star-btn{background:#fff!important;color:#000!important;border-color:#fff!important}
+footer{background:#000!important;color:#fff!important}
+footer p,footer li,.foot-bottom{color:#C9D8F0!important}
+footer h4{color:#fff!important}.foot-social a{border-color:#526A91!important;color:#fff!important}
+.release-band,.download-panel{background:#fff!important}
+.platform-chip{background:#EFF4FC!important;border-color:#D9E3EF!important;color:#26364F!important}
+.release-note,.download-hint{color:#596579!important}
+@media(prefers-reduced-motion:no-preference){.category,.app-tile,.person,.price-card,.release-card{transition:transform .2s ease,border-color .2s ease}}
+
+
+
+/* LOOP — strict monochrome, editorial and cardless refinement */
+:root{
+  --paper:#fff!important; --ink:#000!important; --muted:#555!important;
+  --line:#e6e6e6!important; --coral:#000!important;
+  --archive-paper:#fff!important; --archive-ink:#000!important;
+  --archive-clay:#000!important; --archive-olive:#333!important;
+  --archive-cream:#fff!important; --md-primary:#000!important;
+  --md-on-primary:#fff!important; --md-primary-container:#f2f2f2!important;
+  --md-on-primary-container:#000!important; --md-secondary:#222!important;
+  --md-secondary-container:#f2f2f2!important; --md-surface:#fff!important;
+  --md-surface-2:#f7f7f7!important; --md-outline:#777!important;
+}
+html,body{background:#fff!important;color:#000!important}
+body{filter:none!important}
+/* Remove decorative coloured panels, gradients and grain; retain a clean white canvas. */
+.hero,.community-abstract,.showcase,.cta,.panel,.step,.repo-callout,
+.price-card,.release-band,.release-card,.category,.app-tile,.person,
+.benefit,.download-panel,.community-art,.phone-gallery .phone{
+  background:#fff!important;color:#000!important;border-color:#e6e6e6!important;
+  box-shadow:none!important;background-image:none!important;
+}
+.hero:before,.hero:after,.cta:before,.community-art:before{display:none!important;content:none!important}
+.hero{border:0!important;border-radius:0!important;min-height:560px!important;padding:100px 24px 30px!important}
+.hero h1,.hero p,.hero .eyebrow,.hero .hero-location,.hero .hero-art-footer,
+.section-kicker,.section-title,.copy h2,.panel h3,.panel p,.step h3,.step p,
+.price-card h3,.price-card p,.release-card h3,.release-card p,.repo-callout h3,
+.repo-callout p,.cta h2,.cta p,.person-copy b,.person-copy p,
+.category h3,.category p,.app-tile b,.app-tile small{color:#000!important}
+.hero .hero-art{display:none!important}
+/* Remove card framing: use open editorial content and restrained separators. */
+.benefits,.people,.categories,.steps,.app-grid,.pricing,.release-grid{gap:0!important}
+.benefit,.person,.category,.step,.app-tile,.price-card,.release-card{
+  border:0!important;border-radius:0!important;padding:24px!important;
+  background:transparent!important;box-shadow:none!important;transform:none!important;
+}
+.benefit+ .benefit,.category+ .category,.step+ .step,.app-tile+ .app-tile,
+.price-card+ .price-card{border-left:1px solid #e6e6e6!important}
+.people .person{border-bottom:1px solid #e6e6e6!important}
+.panel{border:0!important;border-radius:0!important;padding:28px 0!important}
+.panel .mini-window{display:none!important}
+.ico,.emoji,.tile-icon,.person .portrait{display:none!important}
+.vector-icon,svg{display:none!important}
+.ticks{gap:12px}
+.tick:before{background:#f2f2f2!important;color:#000!important}
+.nav-cta,.pill,.star-btn,.download-primary,.hero .hero-actions .hero-download{
+  background:#000!important;color:#fff!important;border:1px solid #000!important;
+  box-shadow:none!important;border-radius:999px!important;
+}
+.github-nav,.ghost,.outline-link,.download-secondary{
+  background:#fff!important;color:#000!important;border:1px solid #000!important;
+}
+.cta{border:1px solid #e6e6e6!important;border-radius:0!important}
+footer{background:#000!important;color:#fff!important;border-radius:0!important}
+footer p,footer li,footer h4,.foot-bottom{color:#ccc!important}
+footer .foot-brand,footer a{color:#fff!important}
+.release-tag,.live-dot{filter:grayscale(1)!important}
+.live-dot{background:#000!important;box-shadow:0 0 0 4px #00000012!important}
+.phone-gallery .phone{border:1px solid #ddd!important}
+.phone-visual,.visual-photo,.visual-item,.visual-map,.visual-booking,
+.profile-stat,.phone .ph-block,.phone .ph-row{background:#f5f5f5!important;border-color:#ddd!important}
+@media(max-width:760px){
+ .hero{min-height:500px!important;padding:75px 18px 25px!important}
+ .benefits,.categories,.steps,.app-grid,.pricing{display:grid!important;grid-template-columns:1fr 1fr!important}
+ .benefit,.category,.step,.app-tile,.price-card{border:0!important;border-bottom:1px solid #e6e6e6!important}
+ .benefit+ .benefit,.category+ .category,.step+ .step,.app-tile+ .app-tile,.price-card+ .price-card{border-left:0!important}
+ .release-grid{grid-template-columns:1fr!important}
+}
+@media(max-width:430px){.hero{min-height:460px!important}.benefits,.categories,.steps,.app-grid,.pricing{grid-template-columns:1fr!important}}
+
 </style>
 </head>
 <body>
@@ -435,7 +730,7 @@ footer{border-radius:24px 24px 0 0!important}
   <a class="pill hero-download" id="heroDownloadButton" href="https://github.com/rkivln/loop-android-wireframe/releases/download/v1.3.0/LOOP.v1.3.0.apk" target="_blank" rel="noopener">↓ Download latest release</a>
   <a class="ghost" href="#how">See how it works</a>
 </div></div></section></div>
-<section class="wrap center"><div class="section-kicker">The LOOP way</div><h2 class="section-title">A smarter way to get what you need.</h2><p class="section-desc">From a camera for the weekend to a drill for one afternoon, find useful things close to home — without buying them for keeps.</p><div class="benefits"><article class="benefit"><div class="ico" style="background:#dce5ff"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="21" cy="21" r="11"/><path d="m29 29 9 9"/></svg></div><h3>Find nearby</h3><p>Discover useful items shared by people around you.</p></article><article class="benefit"><div class="ico" style="background:#ffe0ce"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="10" width="30" height="28" rx="6"/><path d="M16 18h16M16 24h10M16 30h7"/></svg></div><h3>Rent simply</h3><p>Choose your dates and send a booking request in moments.</p></article><article class="benefit"><div class="ico" style="background:#f8e78d"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 7v24M15 16l9-9 9 9"/><path d="M10 28v8a5 5 0 0 0 5 5h18a5 5 0 0 0 5-5v-8"/></svg></div><h3>Share yours</h3><p>Turn things you already own into something useful.</p></article><article class="benefit"><div class="ico" style="background:#cce6d0"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m24 6 15 6v11c0 9-6 15-15 19C15 38 9 32 9 23V12l15-6Z"/><path d="m17 24 5 5 10-11"/></svg></div><h3>Build trust</h3><p>Connect through profiles, clear details and reviews.</p></article></div></section>
+<section class="wrap center"><div class="section-kicker">The LOOP way</div><h2 class="section-title">A smarter way to get what you need.</h2><p class="section-desc">From a camera for the weekend to a drill for one afternoon, find useful things close to home — without buying them for keeps.</p><div class="benefits"><article class="benefit"><div class="ico" style="background:#dce5ff"></div><h3>Find nearby</h3><p>Discover useful items shared by people around you.</p></article><article class="benefit"><div class="ico" style="background:#ffe0ce"></div><h3>Rent simply</h3><p>Choose your dates and send a booking request in moments.</p></article><article class="benefit"><div class="ico" style="background:#f8e78d"></div><h3>Share yours</h3><p>Turn things you already own into something useful.</p></article><article class="benefit"><div class="ico" style="background:#cce6d0"></div><h3>Build trust</h3><p>Connect through profiles, clear details and reviews.</p></article></div></section>
 <section class="wrap" id="community">
   <div class="community-abstract">
     <div class="community-copy">
@@ -464,7 +759,7 @@ footer{border-radius:24px 24px 0 0!important}
 </section>
 <section class="wrap"><div class="split"><div class="panel blue"><div class="section-kicker">For renters</div><h3>Need it for a moment? Find it on LOOP.</h3><p>Browse local listings, compare details and request the dates that work for you.</p><div class="mini-window"><small>Popular near you</small><span></span><span></span><span></span><span></span></div></div><div class="copy"><div class="section-kicker">Access over ownership</div><h2>Make room for more experiences.</h2><p>Why buy something you'll only use once? LOOP helps you find what you need nearby, so you can spend less on stuff and more on doing.</p><div class="ticks"><div class="tick">Local discovery</div><div class="tick">Flexible dates</div><div class="tick">Clear listing details</div><div class="tick">Simple requests</div></div></div></div></section>
 <section class="wrap"><div class="split reverse"><div class="copy"><div class="section-kicker">For owners</div><h2>Your things have more to give.</h2><p>List the items you aren't using every day. Set your availability, choose your rental price and connect with people who need them.</p><div class="ticks"><div class="tick">Create a listing</div><div class="tick">Set your schedule</div><div class="tick">Manage requests</div><div class="tick">Earn from idle items</div></div></div><div class="panel yellow"><div class="section-kicker">Make it shareable</div><h3>That thing in your cupboard could be someone's next big idea.</h3><p>Give your underused things a new purpose.</p><div class="mini-window"><small>Your listings</small><span></span><span></span><span></span><span></span></div></div></div></section>
-<section class="wrap center" id="discover"><div class="section-kicker">Explore the possibilities</div><h2 class="section-title">A little bit of everything.</h2><p class="section-desc">Discover useful finds for everyday plans, creative projects and spontaneous adventures.</p><div class="categories"><article class="category"><div class="emoji"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17h8l3-5h10l3 5h8v22H8z"/><circle cx="24" cy="27" r="7"/></svg></div><h3>Gadgets</h3><p>Cameras, speakers, accessories</p></article><article class="category"><div class="emoji"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m29 9 10 10-7 7-10-10"/><path d="m26 12-5 5 10 10 5-5"/><path d="m8 38 13-13 5 5-13 13H8z"/></svg></div><h3>Tools</h3><p>DIY, repair and home projects</p></article><article class="category"><div class="emoji"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 37 13-22 8 13 5-8 10 17H6Z"/><path d="M19 15V9M16 12h6"/></svg></div><h3>Outdoor</h3><p>Camping and adventure gear</p></article><article class="category"><div class="emoji"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 6v36M6 24h36M11 11l26 26M37 11 11 37"/><circle cx="24" cy="24" r="15"/></svg></div><h3>Events</h3><p>Party and occasion essentials</p></article></div></section>
+<section class="wrap center" id="discover"><div class="section-kicker">Explore the possibilities</div><h2 class="section-title">A little bit of everything.</h2><p class="section-desc">Discover useful finds for everyday plans, creative projects and spontaneous adventures.</p><div class="categories"><article class="category"><div class="emoji"></div><h3>Gadgets</h3><p>Cameras, speakers, accessories</p></article><article class="category"><div class="emoji"></div><h3>Tools</h3><p>DIY, repair and home projects</p></article><article class="category"><div class="emoji"></div><h3>Outdoor</h3><p>Camping and adventure gear</p></article><article class="category"><div class="emoji"></div><h3>Events</h3><p>Party and occasion essentials</p></article></div></section>
 <section class="wrap center" id="how"><div class="section-kicker">No complicated plans</div><h2 class="section-title">Three steps. That's the LOOP.</h2><p class="section-desc">A simple flow from finding something useful to sharing it with someone else.</p><div class="steps"><article class="step"><div class="num">01 — DISCOVER</div><h3>Find your thing.</h3><p>Search nearby listings and explore items that fit your plans.</p></article><article class="step"><div class="num">02 — CONNECT</div><h3>Make it yours.</h3><p>Check the details, choose dates and send a rental request.</p></article><article class="step"><div class="num">03 — LOOP IT</div><h3>Pass it forward.</h3><p>Enjoy what you need — or list something of your own next time.</p></article></div></section>
 <section class="wrap">
   <div class="showcase center">
@@ -496,7 +791,7 @@ footer{border-radius:24px 24px 0 0!important}
       <div class="phone-subtitle">See clear photos and details.</div>
       <div class="phone-visual phone-visual-explore">
         
-        <div class="visual-photo visual-camera"><svg viewBox="0 0 100 70" aria-hidden="true"><rect x="10" y="17" width="80" height="45" rx="8" fill="#fff" stroke="#66747A" stroke-width="2"/><path d="M28 17l7-9h28l8 9" fill="#fff" stroke="#66747A" stroke-width="2"/><circle cx="51" cy="39" r="15" fill="#DCE8F5" stroke="#66747A" stroke-width="3"/><circle cx="51" cy="39" r="6" fill="#8BA9C4"/></svg></div>
+        <div class="visual-photo visual-camera"></div>
         
         
         
@@ -513,7 +808,7 @@ footer{border-radius:24px 24px 0 0!important}
       <div class="phone-visual phone-visual-details">
         
         
-        <div class="visual-item"><svg viewBox="0 0 100 75" aria-hidden="true"><rect x="12" y="21" width="76" height="42" rx="8" fill="#fff" stroke="#52616A" stroke-width="2"/><circle cx="50" cy="42" r="14" fill="#DCE8F5" stroke="#52616A" stroke-width="3"/><circle cx="50" cy="42" r="6" fill="#8BA9C4"/></svg></div>
+        <div class="visual-item"></div>
         
         
       </div>
@@ -554,7 +849,7 @@ footer{border-radius:24px 24px 0 0!important}
     </article></div>
   </div>
 </section>
-<section class="wrap center"><div class="section-kicker">Made to fit your day</div><h2 class="section-title">Stay in the LOOP.</h2><p class="section-desc">Keep your discoveries, requests and listings together in one simple place.</p><div class="app-grid"><div class="app-tile"><div class="tile-icon"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M38 20c0 10-14 23-14 23S10 30 10 20a14 14 0 1 1 28 0Z"/><circle cx="24" cy="20" r="4"/></svg></div><b>Discover nearby</b><small>Explore what's around you</small></div><div class="app-tile"><div class="tile-icon"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="11" width="32" height="29" rx="5"/><path d="M16 7v8M32 7v8M8 20h32M16 27h5M27 27h5M16 33h5"/></svg></div><b>Manage bookings</b><small>Keep dates organised</small></div><div class="app-tile"><div class="tile-icon"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h32v23H22l-10 7v-7H8z"/><path d="M16 19h16M16 25h11"/></svg></div><b>Stay connected</b><small>Coordinate with clarity</small></div><div class="app-tile"><div class="tile-icon"><svg class="vector-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m24 6 5.5 11.2L42 19l-9 8.8 2.1 12.5L24 34.4l-11.1 5.9L15 27.8 6 19l12.5-1.8L24 6Z"/></svg></div><b>Build your profile</b><small>Grow a trusted community</small></div></div></section>
+<section class="wrap center"><div class="section-kicker">Made to fit your day</div><h2 class="section-title">Stay in the LOOP.</h2><p class="section-desc">Keep your discoveries, requests and listings together in one simple place.</p><div class="app-grid"><div class="app-tile"><div class="tile-icon"></div><b>Discover nearby</b><small>Explore what's around you</small></div><div class="app-tile"><div class="tile-icon"></div><b>Manage bookings</b><small>Keep dates organised</small></div><div class="app-tile"><div class="tile-icon"></div><b>Stay connected</b><small>Coordinate with clarity</small></div><div class="app-tile"><div class="tile-icon"></div><b>Build your profile</b><small>Grow a trusted community</small></div></div></section>
 <section class="wrap center" id="pricing"><div class="section-kicker">Straightforward by design</div><h2 class="section-title">Your pace. Your plan.</h2><p class="section-desc">Start exploring LOOP. Listing and rental terms are shown clearly as you use the app.</p><div class="pricing"><article class="price-card"><div class="section-kicker">For everyone</div><h3>Free to explore</h3><p>Discover local listings and get started with your LOOP profile.</p><div class="price">₹0 <small>/ to join</small></div><a class="pill" href="#download">Get started ↗</a></article><article class="price-card dark"><div class="section-kicker">For active owners</div><h3>More ways to share</h3><p>Manage your listings and rental requests from one place.</p><div class="price">Flexible <small>/ listing terms</small></div><a class="pill" href="#download">Join LOOP ↗</a></article></div><p style="font-size:9px;color:#92948b;margin-top:18px">Illustrative launch plans. Final fees, deposits and payment terms will be displayed in-app.</p></section>
 
 <section class="wrap release-section" id="release"><div class="release-band"><div><div class="release-meta"><span class="live-dot"></span><span class="release-tag">LOOP app release</span><span style="font-size:10px;color:#85877d">Early access · Launch information</span></div><p>Follow development, explore the source and help shape what comes next.</p></div><div class="release-actions"><a class="github-nav github-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">⌘ Open GitHub</a><a class="star-btn star-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">★ Star this repo</a></div></div><div class="center" style="margin-top:58px"><div class="section-kicker">The release desk</div><h2 class="section-title">Everything you need to get started.</h2><p class="section-desc">Release notes, project resources and ways to contribute — all in one place.</p></div><div class="release-grid"><article class="release-card"><div class="section-kicker">What's included</div><h3>Built for a more shareable neighbourhood.</h3><p>LOOP is a peer-to-peer rental marketplace concept that helps people discover nearby items, request rentals and share things they own.</p><ul><li>Discover local rental listings</li><li>Explore item details and availability</li><li>Manage rental requests and listings</li><li>Build trust through user profiles and reviews</li></ul><div class="release-links"><a class="outline-link github-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">Source code ↗</a><a class="outline-link" href="mailto:hello@loop.app?subject=LOOP%20feedback">Send feedback ↗</a></div></article><aside class="repo-callout"><div class="section-kicker" style="color:#b9c9f4">Open source corner</div><h3 style="font:600 27px var(--serif);margin:12px 0">Like what we're building?</h3><p>Give the repository a star to support the project. Found a bug or have an idea? Open an issue or contribute on GitHub.</p><div class="repo-stats"><span><b>★</b> Show support</span><span><b>↗</b> Share ideas</span><span><b>⌘</b> Contribute</span></div><a class="star-btn star-link" href="https://github.com/rkivln/loop-android-wireframe" target="_blank" rel="noopener">★ Star LOOP on GitHub</a><p class="release-note" style="color:#a7aaa2">The button opens the repository; confirm the Star action on GitHub.</p></aside></div></section>
